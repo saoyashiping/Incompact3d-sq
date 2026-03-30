@@ -16,6 +16,17 @@ module fiber_interp
 
 contains
 
+  pure real(mytype) function minimum_image(delta, period_length)
+
+    real(mytype), intent(in) :: delta, period_length
+
+    minimum_image = delta
+    if (period_length > 0._mytype) then
+      minimum_image = delta - period_length * nint(delta / period_length)
+    endif
+
+  end function minimum_image
+
   subroutine interp_euler_to_lagrangian_velocity(uxe, uye, uze, xg, yg, zg)
 
     real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
@@ -44,7 +55,7 @@ contains
       sumw = 0._mytype
 
       do k = 1, size(zg)
-        rz = fiber_x(3,l) - zg(k)
+        rz = minimum_image(fiber_x(3,l) - zg(k), zlz)
         if (abs(rz) > 2._mytype * hz) cycle
 
         do j = 1, size(yg)
@@ -52,7 +63,7 @@ contains
           if (abs(ry) > 2._mytype * hy) cycle
 
           do i = 1, size(xg)
-            rx = fiber_x(1,l) - xg(i)
+            rx = minimum_image(fiber_x(1,l) - xg(i), xlx)
             if (abs(rx) > 2._mytype * hx) cycle
 
             weight = delta_kernel_3d(rx, ry, rz, hx, hy, hz) * hx * hy * hz

@@ -9,6 +9,12 @@
    - `interp_test_case = 1`: constant velocity field
    - `interp_test_case = 2`: linear velocity field
 
+
+## Periodic-direction handling (2.2 fix)
+- Interpolation distance in **x** and **z** uses minimum-image mapping with periods `xlx` and `zlz`.
+- **y** direction remains non-periodic (no wrapping).
+- This fix is local to interpolation distance evaluation only; fiber geometry initialization is unchanged.
+
 ## What is intentionally not implemented
 - No Lagrangian-to-Euler spreading.
 - No IBM forcing / no-slip penalty / coupling terms.
@@ -43,6 +49,16 @@ Constant-field test:
 Linear-field test:
 ```bash
 ./xcompact3d baseline/channel_re180_single_phase/input_fiber_interp_linear_test.i3d
+```
+
+Constant-field near x-periodic boundary:
+```bash
+./xcompact3d baseline/channel_re180_single_phase/input_fiber_interp_constant_near_x0_test.i3d
+```
+
+Constant-field near z-periodic boundary:
+```bash
+./xcompact3d baseline/channel_re180_single_phase/input_fiber_interp_constant_near_z0_test.i3d
 ```
 
 ## How to check outputs
