@@ -144,9 +144,10 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
-  use fiber_types, only : fiber_active
+  use fiber_types, only : fiber_active, interp_test_active
   use fiber_init, only : init_fiber
-  use fiber_io, only : write_fiber_points
+  use fiber_io, only : write_fiber_points, write_fiber_interp
+  use fiber_interp, only : run_fiber_interp_operator_test
 
   implicit none
 
@@ -194,6 +195,11 @@ subroutine init_xcompact3d()
   if (fiber_active) then
      call init_fiber()
      call write_fiber_points()
+
+     if (interp_test_active) then
+        call run_fiber_interp_operator_test()
+        call write_fiber_interp()
+     endif
   endif
 
   call decomp_2d_init(nx,ny,nz,p_row,p_col,periodic_bc)

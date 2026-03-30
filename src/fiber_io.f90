@@ -5,7 +5,7 @@
 module fiber_io
 
   use decomp_2d_mpi, only : nrank
-  use fiber_types, only : fiber_active, fiber_nl, fiber_x
+  use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror
 
   implicit none
 
@@ -37,5 +37,40 @@ contains
     close(ifile)
 
   end subroutine write_fiber_points
+
+  subroutine write_fiber_interp(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_interp.'
+      stop
+    endif
+
+    if (.not.allocated(fiber_uinterp)) then
+      write(*,*) 'Error: fiber_uinterp is not allocated in write_fiber_interp.'
+      stop
+    endif
+
+    output_file = 'fiber_interp.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') 'index x y z u_interp v_interp w_interp u_exact v_exact w_exact err_u err_v err_w'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,12(ES24.16,1X))') l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_uinterp(1,l), fiber_uinterp(2,l), fiber_uinterp(3,l), &
+           fiber_uexact(1,l), fiber_uexact(2,l), fiber_uexact(3,l), &
+           fiber_uerror(1,l), fiber_uerror(2,l), fiber_uerror(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_interp
 
 end module fiber_io
