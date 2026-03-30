@@ -144,6 +144,9 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
+  use fiber_types, only : fiber_active
+  use fiber_init, only : init_fiber
+  use fiber_io, only : write_fiber_points
 
   implicit none
 
@@ -187,6 +190,11 @@ subroutine init_xcompact3d()
 #endif
   
   call parameter(InputFN)
+
+  if (fiber_active) then
+     call init_fiber()
+     call write_fiber_points()
+  endif
 
   call decomp_2d_init(nx,ny,nz,p_row,p_col,periodic_bc)
 

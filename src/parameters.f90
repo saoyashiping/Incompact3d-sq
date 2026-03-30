@@ -34,12 +34,13 @@ subroutine parameter(input_i3d)
 
   use mhd, only : mhd_equation,hartmann,stuart,rem
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
+  use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction
 
   implicit none
 
   character(len=80), intent(in) :: input_i3d
   real(mytype) :: theta, cfl,cf2
-  integer :: longueur ,impi,j, is, total, ierr
+  integer :: longueur ,impi,j, is, total, ierr, ios_fiber
 
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
@@ -84,6 +85,7 @@ subroutine parameter(input_i3d)
      nclxBy1, nclxByn, nclyBy1, nclyByn, nclzBy1, nclzByn, &
      nclxBz1, nclxBzn, nclyBz1, nclyBzn, nclzBz1, nclzBzn
   NAMELIST/ParTrack/initype_particle,n_particles,bc_particle,particle_inject_period
+  NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction
 
 
 #ifdef DEBG
@@ -239,6 +241,8 @@ subroutine parameter(input_i3d)
    if(particle_active) then
     read(10, nml=ParTrack); rewind(10) 
    endif
+
+   read(10, nml=FiberParam, iostat=ios_fiber); rewind(10)
 
   ! !! These are the 'optional'/model parameters
   if(ilesmod.ne.0) then
@@ -690,6 +694,7 @@ subroutine parameter_defaults()
 
   use mhd, only: mhd_equation, rem, stuart, hartmann 
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
+  use fiber_types, only : fiber_set_defaults
 
   implicit none
 
@@ -727,6 +732,8 @@ subroutine parameter_defaults()
   n_particles = 0
   bc_particle = (/"periodic","periodic","periodic","periodic","periodic","periodic"/)
   particle_inject_period = 0.0
+
+  call fiber_set_defaults()
 
   !! LES stuff
   smagwalldamp=1
