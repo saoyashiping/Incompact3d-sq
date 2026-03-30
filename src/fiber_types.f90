@@ -17,6 +17,7 @@ module fiber_types
   real(mytype), allocatable, dimension(:,:) :: fiber_uinterp
   real(mytype), allocatable, dimension(:,:) :: fiber_uexact
   real(mytype), allocatable, dimension(:,:) :: fiber_uerror
+  real(mytype), allocatable, dimension(:) :: fiber_sumw
   real(mytype) :: fiber_interp_max_error
   logical :: interp_test_active
   integer :: interp_test_case
@@ -39,6 +40,7 @@ contains
     if (allocated(fiber_uinterp)) deallocate(fiber_uinterp)
     if (allocated(fiber_uexact)) deallocate(fiber_uexact)
     if (allocated(fiber_uerror)) deallocate(fiber_uerror)
+    if (allocated(fiber_sumw)) deallocate(fiber_sumw)
 
   end subroutine fiber_set_defaults
 

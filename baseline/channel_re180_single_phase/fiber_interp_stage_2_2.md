@@ -4,8 +4,8 @@
 1. A single regularized delta kernel (4-point compact support) in `src/fiber_delta.f90`.
 2. Euler-to-Lagrangian velocity interpolation in `src/fiber_interp.f90`.
 3. Minimal interpolation-result storage in fiber state (`fiber_uinterp`, `fiber_uexact`, `fiber_uerror`, `fiber_interp_max_error`).
-4. One-shot interpolation output file `fiber_interp.dat` with interpolated values, exact values and errors.
-5. Controlled operator test mode with two cases:
+4. One-shot interpolation output file `fiber_interp.dat` with interpolated values, exact values, errors and `sumw`.
+5. Controlled operator test mode with two cases, and explicit `sumw_min/sumw_max` logging.
    - `interp_test_case = 1`: constant velocity field
    - `interp_test_case = 2`: linear velocity field
 
@@ -17,6 +17,8 @@
 - No multi-fiber support.
 
 Fiber remains a static geometry object and does not feed back to the flow solver.
+
+When `interp_test_active = T`, the code now exits immediately after writing interpolation-test outputs and does not enter solver initialization/time integration.
 
 ## Files added
 - `src/fiber_delta.f90`
@@ -50,7 +52,8 @@ Linear-field test:
   - u_interp, v_interp, w_interp
   - u_exact, v_exact, w_exact
   - err_u, err_v, err_w
-- Also check console `max abs error` printed for each test case.
+  - sumw
+- Also check console `max abs error`, `sumw_min`, and `sumw_max` printed for each test case.
 
 ## Test meaning
 - Constant-field test verifies basic partition-of-unity behavior of interpolation weights.

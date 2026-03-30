@@ -9,7 +9,7 @@ module fiber_interp
   use variables, only : nx, ny, nz
   use param, only : xlx, yly, zlz
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
-       fiber_interp_max_error, interp_test_case
+       fiber_sumw, fiber_interp_max_error, interp_test_case
   use fiber_delta, only : delta_kernel_3d
 
   implicit none
@@ -36,7 +36,9 @@ contains
     hz = zg(2) - zg(1)
 
     if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
+    if (.not.allocated(fiber_sumw)) allocate(fiber_sumw(fiber_nl))
     fiber_uinterp = 0._mytype
+    fiber_sumw = 0._mytype
 
     do l = 1, fiber_nl
       sumw = 0._mytype
@@ -62,6 +64,7 @@ contains
         enddo
       enddo
 
+      fiber_sumw(l) = sumw
       if (sumw > 0._mytype) then
         fiber_uinterp(:,l) = fiber_uinterp(:,l) / sumw
       endif
@@ -167,6 +170,8 @@ contains
     if (nrank == 0) then
       if (interp_test_case == 1) write(*,'(A,ES12.4)') 'Fiber interpolation constant-field max abs error: ', fiber_interp_max_error
       if (interp_test_case == 2) write(*,'(A,ES12.4)') 'Fiber interpolation linear-field max abs error  : ', fiber_interp_max_error
+      write(*,'(A,ES12.4)') 'Fiber interpolation sumw_min                   : ', minval(fiber_sumw)
+      write(*,'(A,ES12.4)') 'Fiber interpolation sumw_max                   : ', maxval(fiber_sumw)
     endif
 
     deallocate(xg, yg, zg, uxe, uye, uze)

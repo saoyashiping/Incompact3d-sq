@@ -5,7 +5,7 @@
 module fiber_io
 
   use decomp_2d_mpi, only : nrank
-  use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror
+  use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, fiber_sumw
 
   implicit none
 
@@ -62,12 +62,12 @@ contains
     if (present(filename)) output_file = filename
 
     open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
-    write(ifile,'(A)') 'index x y z u_interp v_interp w_interp u_exact v_exact w_exact err_u err_v err_w'
+    write(ifile,'(A)') 'index x y z u_interp v_interp w_interp u_exact v_exact w_exact err_u err_v err_w sumw'
     do l = 1, fiber_nl
-      write(ifile,'(I8,1X,12(ES24.16,1X))') l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+      write(ifile,'(I8,1X,13(ES24.16,1X))') l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
            fiber_uinterp(1,l), fiber_uinterp(2,l), fiber_uinterp(3,l), &
            fiber_uexact(1,l), fiber_uexact(2,l), fiber_uexact(3,l), &
-           fiber_uerror(1,l), fiber_uerror(2,l), fiber_uerror(3,l)
+           fiber_uerror(1,l), fiber_uerror(2,l), fiber_uerror(3,l), fiber_sumw(l)
     enddo
     close(ifile)
 

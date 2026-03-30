@@ -199,6 +199,9 @@ subroutine init_xcompact3d()
      if (interp_test_active) then
         call run_fiber_interp_operator_test()
         call write_fiber_interp()
+        if (nrank == 0) write(*,*) "Interpolation operator test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
      endif
   endif
 
