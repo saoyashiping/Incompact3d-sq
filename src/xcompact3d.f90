@@ -20,9 +20,15 @@ program xcompact3d
                      solve_poisson_mhd
   use param, only : mhd_active
   use particle, only : intt_particles
+  use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step
+  use fiber_io, only : write_fiber_interp_solver
+  use fiber_interp, only : run_fiber_interp_solver_readonly
 
   implicit none
 
+  logical :: solver_interp_done
+
+  solver_interp_done = .false.
 
   call init_xcompact3d()
 
@@ -99,6 +105,14 @@ program xcompact3d
 
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
+     if (fiber_active .and. interp_solver_test_active .and. .not.solver_interp_done) then
+        if (itime >= interp_solver_output_step) then
+           call run_fiber_interp_solver_readonly(ux1, uy1, uz1, itime)
+           call write_fiber_interp_solver(itime)
+           solver_interp_done = .true.
+        endif
+     endif
+
   enddo !! End time loop
 
   call finalise_xcompact3d()
@@ -144,6 +158,10 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
+  use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active
+  use fiber_init, only : init_fiber
+  use fiber_io, only : write_fiber_points, write_fiber_interp
+  use fiber_interp, only : run_fiber_interp_operator_test
 
   implicit none
 
@@ -187,6 +205,25 @@ subroutine init_xcompact3d()
 #endif
   
   call parameter(InputFN)
+
+  if (interp_test_active .and. interp_solver_test_active) then
+     if (nrank == 0) write(*,*) "Error: interp_test_active and interp_solver_test_active cannot both be true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (fiber_active) then
+     call init_fiber()
+     call write_fiber_points()
+
+     if (interp_test_active) then
+        call run_fiber_interp_operator_test()
+        call write_fiber_interp()
+        if (nrank == 0) write(*,*) "Interpolation operator test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+  endif
 
   call decomp_2d_init(nx,ny,nz,p_row,p_col,periodic_bc)
 
