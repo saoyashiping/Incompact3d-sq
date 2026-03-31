@@ -39,6 +39,7 @@ add_executable(xcompact3d
                     fiber_io.f90
                     fiber_delta.f90
                     fiber_interp.f90
+                    fiber_spread.f90
                     forces.f90
                     genepsi3d.f90
                     ibm.f90

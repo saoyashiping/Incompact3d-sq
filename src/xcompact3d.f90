@@ -158,14 +158,19 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
-  use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active
+  use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
+       spread_test_active
   use fiber_init, only : init_fiber
-  use fiber_io, only : write_fiber_points, write_fiber_interp
+  use fiber_io, only : write_fiber_points, write_fiber_interp, &
+       write_fiber_spread_lagrangian, write_fiber_spread_summary
   use fiber_interp, only : run_fiber_interp_operator_test
+  use fiber_spread, only : run_fiber_spread_conservation_test
 
   implicit none
 
   integer :: ierr
+  real(mytype) :: lag_total(3), eul_total(3), abs_error(3), rel_error(3)
+  real(mytype) :: spread_sumw_min, spread_sumw_max
 
   integer :: nargin, FNLength, status, DecInd
   logical :: back
@@ -212,6 +217,13 @@ subroutine init_xcompact3d()
      stop
   endif
 
+
+  if (spread_test_active .and. (interp_test_active .or. interp_solver_test_active)) then
+     if (nrank == 0) write(*,*) "Error: spread_test_active cannot be combined with interpolation test modes."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
   if (fiber_active) then
      call init_fiber()
      call write_fiber_points()
@@ -220,6 +232,15 @@ subroutine init_xcompact3d()
         call run_fiber_interp_operator_test()
         call write_fiber_interp()
         if (nrank == 0) write(*,*) "Interpolation operator test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+
+     if (spread_test_active) then
+        call run_fiber_spread_conservation_test(lag_total, eul_total, abs_error, rel_error, spread_sumw_min, spread_sumw_max)
+        call write_fiber_spread_lagrangian()
+        call write_fiber_spread_summary(lag_total, eul_total, abs_error, rel_error, spread_sumw_min, spread_sumw_max)
+        if (nrank == 0) write(*,*) "Spreading conservation test complete. Exiting before solver initialization."
         call MPI_FINALIZE(ierr)
         stop
      endif
@@ -367,6 +388,8 @@ subroutine finalise_xcompact3d()
   implicit none
 
   integer :: ierr
+  real(mytype) :: lag_total(3), eul_total(3), abs_error(3), rel_error(3)
+  real(mytype) :: spread_sumw_min, spread_sumw_max
   
   if (itype==2) then
      if(nrank.eq.0)then
