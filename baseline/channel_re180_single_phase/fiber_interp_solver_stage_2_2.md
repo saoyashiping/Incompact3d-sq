@@ -36,3 +36,14 @@ These two switches are separate and cannot be enabled together.
 - x/z periodic directions use minimum-image distances.
 - y direction remains non-periodic (uses solver stretched `yp`).
 - Current solver-based readonly verification is implemented for single-process validation path.
+
+## stretched y-grid fix
+- Previous solver-readonly path used a single global `hy = yp(2)-yp(1)`; this is not valid for stretched `yp`.
+- Now solver-readonly path uses local y-scale `hy_loc(j)`:
+  - boundary points: one-sided spacing
+  - interior points: `0.5*(yp(j+1)-yp(j-1))`
+- The same `hy_loc(j)` is used in:
+  - y support check (`|ry| <= 2*hy_loc`)
+  - kernel scale in y
+  - y part of volume weight (`hx*hy_loc*hz`)
+- x/z still use minimum-image periodic distance; y remains non-periodic.

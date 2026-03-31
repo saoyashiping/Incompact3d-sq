@@ -27,6 +27,21 @@ contains
 
   end function minimum_image
 
+  pure real(mytype) function local_dy(yp_vec, j, jmin, jmax)
+
+    real(mytype), intent(in), dimension(:) :: yp_vec
+    integer, intent(in) :: j, jmin, jmax
+
+    if (j <= jmin) then
+      local_dy = yp_vec(jmin+1) - yp_vec(jmin)
+    else if (j >= jmax) then
+      local_dy = yp_vec(jmax) - yp_vec(jmax-1)
+    else
+      local_dy = 0.5_mytype * (yp_vec(j+1) - yp_vec(j-1))
+    endif
+
+  end function local_dy
+
   subroutine interp_euler_to_lagrangian_velocity(uxe, uye, uze, xg, yg, zg)
 
     real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
@@ -196,8 +211,10 @@ contains
     integer, intent(in) :: itime
 
     integer :: i, j, k, l
-    real(mytype) :: hx, hy, hz, weight, sumw
+    real(mytype) :: hx, hz, hy_loc, weight, sumw
     real(mytype) :: rx, ry, rz
+    real(mytype) :: hy_loc_min, hy_loc_max
+    integer :: jmin, jmax
 
     if (.not.fiber_active) return
 
@@ -207,12 +224,12 @@ contains
     endif
 
     hx = xp(2) - xp(1)
-    if (ny > 1) then
-      hy = yp(2) - yp(1)
-    else
-      hy = 1._mytype
-    endif
     hz = zp(2) - zp(1)
+
+    jmin = lbound(uxe,2)
+    jmax = ubound(uxe,2)
+    hy_loc_min = huge(1._mytype)
+    hy_loc_max = 0._mytype
 
     if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
     if (.not.allocated(fiber_sumw)) allocate(fiber_sumw(fiber_nl))
@@ -228,14 +245,18 @@ contains
         if (abs(rz) > 2._mytype * hz) cycle
 
         do j = lbound(uxe,2), ubound(uxe,2)
+          hy_loc = local_dy(yp, j, jmin, jmax)
+          hy_loc_min = min(hy_loc_min, hy_loc)
+          hy_loc_max = max(hy_loc_max, hy_loc)
+
           ry = fiber_x(2,l) - yp(j)
-          if (abs(ry) > 2._mytype * hy) cycle
+          if (abs(ry) > 2._mytype * hy_loc) cycle
 
           do i = lbound(uxe,1), ubound(uxe,1)
             rx = minimum_image(fiber_x(1,l) - xp(i), xlx)
             if (abs(rx) > 2._mytype * hx) cycle
 
-            weight = delta_kernel_3d(rx, ry, rz, hx, hy, hz) * hx * hy * hz
+            weight = delta_kernel_3d(rx, ry, rz, hx, hy_loc, hz) * hx * hy_loc * hz
             sumw = sumw + weight
             fiber_uinterp(1,l) = fiber_uinterp(1,l) + uxe(i,j,k) * weight
             fiber_uinterp(2,l) = fiber_uinterp(2,l) + uye(i,j,k) * weight
@@ -254,6 +275,8 @@ contains
       write(*,'(A,I10)')   'Fiber solver-readonly interpolation output at itime: ', itime
       write(*,'(A,ES12.4)') 'Fiber solver-readonly sumw_min                 : ', minval(fiber_sumw)
       write(*,'(A,ES12.4)') 'Fiber solver-readonly sumw_max                 : ', maxval(fiber_sumw)
+      write(*,'(A,ES12.4)') 'Fiber solver-readonly hy_loc_min               : ', hy_loc_min
+      write(*,'(A,ES12.4)') 'Fiber solver-readonly hy_loc_max               : ', hy_loc_max
     endif
 
   end subroutine run_fiber_interp_solver_readonly
