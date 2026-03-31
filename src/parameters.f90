@@ -35,7 +35,7 @@ subroutine parameter(input_i3d)
   use mhd, only : mhd_equation,hartmann,stuart,rem
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
-       interp_test_active, interp_test_case
+       interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step
 
   implicit none
 
@@ -87,7 +87,7 @@ subroutine parameter(input_i3d)
      nclxBz1, nclxBzn, nclyBz1, nclyBzn, nclzBz1, nclzBzn
   NAMELIST/ParTrack/initype_particle,n_particles,bc_particle,particle_inject_period
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
-       interp_test_active,interp_test_case
+       interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step
 
 
 #ifdef DEBG

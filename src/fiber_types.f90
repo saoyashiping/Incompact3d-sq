@@ -21,6 +21,8 @@ module fiber_types
   real(mytype) :: fiber_interp_max_error
   logical :: interp_test_active
   integer :: interp_test_case
+  logical :: interp_solver_test_active
+  integer :: interp_solver_output_step
 
 contains
 
@@ -35,6 +37,8 @@ contains
     interp_test_active = .false.
     interp_test_case = 1
     fiber_interp_max_error = 0._mytype
+    interp_solver_test_active = .false.
+    interp_solver_output_step = 1
 
     if (allocated(fiber_x)) deallocate(fiber_x)
     if (allocated(fiber_uinterp)) deallocate(fiber_uinterp)

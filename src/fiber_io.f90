@@ -73,4 +73,39 @@ contains
 
   end subroutine write_fiber_interp
 
+
+  subroutine write_fiber_interp_solver(itime, filename)
+
+    integer, intent(in) :: itime
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_interp_solver.'
+      stop
+    endif
+
+    if (.not.allocated(fiber_uinterp)) then
+      write(*,*) 'Error: fiber_uinterp is not allocated in write_fiber_interp_solver.'
+      stop
+    endif
+
+    output_file = 'fiber_interp_solver.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') 'itime index x y z u_interp v_interp w_interp sumw'
+    do l = 1, fiber_nl
+      write(ifile,'(I10,1X,I8,1X,8(ES24.16,1X))') itime, l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_uinterp(1,l), fiber_uinterp(2,l), fiber_uinterp(3,l), fiber_sumw(l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_interp_solver
+
 end module fiber_io

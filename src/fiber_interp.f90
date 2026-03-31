@@ -5,8 +5,8 @@
 module fiber_interp
 
   use decomp_2d_constants, only : mytype
-  use decomp_2d_mpi, only : nrank
-  use variables, only : nx, ny, nz
+  use decomp_2d_mpi, only : nrank, nproc
+  use variables, only : nx, ny, nz, xp, yp, zp
   use param, only : xlx, yly, zlz
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_interp_max_error, interp_test_case
@@ -188,5 +188,74 @@ contains
     deallocate(xg, yg, zg, uxe, uye, uze)
 
   end subroutine run_fiber_interp_operator_test
+
+
+  subroutine run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+
+    real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
+    integer, intent(in) :: itime
+
+    integer :: i, j, k, l
+    real(mytype) :: hx, hy, hz, weight, sumw
+    real(mytype) :: rx, ry, rz
+
+    if (.not.fiber_active) return
+
+    if (nproc /= 1) then
+      if (nrank == 0) write(*,*) 'Error: interp_solver_test_active currently supports single-process verification only.'
+      stop
+    endif
+
+    hx = xp(2) - xp(1)
+    if (ny > 1) then
+      hy = yp(2) - yp(1)
+    else
+      hy = 1._mytype
+    endif
+    hz = zp(2) - zp(1)
+
+    if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
+    if (.not.allocated(fiber_sumw)) allocate(fiber_sumw(fiber_nl))
+
+    fiber_uinterp = 0._mytype
+    fiber_sumw = 0._mytype
+
+    do l = 1, fiber_nl
+      sumw = 0._mytype
+
+      do k = lbound(uxe,3), ubound(uxe,3)
+        rz = minimum_image(fiber_x(3,l) - zp(k), zlz)
+        if (abs(rz) > 2._mytype * hz) cycle
+
+        do j = lbound(uxe,2), ubound(uxe,2)
+          ry = fiber_x(2,l) - yp(j)
+          if (abs(ry) > 2._mytype * hy) cycle
+
+          do i = lbound(uxe,1), ubound(uxe,1)
+            rx = minimum_image(fiber_x(1,l) - xp(i), xlx)
+            if (abs(rx) > 2._mytype * hx) cycle
+
+            weight = delta_kernel_3d(rx, ry, rz, hx, hy, hz) * hx * hy * hz
+            sumw = sumw + weight
+            fiber_uinterp(1,l) = fiber_uinterp(1,l) + uxe(i,j,k) * weight
+            fiber_uinterp(2,l) = fiber_uinterp(2,l) + uye(i,j,k) * weight
+            fiber_uinterp(3,l) = fiber_uinterp(3,l) + uze(i,j,k) * weight
+          enddo
+        enddo
+      enddo
+
+      fiber_sumw(l) = sumw
+      if (sumw > 0._mytype) then
+        fiber_uinterp(:,l) = fiber_uinterp(:,l) / sumw
+      endif
+    enddo
+
+    if (nrank == 0) then
+      write(*,'(A,I10)')   'Fiber solver-readonly interpolation output at itime: ', itime
+      write(*,'(A,ES12.4)') 'Fiber solver-readonly sumw_min                 : ', minval(fiber_sumw)
+      write(*,'(A,ES12.4)') 'Fiber solver-readonly sumw_max                 : ', maxval(fiber_sumw)
+    endif
+
+  end subroutine run_fiber_interp_solver_readonly
 
 end module fiber_interp
