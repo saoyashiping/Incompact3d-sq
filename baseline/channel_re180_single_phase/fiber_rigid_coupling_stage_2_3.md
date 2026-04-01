@@ -86,3 +86,21 @@ Recommended beta sensitivity sequence (independent runs):
 - `ibm_beta = -1000`
 
 This beta scan is a test-stability study tool for stage 2.3, not a final physical parameter conclusion.
+
+## Fail-fast and non-finite checks
+The rigid-coupling path now performs finite-value checks for:
+- `fiber_slip`
+- `fiber_coupling_force`
+- `fiber_euler_force_x/y/z`
+- summary-level diagnostics (`slip_max`, `slip_rms`, `lag/euler totals`, force-balance error, spacing error, norm diagnostics)
+
+If any non-finite value is detected:
+- diagnostics are forced to output on that step;
+- log prints `RIGID COUPLING TEST FAILED` with step/time/motion case and first failed quantity;
+- run exits through `MPI_ABORT` (fail-fast), avoiding false-success completion.
+
+## Effective beta logging
+- `beta_input` is always the user value (`ibm_beta`).
+- `beta_eff` and `ramp_factor` are logged explicitly.
+- In this revision, no extra ramp parameter is enabled by default (`ramp_factor = 1`), so `beta_eff = beta_input`.
+- If a ramp control is added in future, recommended exploratory values are `coupling_ramp_steps = 5` or `10` for diagnostics-only stability studies.
