@@ -83,6 +83,7 @@ contains
     use ibm_param, only : ubcx,ubcy,ubcz
     use les, only : compute_SGS
     use mpi
+    use fiber_coupling, only : add_rigid_coupling_rhs
 
     use case, only : momentum_forcing
 
@@ -535,6 +536,8 @@ contains
     call MPI_ALLREDUCE(MPI_IN_PLACE,dep,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
     if (nrank == 0) write(*,*)'## MomRHS ILMN duz1 ', dep
 #endif
+    call add_rigid_coupling_rhs(dux1(:,:,:,1), duy1(:,:,:,1), duz1(:,:,:,1))
+
     !! Additional forcing
     call momentum_forcing(dux1, duy1, duz1, rho1, ux1, uy1, uz1, phi1)
 #ifdef DEBG

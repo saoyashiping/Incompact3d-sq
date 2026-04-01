@@ -7,7 +7,7 @@ module fiber_io
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
-       fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case
+       fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force
 
   implicit none
 
@@ -149,12 +149,80 @@ contains
     if (present(filename)) output_file = filename
 
     open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
-    write(ifile,'(A)') 'test_case lag_Fx lag_Fy lag_Fz eul_Fx eul_Fy eul_Fz abs_err_Fx abs_err_Fy abs_err_Fz rel_err_Fx rel_err_Fy rel_err_Fz spread_sumw_min spread_sumw_max'
+    write(ifile,'(A)') 'test_case lag_Fx lag_Fy lag_Fz eul_Fx eul_Fy eul_Fz abs_err_Fx abs_err_Fy abs_err_Fz ' // &
+         'rel_err_Fx rel_err_Fy rel_err_Fz spread_sumw_min spread_sumw_max'
     write(ifile,'(I8,1X,14(ES24.16,1X))') spread_test_case, lag_total(1), lag_total(2), lag_total(3), &
          eul_total(1), eul_total(2), eul_total(3), abs_error(1), abs_error(2), abs_error(3), &
          rel_error(1), rel_error(2), rel_error(3), sumw_min, sumw_max
     close(ifile)
 
   end subroutine write_fiber_spread_summary
+
+  subroutine write_fiber_rigid_coupling_points(itime, filename)
+
+    integer, intent(in) :: itime
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+    logical :: file_exists
+
+    if (.not.fiber_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_rigid_coupling_points.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime index x y z xdot_x xdot_y xdot_z u_interp v_interp w_interp slip_x slip_y slip_z Ffs_x Ffs_y Ffs_z'
+    endif
+
+    do l = 1, fiber_nl
+      write(ifile,'(I10,1X,I8,1X,15(ES24.16,1X))') itime, l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_xdot(1,l), fiber_xdot(2,l), fiber_xdot(3,l), &
+           fiber_uinterp(1,l), fiber_uinterp(2,l), fiber_uinterp(3,l), &
+           fiber_slip(1,l), fiber_slip(2,l), fiber_slip(3,l), &
+           fiber_coupling_force(1,l), fiber_coupling_force(2,l), fiber_coupling_force(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_rigid_coupling_points
+
+  subroutine write_fiber_rigid_coupling_summary(itime, time, slip_max, slip_rms, lag_total, eul_total, &
+       abs_force_balance, spacing_error_max, filename)
+
+    integer, intent(in) :: itime
+    real(mytype), intent(in) :: time, slip_max, slip_rms, spacing_error_max
+    real(mytype), intent(in), dimension(3) :: lag_total, eul_total, abs_force_balance
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+    logical :: file_exists
+
+    if (nrank /= 0) return
+
+    output_file = 'fiber_rigid_coupling_summary.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime time slip_max slip_rms lag_total_Fx lag_total_Fy lag_total_Fz euler_total_Fx ' // &
+           'euler_total_Fy euler_total_Fz abs_force_balance_Fx abs_force_balance_Fy abs_force_balance_Fz spacing_error_max'
+    endif
+
+    write(ifile,'(I10,1X,13(ES24.16,1X))') itime, time, slip_max, slip_rms, &
+         lag_total(1), lag_total(2), lag_total(3), eul_total(1), eul_total(2), eul_total(3), &
+         abs_force_balance(1), abs_force_balance(2), abs_force_balance(3), spacing_error_max
+    close(ifile)
+
+  end subroutine write_fiber_rigid_coupling_summary
 
 end module fiber_io

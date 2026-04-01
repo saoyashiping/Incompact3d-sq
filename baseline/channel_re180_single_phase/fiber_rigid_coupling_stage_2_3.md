@@ -1,0 +1,53 @@
+# Stage 2.3: Prescribed rigid-fiber no-slip coupling test
+
+## Scope of this stage
+This stage implements only prescribed-motion rigid-fiber no-slip coupling validation:
+
+- Single rigid fiber only.
+- Motion is prescribed analytically (not solved dynamically).
+- Coupling path: interpolate Eulerian velocity to fiber points, compute slip, build penalty force, spread back to Eulerian grid, and add to momentum RHS only in this test mode.
+
+This is **not** free rigid-body dynamics, not flexible fiber dynamics, and not multi-fiber coupling.
+
+## Prescribed motion cases
+- `rigid_motion_case = 1`: stationary rigid fiber (`Xdot = 0`).
+- `rigid_motion_case = 2`: constant translation (`Xdot = rigid_translation_velocity`).
+
+Fiber geometry is initialized once by the existing static-fiber initializer. Rigid motion updates all points using a single prescribed mapping, preserving point spacing.
+
+## No-slip coupling model
+At each time step:
+
+1. Interpolate fluid velocity to fiber points: `U`.
+2. Evaluate prescribed fiber-point velocity: `Xdot`.
+3. Compute slip: `slip = U - Xdot`.
+4. Compute coupling force at fiber points:
+
+   `Ffs = ibm_beta * (U - Xdot)`
+
+5. Spread `Ffs` to Eulerian body-force fields.
+6. Add Eulerian body force to momentum RHS only when `rigid_coupling_test_active = T`.
+
+## How to run
+### Stationary test
+```bash
+./xcompact3d baseline/channel_re180_single_phase/input_fiber_rigid_stationary_test.i3d
+```
+
+### Translation test
+```bash
+./xcompact3d baseline/channel_re180_single_phase/input_fiber_rigid_translation_test.i3d
+```
+
+## Outputs to inspect
+- `fiber_rigid_coupling_points.dat`
+  - per point: position, `Xdot`, interpolated `U`, slip, and coupling force.
+- `fiber_rigid_coupling_summary.dat`
+  - per output step: `slip_max`, `slip_rms`, Lagrangian total force, Eulerian total force, force-balance error, `spacing_error_max`.
+
+## Current limits
+- No free rigid-body translation/rotation solve.
+- No flexible beam/tension/bending model.
+- No contact/collision/wall-contact model.
+- No multi-fiber support.
+- Solver-coupled rigid test path currently follows the existing single-process interpolation/spreading assumptions.

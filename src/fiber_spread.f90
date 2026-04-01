@@ -26,40 +26,19 @@ contains
 
   end function minimum_image
 
-  subroutine run_fiber_spread_conservation_test(lag_total, eul_total, abs_error, rel_error, sumw_min, sumw_max)
+  subroutine spread_lagrangian_force_to_euler(fiber_force_lag, fx, fy, fz, eul_total, sumw_min, sumw_max)
 
-    real(mytype), intent(out), dimension(3) :: lag_total, eul_total, abs_error, rel_error
+    real(mytype), intent(in), dimension(3, fiber_nl) :: fiber_force_lag
+    real(mytype), intent(out), dimension(nx, ny, nz) :: fx, fy, fz
+    real(mytype), intent(out), dimension(3) :: eul_total
     real(mytype), intent(out) :: sumw_min, sumw_max
 
-    real(mytype), allocatable, dimension(:,:,:) :: fx, fy, fz
     real(mytype), allocatable, dimension(:) :: xg, yg, zg, sumw_l
-
     integer :: i, j, k, l
     real(mytype) :: hx, hy, hz, dV, weight
     real(mytype) :: rx, ry, rz
 
-    if (.not.fiber_active) then
-      if (nrank == 0) write(*,*) 'Error: spread_test_active requires fiber_active = true.'
-      stop
-    endif
-
-    if (.not.allocated(fiber_quad_w)) then
-      if (nrank == 0) write(*,*) 'Error: fiber_quad_w is not allocated.'
-      stop
-    endif
-
-    if (.not.allocated(fiber_test_force)) then
-      allocate(fiber_test_force(3, fiber_nl))
-    endif
-
-    fiber_test_force = 0._mytype
-    do l = 1, fiber_nl
-      fiber_test_force(:,l) = (/1._mytype, 0.5_mytype, -0.25_mytype/)
-    enddo
-
-    allocate(xg(nx), yg(ny), zg(nz))
-    allocate(fx(nx,ny,nz), fy(nx,ny,nz), fz(nx,ny,nz))
-    allocate(sumw_l(fiber_nl))
+    allocate(xg(nx), yg(ny), zg(nz), sumw_l(fiber_nl))
 
     hx = xlx / real(nx, mytype)
     if (ny > 1) then
@@ -89,34 +68,66 @@ contains
       do k = 1, nz
         rz = minimum_image(zg(k) - fiber_x(3,l), zlz)
         if (abs(rz) > 2._mytype * hz) cycle
-
         do j = 1, ny
           ry = yg(j) - fiber_x(2,l)
           if (abs(ry) > 2._mytype * hy) cycle
-
           do i = 1, nx
             rx = minimum_image(xg(i) - fiber_x(1,l), xlx)
             if (abs(rx) > 2._mytype * hx) cycle
-
             weight = delta_kernel_3d(rx, ry, rz, hx, hy, hz)
-
-            fx(i,j,k) = fx(i,j,k) + fiber_test_force(1,l) * fiber_quad_w(l) * weight
-            fy(i,j,k) = fy(i,j,k) + fiber_test_force(2,l) * fiber_quad_w(l) * weight
-            fz(i,j,k) = fz(i,j,k) + fiber_test_force(3,l) * fiber_quad_w(l) * weight
-
+            fx(i,j,k) = fx(i,j,k) + fiber_force_lag(1,l) * fiber_quad_w(l) * weight
+            fy(i,j,k) = fy(i,j,k) + fiber_force_lag(2,l) * fiber_quad_w(l) * weight
+            fz(i,j,k) = fz(i,j,k) + fiber_force_lag(3,l) * fiber_quad_w(l) * weight
             sumw_l(l) = sumw_l(l) + weight * dV
           enddo
         enddo
       enddo
     enddo
 
-    lag_total(1) = sum(fiber_test_force(1,:) * fiber_quad_w(:))
-    lag_total(2) = sum(fiber_test_force(2,:) * fiber_quad_w(:))
-    lag_total(3) = sum(fiber_test_force(3,:) * fiber_quad_w(:))
-
     eul_total(1) = sum(fx) * dV
     eul_total(2) = sum(fy) * dV
     eul_total(3) = sum(fz) * dV
+    sumw_min = minval(sumw_l)
+    sumw_max = maxval(sumw_l)
+
+    deallocate(xg, yg, zg, sumw_l)
+
+  end subroutine spread_lagrangian_force_to_euler
+
+  subroutine run_fiber_spread_conservation_test(lag_total, eul_total, abs_error, rel_error, sumw_min, sumw_max)
+
+    real(mytype), intent(out), dimension(3) :: lag_total, eul_total, abs_error, rel_error
+    real(mytype), intent(out) :: sumw_min, sumw_max
+
+    real(mytype), allocatable, dimension(:,:,:) :: fx, fy, fz
+    integer :: i, l
+
+    if (.not.fiber_active) then
+      if (nrank == 0) write(*,*) 'Error: spread_test_active requires fiber_active = true.'
+      stop
+    endif
+
+    if (.not.allocated(fiber_quad_w)) then
+      if (nrank == 0) write(*,*) 'Error: fiber_quad_w is not allocated.'
+      stop
+    endif
+
+    if (.not.allocated(fiber_test_force)) then
+      allocate(fiber_test_force(3, fiber_nl))
+    endif
+
+    fiber_test_force = 0._mytype
+    do l = 1, fiber_nl
+      fiber_test_force(:,l) = (/1._mytype, 0.5_mytype, -0.25_mytype/)
+    enddo
+
+    allocate(fx(nx,ny,nz), fy(nx,ny,nz), fz(nx,ny,nz))
+
+    call spread_lagrangian_force_to_euler(fiber_test_force, fx, fy, fz, eul_total, sumw_min, sumw_max)
+
+    lag_total(1) = sum(fiber_test_force(1,:) * fiber_quad_w(:))
+    lag_total(2) = sum(fiber_test_force(2,:) * fiber_quad_w(:))
+    lag_total(3) = sum(fiber_test_force(3,:) * fiber_quad_w(:))
 
     abs_error = abs(eul_total - lag_total)
 
@@ -127,9 +138,6 @@ contains
       endif
     enddo
 
-    sumw_min = minval(sumw_l)
-    sumw_max = maxval(sumw_l)
-
     if (nrank == 0) then
       write(*,'(A,I6)') 'Fiber spread conservation test case: ', spread_test_case
       write(*,'(A,3ES12.4)') 'Lagrangian total force          : ', lag_total
@@ -139,7 +147,7 @@ contains
       write(*,'(A,2ES12.4)') 'Spread kernel sumw min/max      : ', sumw_min, sumw_max
     endif
 
-    deallocate(xg, yg, zg, fx, fy, fz, sumw_l)
+    deallocate(fx, fy, fz)
 
   end subroutine run_fiber_spread_conservation_test
 

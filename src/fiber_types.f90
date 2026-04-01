@@ -27,6 +27,18 @@ module fiber_types
   integer :: interp_solver_output_step
   logical :: spread_test_active
   integer :: spread_test_case
+  logical :: rigid_coupling_test_active
+  integer :: rigid_motion_case
+  real(mytype) :: ibm_beta
+  integer :: rigid_output_interval
+  real(mytype), dimension(3) :: rigid_translation_velocity
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_ref
+  real(mytype), allocatable, dimension(:,:) :: fiber_xdot
+  real(mytype), allocatable, dimension(:,:) :: fiber_slip
+  real(mytype), allocatable, dimension(:,:) :: fiber_coupling_force
+  real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_x
+  real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_y
+  real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_z
 
 contains
 
@@ -45,14 +57,26 @@ contains
     interp_solver_output_step = 1
     spread_test_active = .false.
     spread_test_case = 1
+    rigid_coupling_test_active = .false.
+    rigid_motion_case = 1
+    ibm_beta = -1.0e3_mytype
+    rigid_output_interval = 1
+    rigid_translation_velocity = 0._mytype
 
     if (allocated(fiber_x)) deallocate(fiber_x)
+    if (allocated(fiber_x_ref)) deallocate(fiber_x_ref)
+    if (allocated(fiber_xdot)) deallocate(fiber_xdot)
+    if (allocated(fiber_slip)) deallocate(fiber_slip)
+    if (allocated(fiber_coupling_force)) deallocate(fiber_coupling_force)
     if (allocated(fiber_uinterp)) deallocate(fiber_uinterp)
     if (allocated(fiber_uexact)) deallocate(fiber_uexact)
     if (allocated(fiber_uerror)) deallocate(fiber_uerror)
     if (allocated(fiber_sumw)) deallocate(fiber_sumw)
     if (allocated(fiber_quad_w)) deallocate(fiber_quad_w)
     if (allocated(fiber_test_force)) deallocate(fiber_test_force)
+    if (allocated(fiber_euler_force_x)) deallocate(fiber_euler_force_x)
+    if (allocated(fiber_euler_force_y)) deallocate(fiber_euler_force_y)
+    if (allocated(fiber_euler_force_z)) deallocate(fiber_euler_force_z)
 
   end subroutine fiber_set_defaults
 
