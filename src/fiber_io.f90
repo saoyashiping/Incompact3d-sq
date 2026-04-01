@@ -4,6 +4,7 @@
 
 module fiber_io
 
+  use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case
