@@ -6,6 +6,7 @@ module fiber_coupling
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank, nproc
+  use variables, only : xp, yp, zp
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, ibm_beta, &
        rigid_output_interval, fiber_xdot, fiber_uinterp, fiber_slip, fiber_coupling_force, &
        fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z
@@ -26,7 +27,7 @@ contains
 
     real(mytype) :: slip_max, slip_rms, spacing_error_max
     real(mytype) :: lag_total(3), eul_total(3), abs_force_balance(3)
-    real(mytype) :: sumw_min, sumw_max
+    real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     integer :: npts
 
     if (.not.fiber_active) return
@@ -51,7 +52,7 @@ contains
     if (.not.allocated(fiber_euler_force_z)) allocate(fiber_euler_force_z(size(uxe,1), size(uxe,2), size(uxe,3)))
 
     call spread_lagrangian_force_to_euler(fiber_coupling_force, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, &
-         eul_total, sumw_min, sumw_max)
+         eul_total, sumw_min, sumw_max, xp, yp, zp, spread_hy_loc_min, spread_hy_loc_max)
 
     lag_total(1) = sum(fiber_coupling_force(1,:) * fiber_quad_w(:))
     lag_total(2) = sum(fiber_coupling_force(2,:) * fiber_quad_w(:))
@@ -66,6 +67,10 @@ contains
     call compute_rigid_spacing_error(spacing_error_max)
 
     if (mod(itime, max(1, rigid_output_interval)) == 0) then
+      if (nrank == 0) then
+        write(*,'(A,2ES12.4)') 'Rigid coupling spread sumw min/max            : ', sumw_min, sumw_max
+        write(*,'(A,2ES12.4)') 'Rigid coupling spread hy_loc min/max          : ', spread_hy_loc_min, spread_hy_loc_max
+      endif
       call write_fiber_rigid_coupling_points(itime)
       call write_fiber_rigid_coupling_summary(itime, time, slip_max, slip_rms, lag_total, eul_total, &
            abs_force_balance, spacing_error_max)

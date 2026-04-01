@@ -51,3 +51,15 @@ At each time step:
 - No contact/collision/wall-contact model.
 - No multi-fiber support.
 - Solver-coupled rigid test path currently follows the existing single-process interpolation/spreading assumptions.
+
+## Solver-grid spreading fix (2.3 consistency)
+The original 2.3 coupling path mixed:
+- interpolation on real solver grid (`xp/yp/zp`), and
+- spreading on a synthetic uniform grid (`xg/yg/zg`).
+
+This is now fixed for the rigid-coupling path:
+- rigid-coupling spreading uses real solver coordinates `xp`, `yp`, `zp`;
+- y-direction uses local stretched-grid spacing `hy_loc` (same local-dy style as solver-readonly interpolation);
+- x/z keep minimum-image periodic distance handling.
+
+The conservation test path still uses the synthetic uniform test grid by default, and remains separated from rigid solver-coupling spreading.

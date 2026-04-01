@@ -26,69 +26,133 @@ contains
 
   end function minimum_image
 
-  subroutine spread_lagrangian_force_to_euler(fiber_force_lag, fx, fy, fz, eul_total, sumw_min, sumw_max)
+  pure real(mytype) function local_dy(yp_vec, j, jmin, jmax)
+
+    real(mytype), intent(in), dimension(:) :: yp_vec
+    integer, intent(in) :: j, jmin, jmax
+
+    if (j <= jmin) then
+      local_dy = yp_vec(jmin+1) - yp_vec(jmin)
+    else if (j >= jmax) then
+      local_dy = yp_vec(jmax) - yp_vec(jmax-1)
+    else
+      local_dy = 0.5_mytype * (yp_vec(j+1) - yp_vec(j-1))
+    endif
+
+  end function local_dy
+
+  subroutine spread_lagrangian_force_to_euler(fiber_force_lag, fx, fy, fz, eul_total, sumw_min, sumw_max, &
+       xg_in, yg_in, zg_in, hy_loc_min_out, hy_loc_max_out)
 
     real(mytype), intent(in), dimension(3, fiber_nl) :: fiber_force_lag
     real(mytype), intent(out), dimension(nx, ny, nz) :: fx, fy, fz
     real(mytype), intent(out), dimension(3) :: eul_total
     real(mytype), intent(out) :: sumw_min, sumw_max
+    real(mytype), intent(in), optional, dimension(:) :: xg_in, yg_in, zg_in
+    real(mytype), intent(out), optional :: hy_loc_min_out, hy_loc_max_out
 
     real(mytype), allocatable, dimension(:) :: xg, yg, zg, sumw_l
     integer :: i, j, k, l
-    real(mytype) :: hx, hy, hz, dV, weight
+    integer :: jmin, jmax
+    real(mytype) :: hx, hy, hz, hy_loc, dVloc, weight
     real(mytype) :: rx, ry, rz
+    real(mytype) :: hy_loc_min, hy_loc_max
+    logical :: use_input_grid
+
+    use_input_grid = present(xg_in) .and. present(yg_in) .and. present(zg_in)
 
     allocate(xg(nx), yg(ny), zg(nz), sumw_l(fiber_nl))
 
-    hx = xlx / real(nx, mytype)
-    if (ny > 1) then
-      hy = yly / real(ny - 1, mytype)
+    if (use_input_grid) then
+      xg = xg_in
+      yg = yg_in
+      zg = zg_in
+      hx = xg(2) - xg(1)
+      hz = zg(2) - zg(1)
+      hy = -1._mytype
     else
-      hy = 1._mytype
-    endif
-    hz = zlz / real(nz, mytype)
-    dV = hx * hy * hz
+      hx = xlx / real(nx, mytype)
+      if (ny > 1) then
+        hy = yly / real(ny - 1, mytype)
+      else
+        hy = 1._mytype
+      endif
+      hz = zlz / real(nz, mytype)
 
-    do i = 1, nx
-      xg(i) = real(i - 1, mytype) * hx
-    enddo
-    do j = 1, ny
-      yg(j) = real(j - 1, mytype) * hy
-    enddo
-    do k = 1, nz
-      zg(k) = real(k - 1, mytype) * hz
-    enddo
+      do i = 1, nx
+        xg(i) = real(i - 1, mytype) * hx
+      enddo
+      do j = 1, ny
+        yg(j) = real(j - 1, mytype) * hy
+      enddo
+      do k = 1, nz
+        zg(k) = real(k - 1, mytype) * hz
+      enddo
+    endif
 
     fx = 0._mytype
     fy = 0._mytype
     fz = 0._mytype
     sumw_l = 0._mytype
+    hy_loc_min = huge(1._mytype)
+    hy_loc_max = 0._mytype
+
+    jmin = 1
+    jmax = ny
 
     do l = 1, fiber_nl
       do k = 1, nz
         rz = minimum_image(zg(k) - fiber_x(3,l), zlz)
         if (abs(rz) > 2._mytype * hz) cycle
         do j = 1, ny
+          if (use_input_grid) then
+            hy_loc = local_dy(yg, j, jmin, jmax)
+          else
+            hy_loc = hy
+          endif
+          hy_loc_min = min(hy_loc_min, hy_loc)
+          hy_loc_max = max(hy_loc_max, hy_loc)
+
           ry = yg(j) - fiber_x(2,l)
-          if (abs(ry) > 2._mytype * hy) cycle
+          if (abs(ry) > 2._mytype * hy_loc) cycle
+
           do i = 1, nx
             rx = minimum_image(xg(i) - fiber_x(1,l), xlx)
             if (abs(rx) > 2._mytype * hx) cycle
-            weight = delta_kernel_3d(rx, ry, rz, hx, hy, hz)
+            weight = delta_kernel_3d(rx, ry, rz, hx, hy_loc, hz)
             fx(i,j,k) = fx(i,j,k) + fiber_force_lag(1,l) * fiber_quad_w(l) * weight
             fy(i,j,k) = fy(i,j,k) + fiber_force_lag(2,l) * fiber_quad_w(l) * weight
             fz(i,j,k) = fz(i,j,k) + fiber_force_lag(3,l) * fiber_quad_w(l) * weight
-            sumw_l(l) = sumw_l(l) + weight * dV
+
+            dVloc = hx * hy_loc * hz
+            sumw_l(l) = sumw_l(l) + weight * dVloc
           enddo
         enddo
       enddo
     enddo
 
-    eul_total(1) = sum(fx) * dV
-    eul_total(2) = sum(fy) * dV
-    eul_total(3) = sum(fz) * dV
+    eul_total = 0._mytype
+    do k = 1, nz
+      do j = 1, ny
+        if (use_input_grid) then
+          hy_loc = local_dy(yg, j, jmin, jmax)
+        else
+          hy_loc = hy
+        endif
+        dVloc = hx * hy_loc * hz
+        do i = 1, nx
+          eul_total(1) = eul_total(1) + fx(i,j,k) * dVloc
+          eul_total(2) = eul_total(2) + fy(i,j,k) * dVloc
+          eul_total(3) = eul_total(3) + fz(i,j,k) * dVloc
+        enddo
+      enddo
+    enddo
+
     sumw_min = minval(sumw_l)
     sumw_max = maxval(sumw_l)
+
+    if (present(hy_loc_min_out)) hy_loc_min_out = hy_loc_min
+    if (present(hy_loc_max_out)) hy_loc_max_out = hy_loc_max
 
     deallocate(xg, yg, zg, sumw_l)
 
