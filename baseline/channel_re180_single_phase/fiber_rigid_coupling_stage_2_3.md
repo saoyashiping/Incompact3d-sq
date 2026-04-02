@@ -108,7 +108,10 @@ If any non-finite value is detected:
 - `beta_input` is always the user value (`ibm_beta`).
 - `beta_eff` and `ramp_factor` are logged explicitly.
 - `coupling_ramp_steps` is a test-only stabilization knob (default `0`, disabled).
-- For `coupling_ramp_steps > 0`, the code uses a linear startup ramp and `beta_eff = ramp_factor * beta_input`.
+- For `coupling_ramp_steps > 0`, the code uses a linear startup ramp with coupling-step index
+  `n = itime - ifirst + 1` (clamped at least to 1):
+  `ramp_factor = min(1, n / coupling_ramp_steps)`, so the first coupling step is `1/coupling_ramp_steps`.
+  Then `beta_eff = ramp_factor * beta_input`.
 - For `coupling_ramp_steps = 0`, `ramp_factor = 1` and `beta_eff = beta_input`.
 
 ## Failure code map

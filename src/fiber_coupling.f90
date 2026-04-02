@@ -37,7 +37,7 @@ contains
     logical :: is_finite
     character(len=64) :: fail_quantity
     integer :: failure_code
-    integer :: npts
+    integer :: npts, coupling_step
     integer :: ierr
     logical :: output_now
 
@@ -57,9 +57,10 @@ contains
     fiber_slip = 0._mytype
     fiber_coupling_force = 0._mytype
 
+    coupling_step = max(1, itime - ifirst + 1)
     if (coupling_ramp_steps > 0) then
-      ramp_factor = real(itime - ifirst, mytype) / real(coupling_ramp_steps, mytype)
-      ramp_factor = max(0._mytype, min(1._mytype, ramp_factor))
+      ramp_factor = real(coupling_step, mytype) / real(coupling_ramp_steps, mytype)
+      ramp_factor = min(1._mytype, ramp_factor)
     else
       ramp_factor = 1._mytype
     endif
