@@ -225,7 +225,7 @@ contains
            'ramp_factor failed_flag failure_code'
     endif
 
-    write(ifile,'(I10,1X,20(ES24.16,1X),I8)') itime, time, slip_max, slip_rms, &
+    write(ifile,'(I10,1X,21(ES24.16,1X),I8)') itime, time, slip_max, slip_rms, &
          lag_total(1), lag_total(2), lag_total(3), eul_total(1), eul_total(2), eul_total(3), &
          abs_force_balance(1), abs_force_balance(2), abs_force_balance(3), spacing_error_max, &
          u_interp_max_norm, xdot_max_norm, coupling_force_max_norm, euler_force_max_norm, &
