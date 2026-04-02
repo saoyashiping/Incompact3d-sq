@@ -11,7 +11,7 @@ module fiber_coupling
   use param, only : ifirst
   use variables, only : xp, yp, zp
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, ibm_beta, &
-       rigid_output_interval, fiber_xdot, fiber_uinterp, fiber_slip, fiber_coupling_force, &
+       coupling_ramp_steps, rigid_output_interval, fiber_xdot, fiber_uinterp, fiber_slip, fiber_coupling_force, &
        fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, rigid_motion_case
   use fiber_rigid_motion, only : update_rigid_motion, compute_rigid_spacing_error
   use fiber_interp, only : run_fiber_interp_solver_readonly
@@ -36,6 +36,7 @@ contains
     logical :: failed_flag
     logical :: is_finite
     character(len=64) :: fail_quantity
+    integer :: failure_code
     integer :: npts
     integer :: ierr
     logical :: output_now
@@ -56,7 +57,12 @@ contains
     fiber_slip = 0._mytype
     fiber_coupling_force = 0._mytype
 
-    ramp_factor = 1._mytype
+    if (coupling_ramp_steps > 0) then
+      ramp_factor = real(itime - ifirst, mytype) / real(coupling_ramp_steps, mytype)
+      ramp_factor = max(0._mytype, min(1._mytype, ramp_factor))
+    else
+      ramp_factor = 1._mytype
+    endif
     beta_eff = ibm_beta * ramp_factor
     fiber_slip = fiber_uinterp - fiber_xdot
     fiber_coupling_force = beta_eff * fiber_slip
@@ -90,22 +96,26 @@ contains
 
     failed_flag = .false.
     fail_quantity = 'none'
+    failure_code = 0
 
     is_finite = all(ieee_is_finite(fiber_slip))
     if (.not.is_finite .and. .not.failed_flag) then
       failed_flag = .true.
       fail_quantity = 'fiber_slip'
+      failure_code = 1
     endif
     is_finite = all(ieee_is_finite(fiber_coupling_force))
     if (.not.is_finite .and. .not.failed_flag) then
       failed_flag = .true.
       fail_quantity = 'fiber_coupling_force'
+      failure_code = 2
     endif
     is_finite = all(ieee_is_finite(fiber_euler_force_x)) .and. all(ieee_is_finite(fiber_euler_force_y)) .and. &
          all(ieee_is_finite(fiber_euler_force_z))
     if (.not.is_finite .and. .not.failed_flag) then
       failed_flag = .true.
       fail_quantity = 'fiber_euler_force_xyz'
+      failure_code = 3
     endif
     is_finite = all(ieee_is_finite((/slip_max, slip_rms, spacing_error_max, u_interp_max_norm, xdot_max_norm, &
          coupling_force_max_norm, euler_force_max_norm/))) .and. &
@@ -113,6 +123,7 @@ contains
     if (.not.is_finite .and. .not.failed_flag) then
       failed_flag = .true.
       fail_quantity = 'rigid_summary_scalars'
+      failure_code = 4
     endif
 
     output_now = (itime == ifirst) .or. (mod(itime, max(1, rigid_output_interval)) == 0)
@@ -129,16 +140,20 @@ contains
       call write_fiber_rigid_coupling_points(itime)
       call write_fiber_rigid_coupling_summary(itime, time, slip_max, slip_rms, lag_total, eul_total, &
            abs_force_balance, spacing_error_max, u_interp_max_norm, xdot_max_norm, coupling_force_max_norm, &
-           euler_force_max_norm, ibm_beta, beta_eff, ramp_factor, failed_flag)
+           euler_force_max_norm, ibm_beta, beta_eff, ramp_factor, failed_flag, failure_code)
     endif
 
     if (failed_flag) then
       if (nrank == 0) then
         write(*,'(A)') 'RIGID COUPLING TEST FAILED'
+        write(*,'(A,I6)') 'failure_code                                   : ', failure_code
         write(*,'(A,I10)') 'Failure at itime                               : ', itime
         write(*,'(A,ES12.4)') 'Failure time                                   : ', time
         write(*,'(A,I6)') 'Failure motion case                            : ', rigid_motion_case
-        write(*,'(A,A)') 'First non-finite quantity                      : ', trim(fail_quantity)
+        write(*,'(A,A)') 'first_nonfinite_quantity                       : ', trim(fail_quantity)
+        write(*,'(A,ES12.4)') 'beta_input                                     : ', ibm_beta
+        write(*,'(A,ES12.4)') 'beta_eff                                       : ', beta_eff
+        write(*,'(A,ES12.4)') 'ramp_factor                                    : ', ramp_factor
       endif
       call MPI_ABORT(MPI_COMM_WORLD, 911, ierr)
     endif

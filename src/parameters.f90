@@ -37,7 +37,7 @@ subroutine parameter(input_i3d)
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
        spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_motion_case, &
-       ibm_beta, rigid_output_interval, rigid_translation_velocity
+       ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_translation_velocity
 
   implicit none
 
@@ -91,7 +91,7 @@ subroutine parameter(input_i3d)
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
        spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_motion_case, &
-       ibm_beta,rigid_output_interval,rigid_translation_velocity
+       ibm_beta,coupling_ramp_steps,rigid_output_interval,rigid_translation_velocity
 
 
 #ifdef DEBG

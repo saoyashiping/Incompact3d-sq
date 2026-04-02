@@ -30,6 +30,7 @@ module fiber_types
   logical :: rigid_coupling_test_active
   integer :: rigid_motion_case
   real(mytype) :: ibm_beta
+  integer :: coupling_ramp_steps
   integer :: rigid_output_interval
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), allocatable, dimension(:,:) :: fiber_x_ref
@@ -60,6 +61,7 @@ contains
     rigid_coupling_test_active = .false.
     rigid_motion_case = 1
     ibm_beta = -1.0e3_mytype
+    coupling_ramp_steps = 0
     rigid_output_interval = 1
     rigid_translation_velocity = 0._mytype
 

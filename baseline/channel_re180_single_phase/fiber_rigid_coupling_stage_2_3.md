@@ -80,10 +80,15 @@ To improve diagnosability without changing the 2.3 model:
 Recommended beta sensitivity sequence (independent runs):
 - `ibm_beta = -1`
 - `ibm_beta = -10`
+- `ibm_beta = -20`
+- `ibm_beta = -30`
+- `ibm_beta = -40`
 - `ibm_beta = -50`
 - `ibm_beta = -100`
-- `ibm_beta = -500`
-- `ibm_beta = -1000`
+
+If the no-ramp run fails early, retry with:
+- `coupling_ramp_steps = 5`
+- `coupling_ramp_steps = 10`
 
 This beta scan is a test-stability study tool for stage 2.3, not a final physical parameter conclusion.
 
@@ -102,5 +107,19 @@ If any non-finite value is detected:
 ## Effective beta logging
 - `beta_input` is always the user value (`ibm_beta`).
 - `beta_eff` and `ramp_factor` are logged explicitly.
-- In this revision, no extra ramp parameter is enabled by default (`ramp_factor = 1`), so `beta_eff = beta_input`.
-- If a ramp control is added in future, recommended exploratory values are `coupling_ramp_steps = 5` or `10` for diagnostics-only stability studies.
+- `coupling_ramp_steps` is a test-only stabilization knob (default `0`, disabled).
+- For `coupling_ramp_steps > 0`, the code uses a linear startup ramp and `beta_eff = ramp_factor * beta_input`.
+- For `coupling_ramp_steps = 0`, `ramp_factor = 1` and `beta_eff = beta_input`.
+
+## Failure code map
+- `0`: no failure
+- `1`: nonfinite slip
+- `2`: nonfinite coupling_force
+- `3`: nonfinite euler_force
+- `4`: nonfinite summary quantity
+- `5`: other numerical blowup (reserved)
+
+## Interpreting outcomes
+- **stable and usable**: no failure flag, finite diagnostics throughout target window.
+- **diagnosable but unstable**: finite first-step diagnostics + later fail-fast with failure code/logs.
+- **immediate failure**: fail-fast at first coupled step; use smaller `|beta|` and/or ramp.
