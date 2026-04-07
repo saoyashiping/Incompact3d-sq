@@ -234,4 +234,76 @@ contains
 
   end subroutine write_fiber_rigid_coupling_summary
 
+  subroutine write_fiber_rigid_free_points(itime, filename)
+
+    integer, intent(in) :: itime
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+    logical :: file_exists
+
+    if (.not.fiber_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_rigid_free_points.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime index x y z u_interp v_interp w_interp xdot_x xdot_y xdot_z ' // &
+           'slip_x slip_y slip_z Ffs_x Ffs_y Ffs_z'
+    endif
+
+    do l = 1, fiber_nl
+      write(ifile,'(I10,1X,I8,1X,15(ES24.16,1X))') itime, l, fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_uinterp(1,l), fiber_uinterp(2,l), fiber_uinterp(3,l), &
+           fiber_xdot(1,l), fiber_xdot(2,l), fiber_xdot(3,l), &
+           fiber_slip(1,l), fiber_slip(2,l), fiber_slip(3,l), &
+           fiber_coupling_force(1,l), fiber_coupling_force(2,l), fiber_coupling_force(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_rigid_free_points
+
+  subroutine write_fiber_rigid_free_summary(itime, time, xc, uc, p, omega, total_force, total_torque, &
+       slip_max, slip_rms, spacing_error_max, p_norm_error, failed_flag, failure_code, filename)
+
+    integer, intent(in) :: itime
+    real(mytype), intent(in) :: time, slip_max, slip_rms, spacing_error_max, p_norm_error
+    real(mytype), intent(in), dimension(3) :: xc, uc, p, omega, total_force, total_torque
+    logical, intent(in) :: failed_flag
+    integer, intent(in) :: failure_code
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+    logical :: file_exists
+
+    if (nrank /= 0) return
+
+    output_file = 'fiber_rigid_free_summary.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime time xc yc zc uc_x uc_y uc_z p_x p_y p_z omega_x omega_y omega_z ' // &
+           'total_Fx total_Fy total_Fz total_Mx total_My total_Mz slip_max slip_rms spacing_error_max p_norm_error ' // &
+           'failed_flag failure_code'
+    endif
+
+    write(ifile,'(I10,1X,24(ES24.16,1X),I8)') itime, time, xc(1), xc(2), xc(3), uc(1), uc(2), uc(3), &
+         p(1), p(2), p(3), omega(1), omega(2), omega(3), total_force(1), total_force(2), total_force(3), &
+         total_torque(1), total_torque(2), total_torque(3), slip_max, slip_rms, spacing_error_max, p_norm_error, &
+         merge(1._mytype, 0._mytype, failed_flag), failure_code
+    close(ifile)
+
+  end subroutine write_fiber_rigid_free_summary
+
 end module fiber_io

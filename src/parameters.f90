@@ -36,8 +36,9 @@ subroutine parameter(input_i3d)
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
-       spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_motion_case, &
-       ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_translation_velocity
+       spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
+       rigid_motion_case, rigid_free_case, ibm_beta, coupling_ramp_steps, rigid_output_interval, &
+       free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
 
   implicit none
 
@@ -90,8 +91,9 @@ subroutine parameter(input_i3d)
   NAMELIST/ParTrack/initype_particle,n_particles,bc_particle,particle_inject_period
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
-       spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_motion_case, &
-       ibm_beta,coupling_ramp_steps,rigid_output_interval,rigid_translation_velocity
+       spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
+       rigid_motion_case,rigid_free_case,ibm_beta,coupling_ramp_steps,rigid_output_interval, &
+       free_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega
 
 
 #ifdef DEBG

@@ -41,6 +41,7 @@ add_executable(xcompact3d
                     fiber_interp.f90
                     fiber_spread.f90
                     fiber_rigid_motion.f90
+                    fiber_rigid_free.f90
                     fiber_coupling.f90
                     forces.f90
                     genepsi3d.f90

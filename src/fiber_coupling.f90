@@ -10,7 +10,7 @@ module fiber_coupling
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use param, only : ifirst
   use variables, only : xp, yp, zp
-  use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, ibm_beta, &
+  use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, rigid_free_test_active, ibm_beta, &
        coupling_ramp_steps, rigid_output_interval, fiber_xdot, fiber_uinterp, fiber_slip, fiber_coupling_force, &
        fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, rigid_motion_case
   use fiber_rigid_motion, only : update_rigid_motion, compute_rigid_spacing_error
@@ -42,7 +42,7 @@ contains
     logical :: output_now
 
     if (.not.fiber_active) return
-    if (.not.rigid_coupling_test_active) return
+    if (.not.rigid_coupling_test_active .and. .not.rigid_free_test_active) return
 
     if (nproc /= 1) then
       if (nrank == 0) write(*,*) 'Error: rigid_coupling_test_active currently supports only nproc = 1.'
@@ -174,7 +174,7 @@ contains
 
     real(mytype), intent(inout), dimension(:,:,:) :: dux, duy, duz
 
-    if (.not.rigid_coupling_test_active) return
+    if (.not.rigid_coupling_test_active .and. .not.rigid_free_test_active) return
     if (.not.allocated(fiber_euler_force_x)) return
 
     dux = dux + fiber_euler_force_x

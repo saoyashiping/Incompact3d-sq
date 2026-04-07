@@ -6,7 +6,8 @@ module fiber_init
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
-  use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, fiber_x, fiber_quad_w
+  use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, fiber_x, fiber_quad_w, &
+       fiber_s_ref, fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total
 
   implicit none
 
@@ -39,6 +40,8 @@ contains
 
     if (allocated(fiber_x)) deallocate(fiber_x)
     allocate(fiber_x(3, fiber_nl))
+    if (allocated(fiber_s_ref)) deallocate(fiber_s_ref)
+    allocate(fiber_s_ref(fiber_nl))
 
     ds = fiber_length / real(fiber_nl - 1, mytype)
 
@@ -50,8 +53,14 @@ contains
 
     do l = 1, fiber_nl
       s = -0.5_mytype * fiber_length + real(l - 1, mytype) * ds
+      fiber_s_ref(l) = s
       fiber_x(:, l) = fiber_center + s * fiber_direction
     enddo
+
+    fiber_xc = fiber_center
+    fiber_p = fiber_direction
+    fiber_force_total = 0._mytype
+    fiber_torque_total = 0._mytype
 
   end subroutine init_fiber
 
