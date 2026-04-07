@@ -43,7 +43,7 @@ subroutine parameter(input_i3d)
 
   character(len=80), intent(in) :: input_i3d
   real(mytype) :: theta, cfl,cf2
-  integer :: longueur ,impi,j, is, total, ierr, ios_fiber
+  integer :: longueur ,impi,j, is, total, ierr, ios_fiber, fiberparam_count
 
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
@@ -248,7 +248,22 @@ subroutine parameter(input_i3d)
     read(10, nml=ParTrack); rewind(10) 
    endif
 
-   read(10, nml=FiberParam, iostat=ios_fiber); rewind(10)
+   rewind(10)
+   fiberparam_count = 0
+   do
+      read(10, nml=FiberParam, iostat=ios_fiber)
+      if (ios_fiber == 0) then
+         fiberparam_count = fiberparam_count + 1
+      else if (ios_fiber == iostat_end) then
+         exit
+      else
+         exit
+      endif
+   enddo
+   rewind(10)
+   if (nrank == 0 .and. fiberparam_count > 1) then
+      write(*,*) 'Warning: multiple &FiberParam blocks found; later blocks override earlier ones'
+   endif
 
   ! !! These are the 'optional'/model parameters
   if(ilesmod.ne.0) then

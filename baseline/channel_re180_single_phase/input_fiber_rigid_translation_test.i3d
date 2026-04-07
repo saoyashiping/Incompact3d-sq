@@ -145,6 +145,7 @@ spread_test_active = F
 rigid_coupling_test_active = T
 rigid_motion_case = 2
 ibm_beta = -1000.0
+coupling_ramp_steps = 5
 rigid_output_interval = 20
 rigid_translation_velocity = 0.05, 0.0, 0.0
 /End
