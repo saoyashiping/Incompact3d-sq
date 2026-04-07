@@ -130,6 +130,15 @@ contains
     output_now = (itime == ifirst) .or. (mod(itime, max(1, rigid_output_interval)) == 0)
     if (failed_flag) output_now = .true.
 
+    if (nrank == 0 .and. itime == ifirst) then
+      write(*,'(A,I10,A,I10)') 'DEBUG_RAMP ifirst=', ifirst, ' itime=', itime
+      write(*,'(A,I10)') 'DEBUG_RAMP coupling_ramp_steps=', coupling_ramp_steps
+      write(*,'(A,I10)') 'DEBUG_RAMP coupling_step=', coupling_step
+      write(*,'(A,ES12.4)') 'DEBUG_RAMP ramp_factor=', ramp_factor
+      write(*,'(A,ES12.4)') 'DEBUG_RAMP ibm_beta=', ibm_beta
+      write(*,'(A,ES12.4)') 'DEBUG_RAMP beta_eff=', beta_eff
+    endif
+
     if (output_now) then
       if (nrank == 0) then
         write(*,'(A,3ES12.4)') 'Rigid coupling beta_in/beta_eff/ramp_factor  : ', ibm_beta, beta_eff, ramp_factor
