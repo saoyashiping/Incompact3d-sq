@@ -123,11 +123,12 @@ contains
 
   end subroutine compute_rigid_free_spacing_error
 
-  subroutine run_rigid_free_step(uxe, uye, uze, time, itime)
+  subroutine run_rigid_free_step(uxe, uye, uze, time, itime, isubstep, nsubsteps)
 
     real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
     real(mytype), intent(in) :: time
     integer, intent(in) :: itime
+    integer, intent(in) :: isubstep, nsubsteps
 
     real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error
     real(mytype) :: lag_total_local(3), lag_total(3), eul_total(3), abs_force_balance(3)
@@ -264,7 +265,8 @@ contains
       failure_code = 7
     endif
 
-    output_now = (itime == ifirst) .or. (mod(itime, max(1, free_output_interval)) == 0)
+    ! Output only once per physical time step: write at final RK substep (or on failure).
+    output_now = (isubstep == nsubsteps) .and. ((itime == ifirst) .or. (mod(itime, max(1, free_output_interval)) == 0))
     if (failed_flag) output_now = .true.
 
     if (output_now) then
