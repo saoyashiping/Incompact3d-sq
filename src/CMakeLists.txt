@@ -34,6 +34,15 @@ add_executable(xcompact3d
                     dynstall.f90
                     dynstall_legacy.f90
                     filters.f90
+                    fiber_types.f90
+                    fiber_init.f90
+                    fiber_io.f90
+                    fiber_delta.f90
+                    fiber_interp.f90
+                    fiber_spread.f90
+                    fiber_rigid_motion.f90
+                    fiber_rigid_free.f90
+                    fiber_coupling.f90
                     forces.f90
                     genepsi3d.f90
                     ibm.f90

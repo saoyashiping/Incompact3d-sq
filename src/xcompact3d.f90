@@ -20,9 +20,18 @@ program xcompact3d
                      solve_poisson_mhd
   use param, only : mhd_active
   use particle, only : intt_particles
+  use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
+       rigid_coupling_test_active, rigid_free_test_active
+  use fiber_io, only : write_fiber_interp_solver
+  use fiber_interp, only : run_fiber_interp_solver_readonly
+  use fiber_coupling, only : run_rigid_coupling_step
+  use fiber_rigid_free, only : run_rigid_free_step
 
   implicit none
 
+  logical :: solver_interp_done
+
+  solver_interp_done = .false.
 
   call init_xcompact3d()
 
@@ -54,6 +63,12 @@ program xcompact3d
           else if (iibm.eq.1) then
              call body(ux1,uy1,uz1,ep1)
           endif
+        endif
+
+        if (fiber_active .and. rigid_coupling_test_active) then
+           call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+        else if (fiber_active .and. rigid_free_test_active) then
+           call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
         endif
         call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
@@ -98,6 +113,14 @@ program xcompact3d
      call simu_stats(3)
 
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
+
+     if (fiber_active .and. interp_solver_test_active .and. .not.solver_interp_done) then
+        if (itime >= interp_solver_output_step) then
+           call run_fiber_interp_solver_readonly(ux1, uy1, uz1, itime)
+           call write_fiber_interp_solver(itime)
+           solver_interp_done = .true.
+        endif
+     endif
 
   enddo !! End time loop
 
@@ -144,10 +167,21 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
+  use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
+       spread_test_active, rigid_coupling_test_active, rigid_free_test_active
+  use fiber_init, only : init_fiber
+  use fiber_rigid_motion, only : init_rigid_motion_reference
+  use fiber_rigid_free, only : init_rigid_free_state
+  use fiber_io, only : write_fiber_points, write_fiber_interp, &
+       write_fiber_spread_lagrangian, write_fiber_spread_summary
+  use fiber_interp, only : run_fiber_interp_operator_test
+  use fiber_spread, only : run_fiber_spread_conservation_test
 
   implicit none
 
   integer :: ierr
+  real(mytype) :: lag_total(3), eul_total(3), abs_error(3), rel_error(3)
+  real(mytype) :: spread_sumw_min, spread_sumw_max
 
   integer :: nargin, FNLength, status, DecInd
   logical :: back
@@ -187,6 +221,73 @@ subroutine init_xcompact3d()
 #endif
   
   call parameter(InputFN)
+
+  if (interp_test_active .and. interp_solver_test_active) then
+     if (nrank == 0) write(*,*) "Error: interp_test_active and interp_solver_test_active cannot both be true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_coupling_test_active .and. (interp_test_active .or. interp_solver_test_active .or. spread_test_active)) then
+     if (nrank == 0) write(*,*) "Error: rigid_coupling_test_active cannot be combined with other fiber test modes."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_free_test_active .and. (interp_test_active .or. interp_solver_test_active .or. spread_test_active)) then
+     if (nrank == 0) write(*,*) "Error: rigid_free_test_active cannot be combined with other fiber test modes."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_coupling_test_active .and. rigid_free_test_active) then
+     if (nrank == 0) write(*,*) "Error: rigid_coupling_test_active and rigid_free_test_active cannot both be true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_coupling_test_active .and. .not.fiber_active) then
+     if (nrank == 0) write(*,*) "Error: rigid_coupling_test_active requires fiber_active = true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_free_test_active .and. .not.fiber_active) then
+     if (nrank == 0) write(*,*) "Error: rigid_free_test_active requires fiber_active = true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+
+  if (spread_test_active .and. (interp_test_active .or. interp_solver_test_active)) then
+     if (nrank == 0) write(*,*) "Error: spread_test_active cannot be combined with interpolation test modes."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (fiber_active) then
+     call init_fiber()
+     if (rigid_coupling_test_active) call init_rigid_motion_reference()
+     if (rigid_free_test_active) call init_rigid_free_state()
+     call write_fiber_points()
+
+     if (interp_test_active) then
+        call run_fiber_interp_operator_test()
+        call write_fiber_interp()
+        if (nrank == 0) write(*,*) "Interpolation operator test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+
+     if (spread_test_active) then
+        call run_fiber_spread_conservation_test(lag_total, eul_total, abs_error, rel_error, spread_sumw_min, spread_sumw_max)
+        call write_fiber_spread_lagrangian()
+        call write_fiber_spread_summary(lag_total, eul_total, abs_error, rel_error, spread_sumw_min, spread_sumw_max)
+        if (nrank == 0) write(*,*) "Spreading conservation test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+  endif
 
   call decomp_2d_init(nx,ny,nz,p_row,p_col,periodic_bc)
 
@@ -330,6 +431,8 @@ subroutine finalise_xcompact3d()
   implicit none
 
   integer :: ierr
+  real(mytype) :: lag_total(3), eul_total(3), abs_error(3), rel_error(3)
+  real(mytype) :: spread_sumw_min, spread_sumw_max
   
   if (itype==2) then
      if(nrank.eq.0)then
