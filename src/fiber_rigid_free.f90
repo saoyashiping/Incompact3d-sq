@@ -8,7 +8,7 @@ module fiber_rigid_free
   use decomp_2d_mpi, only : nrank
   use mpi, only : MPI_COMM_WORLD, MPI_ABORT, MPI_ALLREDUCE, MPI_DOUBLE_PRECISION, MPI_SUM
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
-  use param, only : ifirst, dt, xlx, zlz
+  use param, only : ifirst, xlx, zlz, gdt
   use variables, only : xp, yp, zp
   use fiber_types, only : fiber_active, fiber_nl, rigid_free_test_active, rigid_free_case, ibm_beta, &
        coupling_ramp_steps, free_output_interval, fiber_mass, fiber_inertia_perp, fiber_x, fiber_s_ref, &
@@ -33,6 +33,18 @@ contains
     endif
 
   end function wrap_periodic
+
+  pure real(mytype) function periodic_delta(delta, period_length)
+
+    real(mytype), intent(in) :: delta, period_length
+
+    periodic_delta = delta
+    if (period_length > 0._mytype) then
+      if (periodic_delta >  0.5_mytype * period_length) periodic_delta = periodic_delta - period_length
+      if (periodic_delta < -0.5_mytype * period_length) periodic_delta = periodic_delta + period_length
+    endif
+
+  end function periodic_delta
 
   pure function cross_product(a, b) result(c)
 
@@ -98,7 +110,9 @@ contains
     if (.not.allocated(fiber_xdot)) allocate(fiber_xdot(3, fiber_nl))
 
     do l = 1, fiber_nl
-      r = fiber_x(:,l) - fiber_xc
+      r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+      r(2) = fiber_x(2,l) - fiber_xc(2)
+      r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
       fiber_xdot(:,l) = fiber_uc + cross_product(fiber_omega, r)
     enddo
 
@@ -109,7 +123,7 @@ contains
     real(mytype), intent(out) :: spacing_error_max
 
     integer :: l
-    real(mytype) :: ds_ref, ds_now
+    real(mytype) :: ds_ref, ds_now, dxp, dyp, dzp
 
     spacing_error_max = 0._mytype
 
@@ -117,7 +131,10 @@ contains
     ds_ref = abs(fiber_s_ref(2) - fiber_s_ref(1))
 
     do l = 1, fiber_nl - 1
-      ds_now = sqrt(sum((fiber_x(:,l+1) - fiber_x(:,l))**2))
+      dxp = periodic_delta(fiber_x(1,l+1) - fiber_x(1,l), xlx)
+      dyp = fiber_x(2,l+1) - fiber_x(2,l)
+      dzp = periodic_delta(fiber_x(3,l+1) - fiber_x(3,l), zlz)
+      ds_now = sqrt(dxp**2 + dyp**2 + dzp**2)
       spacing_error_max = max(spacing_error_max, abs(ds_now - ds_ref))
     enddo
 
@@ -134,7 +151,7 @@ contains
     real(mytype) :: lag_total_local(3), lag_total(3), eul_total(3), abs_force_balance(3)
     real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     real(mytype) :: u_interp_max_norm, xdot_max_norm, coupling_force_max_norm, euler_force_max_norm
-    real(mytype) :: beta_eff, ramp_factor, coupling_step
+    real(mytype) :: beta_eff, ramp_factor, coupling_step, dt_stage
     real(mytype) :: r(3), torque_local(3), omega_dot(3), torque_perp(3), pnorm
     real(mytype) :: omega_norm
     logical :: failed_flag
@@ -158,6 +175,7 @@ contains
     fiber_coupling_force = 0._mytype
 
     coupling_step = real(max(1, itime - ifirst + 1), mytype)
+    dt_stage = gdt(isubstep)
     if (coupling_ramp_steps > 0) then
       ramp_factor = coupling_step / real(coupling_ramp_steps, mytype)
       ramp_factor = min(1._mytype, ramp_factor)
@@ -183,7 +201,9 @@ contains
     torque_local = 0._mytype
     do npts = 1, fiber_nl
       lag_total_local = lag_total_local + fiber_coupling_force(:,npts) * fiber_quad_w(npts)
-      r = fiber_x(:,npts) - fiber_xc
+      r(1) = periodic_delta(fiber_x(1,npts) - fiber_xc(1), xlx)
+      r(2) = fiber_x(2,npts) - fiber_xc(2)
+      r(3) = periodic_delta(fiber_x(3,npts) - fiber_xc(3), zlz)
       torque_local = torque_local + cross_product(r, fiber_coupling_force(:,npts)) * fiber_quad_w(npts)
     enddo
 
@@ -195,10 +215,12 @@ contains
 
     torque_perp = fiber_torque_total - dot_product(fiber_torque_total, fiber_p) * fiber_p
     omega_dot = torque_perp / fiber_inertia_perp
-    fiber_uc = fiber_uc + dt * (fiber_force_total / fiber_mass)
-    fiber_xc = fiber_xc + dt * fiber_uc
-    fiber_omega = fiber_omega + dt * omega_dot
-    fiber_p = fiber_p + dt * cross_product(fiber_omega, fiber_p)
+    fiber_uc = fiber_uc + dt_stage * (fiber_force_total / fiber_mass)
+    fiber_xc = fiber_xc + dt_stage * fiber_uc
+    fiber_xc(1) = wrap_periodic(fiber_xc(1), xlx)
+    fiber_xc(3) = wrap_periodic(fiber_xc(3), zlz)
+    fiber_omega = fiber_omega + dt_stage * omega_dot
+    fiber_p = fiber_p + dt_stage * cross_product(fiber_omega, fiber_p)
     pnorm = sqrt(sum(fiber_p**2))
     if (pnorm > 0._mytype) fiber_p = fiber_p / pnorm
     p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
