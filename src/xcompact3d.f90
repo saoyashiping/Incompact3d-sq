@@ -66,7 +66,7 @@ program xcompact3d
         endif
 
         if (fiber_active .and. rigid_coupling_test_active) then
-           call run_rigid_coupling_step(ux1, uy1, uz1, t, itime)
+           call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
         else if (fiber_active .and. rigid_free_test_active) then
            call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
         endif

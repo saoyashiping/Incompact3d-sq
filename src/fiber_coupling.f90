@@ -25,11 +25,12 @@ module fiber_coupling
 
 contains
 
-  subroutine run_rigid_coupling_step(uxe, uye, uze, time, itime)
+  subroutine run_rigid_coupling_step(uxe, uye, uze, time, itime, isubstep, nsubsteps)
 
     real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
     real(mytype), intent(in) :: time
     integer, intent(in) :: itime
+    integer, intent(in) :: isubstep, nsubsteps
 
     real(mytype) :: slip_max, slip_rms, spacing_error_max
     real(mytype) :: lag_total(3), eul_total(3), abs_force_balance(3)
@@ -143,7 +144,7 @@ contains
       failure_code = 4
     endif
 
-    output_now = (itime == ifirst) .or. (mod(itime, max(1, rigid_output_interval)) == 0)
+    output_now = (isubstep == nsubsteps) .and. ((itime == ifirst) .or. (mod(itime, max(1, rigid_output_interval)) == 0))
     if (failed_flag) output_now = .true.
 
     if (nrank == 0 .and. itime == ifirst) then
