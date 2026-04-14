@@ -20,6 +20,9 @@ module fiber_coupling
 
   implicit none
 
+  real(mytype), allocatable, save :: fiber_coupling_force_prev(:,:)
+  real(mytype), parameter :: coupling_force_relaxation = 0.25_mytype
+
 contains
 
   subroutine run_rigid_coupling_step(uxe, uye, uze, time, itime)
@@ -32,7 +35,7 @@ contains
     real(mytype) :: lag_total(3), eul_total(3), abs_force_balance(3)
     real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     real(mytype) :: u_interp_max_norm, xdot_max_norm, coupling_force_max_norm, euler_force_max_norm
-    real(mytype) :: beta_eff, ramp_factor
+    real(mytype) :: beta_eff, ramp_factor, ramp_linear, relax_alpha
     logical :: failed_flag
     logical :: is_finite
     character(len=64) :: fail_quantity
@@ -56,17 +59,30 @@ contains
     if (.not.allocated(fiber_coupling_force)) allocate(fiber_coupling_force(3, fiber_nl))
     fiber_slip = 0._mytype
     fiber_coupling_force = 0._mytype
+    relax_alpha = max(0._mytype, min(1._mytype, coupling_force_relaxation))
+
+    if (.not.allocated(fiber_coupling_force_prev)) then
+      allocate(fiber_coupling_force_prev(3, fiber_nl))
+      fiber_coupling_force_prev = 0._mytype
+    else if (size(fiber_coupling_force_prev,2) /= fiber_nl) then
+      deallocate(fiber_coupling_force_prev)
+      allocate(fiber_coupling_force_prev(3, fiber_nl))
+      fiber_coupling_force_prev = 0._mytype
+    endif
 
     coupling_step = max(1, itime - ifirst + 1)
     if (coupling_ramp_steps > 0) then
-      ramp_factor = real(coupling_step, mytype) / real(coupling_ramp_steps, mytype)
-      ramp_factor = min(1._mytype, ramp_factor)
+      ramp_linear = real(coupling_step, mytype) / real(coupling_ramp_steps, mytype)
+      ramp_linear = min(1._mytype, ramp_linear)
+      ramp_factor = ramp_linear * ramp_linear * (3._mytype - 2._mytype * ramp_linear)
     else
       ramp_factor = 1._mytype
     endif
     beta_eff = ibm_beta * ramp_factor
     fiber_slip = fiber_uinterp - fiber_xdot
     fiber_coupling_force = beta_eff * fiber_slip
+    fiber_coupling_force = relax_alpha * fiber_coupling_force + (1._mytype - relax_alpha) * fiber_coupling_force_prev
+    fiber_coupling_force_prev = fiber_coupling_force
 
     if (.not.allocated(fiber_euler_force_x)) allocate(fiber_euler_force_x(size(uxe,1), size(uxe,2), size(uxe,3)))
     if (.not.allocated(fiber_euler_force_y)) allocate(fiber_euler_force_y(size(uxe,1), size(uxe,2), size(uxe,3)))
