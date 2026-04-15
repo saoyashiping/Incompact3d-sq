@@ -2,6 +2,7 @@
 
 ! Stage 2.5 one-way rigid kinematics verification input
 ! Case: true simple shear background for mode=1
+! Initial orientation is set to 15 deg to trigger observable tumbling (non-equilibrium start).
 ! dt-half sensitivity case with same final physical time as baseline shear:
 ! baseline  : dt=0.005,  ilast=200
 ! dt-half   : dt=0.0025, ilast=400
@@ -73,7 +74,7 @@ fiber_active = T
 fiber_nl = 9
 fiber_length = 0.8
 fiber_center = 4.0, 1.0, 2.0
-fiber_direction = 1.0, 0.0, 0.0
+fiber_direction = 0.96592583, 0.25881905, 0.0
 interp_test_active = F
 interp_solver_test_active = F
 spread_test_active = F
@@ -83,6 +84,8 @@ rigid_kinematics_test_active = T
 rigid_kinematics_one_way = T
 rigid_kinematics_mode = 1
 rigid_kinematics_shear_rate = 1.0
+rigid_kinematics_poiseuille_umax = 1.0
+rigid_kinematics_channel_height = 2.0
 rigid_kinematics_lambda = 1.0
 rigid_kinematics_output_interval = 20
 /End

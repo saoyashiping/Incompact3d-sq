@@ -10,16 +10,14 @@ module fiber_rigid_kinematics
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use fiber_types, only : fiber_active, fiber_nl, rigid_kinematics_test_active, rigid_kinematics_one_way, &
        rigid_kinematics_mode, rigid_kinematics_output_interval, rigid_kinematics_shear_rate, rigid_kinematics_lambda, &
-       rigid_kinematics_omega_relaxation, rigid_kinematics_omega_max, fiber_x, fiber_xc, fiber_p, fiber_omega, &
-       fiber_xdot, fiber_uinterp, fiber_s_ref, fiber_length
-  use fiber_interp, only : run_fiber_interp_solver_readonly
+       rigid_kinematics_poiseuille_umax, rigid_kinematics_channel_height, fiber_x, fiber_xc, fiber_p, fiber_omega, &
+       fiber_xdot, fiber_uinterp, fiber_s_ref
 
   implicit none
 
   logical, save :: kinematics_initialized = .false.
   real(mytype), save :: fiber_length_ref = 0._mytype
   real(mytype), save :: fiber_p0(3) = 0._mytype
-  real(mytype), save :: fiber_omega_prev(3) = 0._mytype
   integer, save :: mode_case_id = 1
   integer, save :: last_output_itime = -1
 
@@ -111,9 +109,10 @@ contains
 
     call rigid_kinematics_reconstruct_points()
     if (.not.allocated(fiber_xdot)) allocate(fiber_xdot(3, fiber_nl))
+    if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
     fiber_xdot = 0._mytype
+    fiber_uinterp = 0._mytype
     fiber_omega = 0._mytype
-    fiber_omega_prev = 0._mytype
 
     dxp = periodic_delta(fiber_x(1,fiber_nl) - fiber_x(1,1), xlx)
     dyp = fiber_x(2,fiber_nl) - fiber_x(2,1)
@@ -138,7 +137,7 @@ contains
     real(mytype), intent(in) :: time
     integer, intent(in) :: itime, isubstep
 
-    real(mytype) :: dt_stage, ucm(3), pnorm, p_dot(3)
+    real(mytype) :: dt_stage, ucm(3), pnorm, p_dot(3), du_dy
     real(mytype) :: length_error, p_norm_error
 
     if (.not.fiber_active) return
@@ -146,26 +145,19 @@ contains
     if (.not.kinematics_initialized) call rigid_kinematics_init()
 
     call rigid_kinematics_reconstruct_points()
-    select case (rigid_kinematics_mode)
-    case (1)
-      call populate_simple_shear_velocity()
-    case (2, 15, 45, 75)
-      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
-    case default
-      if (nrank == 0) write(*,*) 'Error: rigid_kinematics_mode must be 1 (simple shear) or 2 (poiseuille).'
-      stop
-    end select
+    call populate_analytical_background()
 
     dt_stage = gdt(isubstep)
-    ucm = sum(fiber_uinterp, dim=2) / real(fiber_nl, mytype)
+    call evaluate_background_at_y(fiber_xc(2), ucm, du_dy)
     fiber_xc = fiber_xc + dt_stage * ucm
     fiber_xc(1) = wrap_periodic(fiber_xc(1), xlx)
     fiber_xc(3) = wrap_periodic(fiber_xc(3), zlz)
 
-    call compute_kinematics_one_way(ucm, p_dot)
+    call compute_pdot_from_velocity_gradient(du_dy, p_dot)
     fiber_p = fiber_p + dt_stage * p_dot
     pnorm = sqrt(sum(fiber_p**2))
     if (pnorm > 0._mytype) fiber_p = fiber_p / pnorm
+    fiber_omega = cross_product(fiber_p, p_dot)
 
     call rigid_kinematics_reconstruct_points()
     call rigid_kinematics_diagnostics(length_error, p_norm_error)
@@ -176,66 +168,50 @@ contains
     endif
   end subroutine rigid_kinematics_step
 
-  subroutine populate_simple_shear_velocity()
+  subroutine evaluate_background_at_y(y, u_bg, du_dy)
+    real(mytype), intent(in) :: y
+    real(mytype), intent(out) :: u_bg(3), du_dy
+    real(mytype) :: yhat, h
+
+    u_bg = 0._mytype
+    select case (rigid_kinematics_mode)
+    case (1)
+      du_dy = rigid_kinematics_shear_rate
+      u_bg(1) = rigid_kinematics_shear_rate * y
+    case (2, 15, 45, 75)
+      h = max(rigid_kinematics_channel_height, 1.0e-12_mytype)
+      yhat = 2._mytype * y / h - 1._mytype
+      u_bg(1) = rigid_kinematics_poiseuille_umax * (1._mytype - yhat * yhat)
+      du_dy = -4._mytype * rigid_kinematics_poiseuille_umax * yhat / h
+    case default
+      if (nrank == 0) write(*,*) 'Error: rigid_kinematics_mode must be 1 (simple shear) or 2 (poiseuille).'
+      stop
+    end select
+  end subroutine evaluate_background_at_y
+
+  subroutine populate_analytical_background()
     integer :: l
+    real(mytype) :: du_dy
 
     if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
     do l = 1, fiber_nl
-      fiber_uinterp(1,l) = rigid_kinematics_shear_rate * fiber_x(2,l)
-      fiber_uinterp(2,l) = 0._mytype
-      fiber_uinterp(3,l) = 0._mytype
+      call evaluate_background_at_y(fiber_x(2,l), fiber_uinterp(:,l), du_dy)
     enddo
-  end subroutine populate_simple_shear_velocity
+  end subroutine populate_analytical_background
 
-  subroutine compute_kinematics_one_way(ucm, p_dot)
-    real(mytype), intent(in) :: ucm(3)
+  subroutine compute_pdot_from_velocity_gradient(du_dy, p_dot)
+    real(mytype), intent(in) :: du_dy
     real(mytype), intent(out) :: p_dot(3)
-    integer :: l
-    real(mytype) :: du(3), r(3), numer(3), denom
-    real(mytype) :: alpha_omega, omega_norm, omega_limit
     real(mytype) :: grad_u(3,3), e_tensor(3,3), w_tensor(3,3), ep(3), pep
 
-    select case (rigid_kinematics_mode)
-    case (1)
-      grad_u = 0._mytype
-      grad_u(1,2) = rigid_kinematics_shear_rate
-      e_tensor = 0.5_mytype * (grad_u + transpose(grad_u))
-      w_tensor = 0.5_mytype * (grad_u - transpose(grad_u))
-      ep = matmul(e_tensor, fiber_p)
-      pep = dot_product(fiber_p, ep)
-      p_dot = matmul(w_tensor, fiber_p) + rigid_kinematics_lambda * (ep - pep * fiber_p)
-      fiber_omega = cross_product(fiber_p, p_dot)
-      fiber_omega_prev = fiber_omega
-    case (2, 15, 45, 75)
-      numer = 0._mytype
-      denom = 0._mytype
-      do l = 1, fiber_nl
-        r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
-        r(2) = fiber_x(2,l) - fiber_xc(2)
-        r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
-        du = fiber_uinterp(:,l) - ucm
-        numer = numer + cross_product(r, du)
-        denom = denom + dot_product(r, r)
-      enddo
-      if (denom > 1.0e-20_mytype) then
-        fiber_omega = numer / denom
-      else
-        fiber_omega = 0._mytype
-      endif
-      alpha_omega = max(0._mytype, min(1._mytype, rigid_kinematics_omega_relaxation))
-      fiber_omega = alpha_omega * fiber_omega + (1._mytype - alpha_omega) * fiber_omega_prev
-      omega_limit = max(0._mytype, rigid_kinematics_omega_max)
-      omega_norm = sqrt(sum(fiber_omega**2))
-      if (omega_limit > 0._mytype .and. omega_norm > omega_limit) then
-        fiber_omega = fiber_omega * (omega_limit / omega_norm)
-      endif
-      fiber_omega_prev = fiber_omega
-      p_dot = cross_product(fiber_omega, fiber_p)
-    case default
-      if (nrank == 0) write(*,*) 'Error: rigid_kinematics_mode must be 1 (shear) or 2 (poiseuille).'
-      stop
-    end select
-  end subroutine compute_kinematics_one_way
+    grad_u = 0._mytype
+    grad_u(1,2) = du_dy
+    e_tensor = 0.5_mytype * (grad_u + transpose(grad_u))
+    w_tensor = 0.5_mytype * (grad_u - transpose(grad_u))
+    ep = matmul(e_tensor, fiber_p)
+    pep = dot_product(fiber_p, ep)
+    p_dot = matmul(w_tensor, fiber_p) + rigid_kinematics_lambda * (ep - pep * fiber_p)
+  end subroutine compute_pdot_from_velocity_gradient
 
   subroutine rigid_kinematics_update_point_velocity(ucm)
     real(mytype), intent(in) :: ucm(3)

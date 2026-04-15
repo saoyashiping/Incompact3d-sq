@@ -79,7 +79,9 @@ rigid_free_test_active = F
 rigid_kinematics_test_active = T
 rigid_kinematics_one_way = T
 rigid_kinematics_mode = 2
-rigid_kinematics_omega_relaxation = 0.15
-rigid_kinematics_omega_max = 10.0
+rigid_kinematics_shear_rate = 1.0
+rigid_kinematics_poiseuille_umax = 1.0
+rigid_kinematics_channel_height = 2.0
+rigid_kinematics_lambda = 1.0
 rigid_kinematics_output_interval = 20
 /End
