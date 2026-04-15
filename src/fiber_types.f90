@@ -35,6 +35,9 @@ module fiber_types
   integer :: rigid_free_case
   integer :: rigid_kinematics_mode
   real(mytype) :: rigid_kinematics_shear_rate
+  real(mytype) :: rigid_kinematics_lambda
+  real(mytype) :: rigid_kinematics_omega_relaxation
+  real(mytype) :: rigid_kinematics_omega_max
   real(mytype) :: ibm_beta
   integer :: coupling_ramp_steps
   integer :: rigid_output_interval
@@ -83,6 +86,9 @@ contains
     rigid_free_case = 1
     rigid_kinematics_mode = 1
     rigid_kinematics_shear_rate = 1._mytype
+    rigid_kinematics_lambda = 1._mytype
+    rigid_kinematics_omega_relaxation = 0.15_mytype
+    rigid_kinematics_omega_max = 10._mytype
     ibm_beta = -1.0e3_mytype
     coupling_ramp_steps = 0
     rigid_output_interval = 1

@@ -80,5 +80,6 @@ rigid_kinematics_test_active = T
 rigid_kinematics_one_way = T
 rigid_kinematics_mode = 1
 rigid_kinematics_shear_rate = 1.0
+rigid_kinematics_lambda = 1.0
 rigid_kinematics_output_interval = 20
 /End
