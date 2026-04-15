@@ -34,12 +34,21 @@ subroutine parameter(input_i3d)
 
   use mhd, only : mhd_equation,hartmann,stuart,rem
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
+  use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
+       interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
+       spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
+       rigid_kinematics_test_active, rigid_kinematics_one_way, rigid_kinematics_standalone, &
+       rigid_motion_case, rigid_free_case, &
+       rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
+       rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
+       rigid_output_interval, rigid_kinematics_output_interval, &
+       free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
 
   implicit none
 
   character(len=80), intent(in) :: input_i3d
   real(mytype) :: theta, cfl,cf2
-  integer :: longueur ,impi,j, is, total, ierr
+  integer :: longueur ,impi,j, is, total, ierr, ios_fiber, fiberparam_count
 
   NAMELIST /BasicParam/ p_row, p_col, nx, ny, nz, istret, beta, xlx, yly, zlz, &
        itype, iin, re, u1, u2, init_noise, inflow_noise, &
@@ -84,6 +93,15 @@ subroutine parameter(input_i3d)
      nclxBy1, nclxByn, nclyBy1, nclyByn, nclzBy1, nclzByn, &
      nclxBz1, nclxBzn, nclyBz1, nclyBzn, nclzBz1, nclzBzn
   NAMELIST/ParTrack/initype_particle,n_particles,bc_particle,particle_inject_period
+  NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
+       interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
+       spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
+       rigid_kinematics_test_active,rigid_kinematics_one_way,rigid_kinematics_standalone, &
+       rigid_motion_case,rigid_free_case, &
+       rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
+       rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
+       rigid_output_interval,free_output_interval, &
+       rigid_kinematics_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega
 
 
 #ifdef DEBG
@@ -238,6 +256,23 @@ subroutine parameter(input_i3d)
 
    if(particle_active) then
     read(10, nml=ParTrack); rewind(10) 
+   endif
+
+   rewind(10)
+   fiberparam_count = 0
+   do
+      read(10, nml=FiberParam, iostat=ios_fiber)
+      if (ios_fiber == 0) then
+         fiberparam_count = fiberparam_count + 1
+      else if (ios_fiber == iostat_end) then
+         exit
+      else
+         exit
+      endif
+   enddo
+   rewind(10)
+   if (nrank == 0 .and. fiberparam_count > 1) then
+      write(*,*) 'Warning: multiple &FiberParam blocks found; later blocks override earlier ones'
    endif
 
   ! !! These are the 'optional'/model parameters
@@ -690,6 +725,7 @@ subroutine parameter_defaults()
 
   use mhd, only: mhd_equation, rem, stuart, hartmann 
   use particle, only : initype_particle,n_particles,bc_particle,particle_inject_period
+  use fiber_types, only : fiber_set_defaults
 
   implicit none
 
@@ -727,6 +763,8 @@ subroutine parameter_defaults()
   n_particles = 0
   bc_particle = (/"periodic","periodic","periodic","periodic","periodic","periodic"/)
   particle_inject_period = 0.0
+
+  call fiber_set_defaults()
 
   !! LES stuff
   smagwalldamp=1
