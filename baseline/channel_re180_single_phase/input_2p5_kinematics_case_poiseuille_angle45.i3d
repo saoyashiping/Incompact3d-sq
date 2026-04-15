@@ -1,0 +1,87 @@
+! -*- mode: f90 -*-
+
+! Stage 2.5 one-way rigid kinematics verification input
+! Case: Poiseuille/channel background sampled from solver field for mode=2
+
+&BasicParam
+itype = 3
+p_row=0
+p_col=0
+nx=128
+ny=65
+nz=64
+istret = 2
+beta = 0.259065151
+xlx = 8.
+yly = 2.
+zlz = 4.
+re  = 180.
+cpg = F
+dt = 0.005
+ifirst = 1
+ilast = 200
+ilesmod=0
+numscalar = 0
+iibm=0
+iin = 1
+u1  = 1.
+u2  = 1.
+init_noise = 0.0
+inflow_noise = 0.0
+idir_stream  = 1
+nclx1 = 0
+nclxn = 0
+ncly1 = 2
+nclyn = 2
+nclz1 = 0
+nclzn = 0
+/End
+
+&NumOptions
+ifirstder = 4
+isecondder = 5
+ipinter = 3
+iimplicit = 0
+itimescheme = 5
+nu0nu = 4.0
+cnu = 0.44
+/End
+
+&InOutParam
+irestart = 0
+icheckpoint = 5000
+ioutput = 10000
+ilist    = 25
+nvisu = 1
+/End
+
+&Statistics
+wrotation = 0.0
+spinup_time = 0
+nstat = 1
+initstat = 0
+/End
+
+&CASE
+/End
+
+&FiberParam
+fiber_active = T
+fiber_nl = 9
+fiber_length = 0.8
+fiber_center = 4.0, 1.0, 2.0
+fiber_direction = 0.70710678, 0.70710678, 0.0
+interp_test_active = F
+interp_solver_test_active = F
+spread_test_active = F
+rigid_coupling_test_active = F
+rigid_free_test_active = F
+rigid_kinematics_test_active = T
+rigid_kinematics_one_way = T
+rigid_kinematics_mode = 2
+rigid_kinematics_shear_rate = 1.0
+rigid_kinematics_poiseuille_umax = 1.0
+rigid_kinematics_channel_height = 2.0
+rigid_kinematics_lambda = 1.0
+rigid_kinematics_output_interval = 20
+/End
