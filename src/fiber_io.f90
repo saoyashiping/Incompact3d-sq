@@ -399,9 +399,11 @@ contains
       open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
     else
       open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'itime time lag_total_Fx lag_total_Fy lag_total_Fz eul_total_Fx eul_total_Fy eul_total_Fz ' // &
-           'abs_force_balance_Fx abs_force_balance_Fy abs_force_balance_Fz dt_stage lag_impulse_x lag_impulse_y lag_impulse_z ' // &
-           'fluid_momentum_delta_x fluid_momentum_delta_y fluid_momentum_delta_z'
+      write(ifile,'(A)') 'itime time lag_total_force_x lag_total_force_y lag_total_force_z ' // &
+           'euler_total_force_x euler_total_force_y euler_total_force_z ' // &
+           'abs_force_balance_x abs_force_balance_y abs_force_balance_z dt_stage ' // &
+           'lag_impulse_x lag_impulse_y lag_impulse_z ' // &
+           'euler_feedback_impulse_x euler_feedback_impulse_y euler_feedback_impulse_z'
     endif
 
     write(ifile,'(I10,1X,18(ES24.16,1X))') itime, time, lag_total(1), lag_total(2), lag_total(3), eul_total(1), &

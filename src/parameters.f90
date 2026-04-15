@@ -42,6 +42,7 @@ subroutine parameter(input_i3d)
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
        rigid_output_interval, rigid_kinematics_output_interval, rigid_two_way_output_interval, &
+       rigid_two_way_force_relaxation, &
        free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
 
   implicit none
@@ -100,7 +101,7 @@ subroutine parameter(input_i3d)
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
-       rigid_output_interval,free_output_interval,rigid_two_way_output_interval, &
+       rigid_output_interval,free_output_interval,rigid_two_way_output_interval,rigid_two_way_force_relaxation, &
        rigid_kinematics_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega
 
 
