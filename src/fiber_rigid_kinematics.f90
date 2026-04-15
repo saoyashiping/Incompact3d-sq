@@ -40,6 +40,15 @@ contains
     c(3) = a(1) * b(2) - a(2) * b(1)
   end function cross_product
 
+  pure real(mytype) function periodic_delta(delta, period_length)
+    real(mytype), intent(in) :: delta, period_length
+    periodic_delta = delta
+    if (period_length > 0._mytype) then
+      if (periodic_delta >  0.5_mytype * period_length) periodic_delta = periodic_delta - period_length
+      if (periodic_delta < -0.5_mytype * period_length) periodic_delta = periodic_delta + period_length
+    endif
+  end function periodic_delta
+
   integer pure function infer_case_id(mode_value, p0) result(case_id)
     integer, intent(in) :: mode_value
     real(mytype), intent(in) :: p0(3)
@@ -79,6 +88,7 @@ contains
   subroutine rigid_kinematics_init()
     real(mytype) :: pnorm
     character(len=64) :: tag_check
+    real(mytype) :: dxp, dyp, dzp
 
     if (.not.fiber_active) return
     if (.not.rigid_kinematics_test_active) return
@@ -102,7 +112,10 @@ contains
     fiber_xdot = 0._mytype
     fiber_omega = 0._mytype
 
-    fiber_length_ref = sqrt(sum((fiber_x(:,fiber_nl) - fiber_x(:,1))**2))
+    dxp = periodic_delta(fiber_x(1,fiber_nl) - fiber_x(1,1), xlx)
+    dyp = fiber_x(2,fiber_nl) - fiber_x(2,1)
+    dzp = periodic_delta(fiber_x(3,fiber_nl) - fiber_x(3,1), zlz)
+    fiber_length_ref = sqrt(dxp * dxp + dyp * dyp + dzp * dzp)
     kinematics_initialized = .true.
     last_output_itime = -1
   end subroutine rigid_kinematics_init
@@ -122,7 +135,7 @@ contains
     real(mytype), intent(in) :: time
     integer, intent(in) :: itime, isubstep
 
-    real(mytype) :: dt_stage, ucm(3), grad_along(3), pnorm
+    real(mytype) :: dt_stage, ucm(3), pnorm
     real(mytype) :: length_error, p_norm_error
 
     if (.not.fiber_active) return
@@ -138,8 +151,7 @@ contains
     fiber_xc(1) = wrap_periodic(fiber_xc(1), xlx)
     fiber_xc(3) = wrap_periodic(fiber_xc(3), zlz)
 
-    grad_along = (fiber_uinterp(:,fiber_nl) - fiber_uinterp(:,1)) / max(fiber_length, 1.0e-12_mytype)
-    fiber_omega = cross_product(fiber_p, grad_along)
+    call compute_omega_one_way(ucm)
     fiber_p = fiber_p + dt_stage * cross_product(fiber_omega, fiber_p)
     pnorm = sqrt(sum(fiber_p**2))
     if (pnorm > 0._mytype) fiber_p = fiber_p / pnorm
@@ -153,6 +165,37 @@ contains
     endif
   end subroutine rigid_kinematics_step
 
+  subroutine compute_omega_one_way(ucm)
+    real(mytype), intent(in) :: ucm(3)
+    integer :: l
+    real(mytype) :: grad_along(3), du(3), r(3), numer(3), denom
+
+    select case (rigid_kinematics_mode)
+    case (1)
+      grad_along = (fiber_uinterp(:,fiber_nl) - fiber_uinterp(:,1)) / max(fiber_length, 1.0e-12_mytype)
+      fiber_omega = cross_product(fiber_p, grad_along)
+    case (2, 15, 45, 75)
+      numer = 0._mytype
+      denom = 0._mytype
+      do l = 1, fiber_nl
+        r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+        r(2) = fiber_x(2,l) - fiber_xc(2)
+        r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
+        du = fiber_uinterp(:,l) - ucm
+        numer = numer + cross_product(r, du)
+        denom = denom + dot_product(r, r)
+      enddo
+      if (denom > 1.0e-20_mytype) then
+        fiber_omega = numer / denom
+      else
+        fiber_omega = 0._mytype
+      endif
+    case default
+      if (nrank == 0) write(*,*) 'Error: rigid_kinematics_mode must be 1 (shear) or 2 (poiseuille).'
+      stop
+    end select
+  end subroutine compute_omega_one_way
+
   subroutine rigid_kinematics_update_point_velocity(ucm)
     real(mytype), intent(in) :: ucm(3)
     integer :: l
@@ -160,16 +203,21 @@ contains
 
     if (.not.allocated(fiber_xdot)) allocate(fiber_xdot(3, fiber_nl))
     do l = 1, fiber_nl
-      r = fiber_x(:,l) - fiber_xc
+      r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+      r(2) = fiber_x(2,l) - fiber_xc(2)
+      r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
       fiber_xdot(:,l) = ucm + cross_product(fiber_omega, r)
     enddo
   end subroutine rigid_kinematics_update_point_velocity
 
   subroutine rigid_kinematics_diagnostics(length_error, p_norm_error)
     real(mytype), intent(out) :: length_error, p_norm_error
-    real(mytype) :: length_now
+    real(mytype) :: length_now, dxp, dyp, dzp
 
-    length_now = sqrt(sum((fiber_x(:,fiber_nl) - fiber_x(:,1))**2))
+    dxp = periodic_delta(fiber_x(1,fiber_nl) - fiber_x(1,1), xlx)
+    dyp = fiber_x(2,fiber_nl) - fiber_x(2,1)
+    dzp = periodic_delta(fiber_x(3,fiber_nl) - fiber_x(3,1), zlz)
+    length_now = sqrt(dxp * dxp + dyp * dyp + dzp * dzp)
     length_error = abs(length_now - fiber_length_ref)
     p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
   end subroutine rigid_kinematics_diagnostics
