@@ -6,7 +6,7 @@ module fiber_rigid_kinematics
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
-  use param, only : dt, ifirst, xlx, zlz, gdt
+  use param, only : dt, ifirst, ilast, xlx, zlz, gdt
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use fiber_types, only : fiber_active, fiber_nl, rigid_kinematics_test_active, rigid_kinematics_one_way, &
        rigid_kinematics_mode, rigid_kinematics_output_interval, fiber_x, fiber_xc, fiber_p, fiber_omega, fiber_xdot, &
@@ -18,6 +18,7 @@ module fiber_rigid_kinematics
   logical, save :: kinematics_initialized = .false.
   real(mytype), save :: fiber_length_ref = 0._mytype
   real(mytype), save :: fiber_p0(3) = 0._mytype
+  integer, save :: mode_case_id = 1
   integer, save :: last_output_itime = -1
 
 contains
@@ -39,8 +40,45 @@ contains
     c(3) = a(1) * b(2) - a(2) * b(1)
   end function cross_product
 
+  integer pure function infer_case_id(mode_value, p0) result(case_id)
+    integer, intent(in) :: mode_value
+    real(mytype), intent(in) :: p0(3)
+    real(mytype) :: angle_deg
+
+    case_id = mode_value
+    if (mode_value == 2) then
+      angle_deg = acos(max(-1._mytype, min(1._mytype, p0(1)))) * 180._mytype / acos(-1._mytype)
+      if (abs(angle_deg - 15._mytype) < 5._mytype) case_id = 15
+      if (abs(angle_deg - 45._mytype) < 5._mytype) case_id = 45
+      if (abs(angle_deg - 75._mytype) < 5._mytype) case_id = 75
+    endif
+  end function infer_case_id
+
+  subroutine fill_case_tag(case_id, tag)
+    integer, intent(in) :: case_id
+    character(len=*), intent(out) :: tag
+
+    select case (case_id)
+    case (1)
+      tag = 'case_shear'
+    case (15)
+      tag = 'case_poiseuille_angle15'
+    case (45)
+      tag = 'case_poiseuille_angle45'
+    case (75)
+      tag = 'case_poiseuille_angle75'
+    case default
+      if (nrank == 0) then
+        write(*,*) 'Error: rigid_kinematics_mode must map to shear(1) or poiseuille angles.'
+        write(*,*) 'Allowed values: 15/45/75 or mode=2 with those initial angles.'
+      endif
+      stop
+    end select
+  end subroutine fill_case_tag
+
   subroutine rigid_kinematics_init()
     real(mytype) :: pnorm
+    character(len=64) :: tag_check
 
     if (.not.fiber_active) return
     if (.not.rigid_kinematics_test_active) return
@@ -56,6 +94,8 @@ contains
     endif
     fiber_p = fiber_p / pnorm
     fiber_p0 = fiber_p
+    mode_case_id = infer_case_id(rigid_kinematics_mode, fiber_p0)
+    call fill_case_tag(mode_case_id, tag_check)
 
     call rigid_kinematics_reconstruct_points()
     if (.not.allocated(fiber_xdot)) allocate(fiber_xdot(3, fiber_nl))
@@ -108,6 +148,9 @@ contains
     call rigid_kinematics_diagnostics(length_error, p_norm_error)
     call rigid_kinematics_update_point_velocity(ucm)
     call write_kinematics_outputs(itime, time, length_error, p_norm_error)
+    if (isubstep == size(gdt) .and. itime == ilast) then
+      call write_dt_sensitivity_summary(time, length_error, p_norm_error)
+    endif
   end subroutine rigid_kinematics_step
 
   subroutine rigid_kinematics_update_point_velocity(ucm)
@@ -145,13 +188,7 @@ contains
     if (.not.all(ieee_is_finite((/time, fiber_xc(1), fiber_xc(2), fiber_xc(3), fiber_p(1), fiber_p(2), fiber_p(3), &
          fiber_omega(1), fiber_omega(2), fiber_omega(3), length_error, p_norm_error/)))) return
 
-    select case (rigid_kinematics_mode)
-    case (1)
-      tag = 'case_shear'
-    case default
-      write(tag,'(A,F5.2)') 'case_poiseuille_angle', acos(max(-1._mytype, min(1._mytype, dot_product(fiber_p0, (/1._mytype,0._mytype,0._mytype/))))) * 180._mytype / acos(-1._mytype)
-      tag = adjustl(tag)
-    end select
+    call fill_case_tag(mode_case_id, tag)
 
     file_traj = 'xcm_trajectory_' // trim(tag) // '.dat'
     file_orient = 'orientation_series_' // trim(tag) // '.dat'
@@ -180,5 +217,30 @@ contains
 
     last_output_itime = itime
   end subroutine write_kinematics_outputs
+
+  subroutine write_dt_sensitivity_summary(time, length_error, p_norm_error)
+    real(mytype), intent(in) :: time, length_error, p_norm_error
+    integer :: ifile_dt
+    logical :: exists_dt
+    character(len=64) :: tag
+    character(len=256) :: file_dt
+
+    if (nrank /= 0) return
+
+    call fill_case_tag(mode_case_id, tag)
+    file_dt = 'dt_sensitivity_summary.dat'
+
+    inquire(file=trim(file_dt), exist=exists_dt)
+    if (exists_dt) then
+      open(newunit=ifile_dt, file=trim(file_dt), status='old', action='write', position='append')
+    else
+      open(newunit=ifile_dt, file=trim(file_dt), status='replace', action='write')
+      write(ifile_dt,'(A)') &
+           'case_tag dt time_final xcm_x xcm_y xcm_z p_x p_y p_z omega_x omega_y omega_z length_error p_norm_error'
+    endif
+    write(ifile_dt,'(A,1X,13(ES24.16,1X))') trim(tag), dt, time, fiber_xc(1), fiber_xc(2), fiber_xc(3), &
+         fiber_p(1), fiber_p(2), fiber_p(3), fiber_omega(1), fiber_omega(2), fiber_omega(3), length_error, p_norm_error
+    close(ifile_dt)
+  end subroutine write_dt_sensitivity_summary
 
 end module fiber_rigid_kinematics
