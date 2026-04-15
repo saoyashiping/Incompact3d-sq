@@ -30,6 +30,7 @@ module fiber_types
   logical :: rigid_coupling_test_active
   logical :: rigid_free_test_active
   logical :: rigid_kinematics_test_active
+  logical :: rigid_two_way_test_active
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -44,6 +45,7 @@ module fiber_types
   integer :: rigid_output_interval
   integer :: free_output_interval
   integer :: rigid_kinematics_output_interval
+  integer :: rigid_two_way_output_interval
   real(mytype) :: fiber_mass
   real(mytype) :: fiber_inertia_perp
   real(mytype), dimension(3) :: rigid_translation_velocity
@@ -82,6 +84,7 @@ contains
     rigid_coupling_test_active = .false.
     rigid_free_test_active = .false.
     rigid_kinematics_test_active = .false.
+    rigid_two_way_test_active = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -96,6 +99,7 @@ contains
     rigid_output_interval = 1
     free_output_interval = 1
     rigid_kinematics_output_interval = 1
+    rigid_two_way_output_interval = 1
     fiber_mass = 1._mytype
     fiber_inertia_perp = 1._mytype
     rigid_translation_velocity = 0._mytype

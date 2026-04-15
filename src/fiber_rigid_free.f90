@@ -10,7 +10,7 @@ module fiber_rigid_free
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use param, only : ifirst, xlx, zlz, gdt
   use variables, only : xp, yp, zp
-  use fiber_types, only : fiber_active, fiber_nl, rigid_free_test_active, rigid_free_case, ibm_beta, &
+  use fiber_types, only : fiber_active, fiber_nl, rigid_free_test_active, rigid_two_way_test_active, rigid_free_case, ibm_beta, &
        coupling_ramp_steps, free_output_interval, fiber_mass, fiber_inertia_perp, fiber_x, fiber_s_ref, &
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, fiber_uinterp, &
        fiber_slip, fiber_coupling_force, fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z
@@ -62,7 +62,7 @@ contains
     real(mytype) :: p_norm
 
     if (.not.fiber_active) return
-    if (.not.rigid_free_test_active) return
+    if (.not.rigid_free_test_active .and. .not.rigid_two_way_test_active) return
 
     if (.not.allocated(fiber_s_ref)) then
       if (nrank == 0) write(*,*) 'Error: fiber_s_ref is not allocated in init_rigid_free_state.'
@@ -70,18 +70,18 @@ contains
     endif
 
     if (fiber_mass <= 0._mytype) then
-      if (nrank == 0) write(*,*) 'Error: fiber_mass must be > 0 for rigid free test.'
+      if (nrank == 0) write(*,*) 'Error: fiber_mass must be > 0 for rigid rigid-body tests.'
       stop
     endif
 
     if (fiber_inertia_perp <= 0._mytype) then
-      if (nrank == 0) write(*,*) 'Error: fiber_inertia_perp must be > 0 for rigid free test.'
+      if (nrank == 0) write(*,*) 'Error: fiber_inertia_perp must be > 0 for rigid rigid-body tests.'
       stop
     endif
 
     p_norm = sqrt(sum(fiber_p**2))
     if (p_norm <= 0._mytype) then
-      if (nrank == 0) write(*,*) 'Error: fiber_p must be non-zero for rigid free test.'
+      if (nrank == 0) write(*,*) 'Error: fiber_p must be non-zero for rigid rigid-body tests.'
       stop
     endif
     fiber_p = fiber_p / p_norm
