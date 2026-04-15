@@ -21,11 +21,12 @@ program xcompact3d
   use param, only : mhd_active
   use particle, only : intt_particles
   use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
-       rigid_coupling_test_active, rigid_free_test_active
+       rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
   use fiber_coupling, only : run_rigid_coupling_step
   use fiber_rigid_free, only : run_rigid_free_step
+  use fiber_rigid_kinematics, only : rigid_kinematics_step
 
   implicit none
 
@@ -69,6 +70,8 @@ program xcompact3d
            call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
         else if (fiber_active .and. rigid_free_test_active) then
            call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+        else if (fiber_active .and. rigid_kinematics_test_active) then
+           call rigid_kinematics_step(ux1, uy1, uz1, t, itime, itr)
         endif
         call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
@@ -168,7 +171,7 @@ subroutine init_xcompact3d()
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
   use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
-       spread_test_active, rigid_coupling_test_active, rigid_free_test_active
+       spread_test_active, rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active
   use fiber_init, only : init_fiber
   use fiber_rigid_motion, only : init_rigid_motion_reference
   use fiber_rigid_free, only : init_rigid_free_state
@@ -240,8 +243,20 @@ subroutine init_xcompact3d()
      stop
   endif
 
+  if (rigid_kinematics_test_active .and. (interp_test_active .or. interp_solver_test_active .or. spread_test_active)) then
+     if (nrank == 0) write(*,*) "Error: rigid_kinematics_test_active cannot be combined with interpolation or spread test modes."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
   if (rigid_coupling_test_active .and. rigid_free_test_active) then
      if (nrank == 0) write(*,*) "Error: rigid_coupling_test_active and rigid_free_test_active cannot both be true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_kinematics_test_active .and. (rigid_coupling_test_active .or. rigid_free_test_active)) then
+     if (nrank == 0) write(*,*) "Error: rigid_kinematics_test_active cannot be combined with rigid_coupling_test_active or rigid_free_test_active."
      call MPI_FINALIZE(ierr)
      stop
   endif
@@ -254,6 +269,12 @@ subroutine init_xcompact3d()
 
   if (rigid_free_test_active .and. .not.fiber_active) then
      if (nrank == 0) write(*,*) "Error: rigid_free_test_active requires fiber_active = true."
+     call MPI_FINALIZE(ierr)
+     stop
+  endif
+
+  if (rigid_kinematics_test_active .and. .not.fiber_active) then
+     if (nrank == 0) write(*,*) "Error: rigid_kinematics_test_active requires fiber_active = true."
      call MPI_FINALIZE(ierr)
      stop
   endif

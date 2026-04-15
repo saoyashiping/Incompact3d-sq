@@ -29,12 +29,16 @@ module fiber_types
   integer :: spread_test_case
   logical :: rigid_coupling_test_active
   logical :: rigid_free_test_active
+  logical :: rigid_kinematics_test_active
+  logical :: rigid_kinematics_one_way
   integer :: rigid_motion_case
   integer :: rigid_free_case
+  integer :: rigid_kinematics_mode
   real(mytype) :: ibm_beta
   integer :: coupling_ramp_steps
   integer :: rigid_output_interval
   integer :: free_output_interval
+  integer :: rigid_kinematics_output_interval
   real(mytype) :: fiber_mass
   real(mytype) :: fiber_inertia_perp
   real(mytype), dimension(3) :: rigid_translation_velocity
@@ -72,12 +76,16 @@ contains
     spread_test_case = 1
     rigid_coupling_test_active = .false.
     rigid_free_test_active = .false.
+    rigid_kinematics_test_active = .false.
+    rigid_kinematics_one_way = .true.
     rigid_motion_case = 1
     rigid_free_case = 1
+    rigid_kinematics_mode = 1
     ibm_beta = -1.0e3_mytype
     coupling_ramp_steps = 0
     rigid_output_interval = 1
     free_output_interval = 1
+    rigid_kinematics_output_interval = 1
     fiber_mass = 1._mytype
     fiber_inertia_perp = 1._mytype
     rigid_translation_velocity = 0._mytype
