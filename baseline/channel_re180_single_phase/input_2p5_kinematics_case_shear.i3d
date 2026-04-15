@@ -79,6 +79,7 @@ rigid_coupling_test_active = F
 rigid_free_test_active = F
 rigid_kinematics_test_active = T
 rigid_kinematics_one_way = T
+rigid_kinematics_standalone = T
 rigid_kinematics_mode = 1
 rigid_kinematics_shear_rate = 1.0
 rigid_kinematics_poiseuille_umax = 1.0

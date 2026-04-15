@@ -37,7 +37,8 @@ subroutine parameter(input_i3d)
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
        spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
-       rigid_kinematics_test_active, rigid_kinematics_one_way, rigid_motion_case, rigid_free_case, &
+       rigid_kinematics_test_active, rigid_kinematics_one_way, rigid_kinematics_standalone, &
+       rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
        rigid_output_interval, rigid_kinematics_output_interval, &
@@ -95,7 +96,8 @@ subroutine parameter(input_i3d)
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
        spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
-       rigid_kinematics_test_active,rigid_kinematics_one_way,rigid_motion_case,rigid_free_case, &
+       rigid_kinematics_test_active,rigid_kinematics_one_way,rigid_kinematics_standalone, &
+       rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
        rigid_output_interval,free_output_interval, &

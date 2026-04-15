@@ -31,6 +31,7 @@ module fiber_types
   logical :: rigid_free_test_active
   logical :: rigid_kinematics_test_active
   logical :: rigid_kinematics_one_way
+  logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
   integer :: rigid_free_case
   integer :: rigid_kinematics_mode
@@ -82,6 +83,7 @@ contains
     rigid_free_test_active = .false.
     rigid_kinematics_test_active = .false.
     rigid_kinematics_one_way = .true.
+    rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
     rigid_free_case = 1
     rigid_kinematics_mode = 1
