@@ -9,8 +9,8 @@ module fiber_rigid_kinematics
   use param, only : dt, ifirst, ilast, xlx, zlz, gdt
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
   use fiber_types, only : fiber_active, fiber_nl, rigid_kinematics_test_active, rigid_kinematics_one_way, &
-       rigid_kinematics_mode, rigid_kinematics_output_interval, fiber_x, fiber_xc, fiber_p, fiber_omega, fiber_xdot, &
-       fiber_uinterp, fiber_s_ref, fiber_length
+       rigid_kinematics_mode, rigid_kinematics_output_interval, rigid_kinematics_shear_rate, fiber_x, fiber_xc, &
+       fiber_p, fiber_omega, fiber_xdot, fiber_uinterp, fiber_s_ref, fiber_length
   use fiber_interp, only : run_fiber_interp_solver_readonly
 
   implicit none
@@ -143,7 +143,15 @@ contains
     if (.not.kinematics_initialized) call rigid_kinematics_init()
 
     call rigid_kinematics_reconstruct_points()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    select case (rigid_kinematics_mode)
+    case (1)
+      call populate_simple_shear_velocity()
+    case (2, 15, 45, 75)
+      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    case default
+      if (nrank == 0) write(*,*) 'Error: rigid_kinematics_mode must be 1 (simple shear) or 2 (poiseuille).'
+      stop
+    end select
 
     dt_stage = gdt(isubstep)
     ucm = sum(fiber_uinterp, dim=2) / real(fiber_nl, mytype)
@@ -164,6 +172,17 @@ contains
       call write_dt_sensitivity_summary(time, length_error, p_norm_error)
     endif
   end subroutine rigid_kinematics_step
+
+  subroutine populate_simple_shear_velocity()
+    integer :: l
+
+    if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
+    do l = 1, fiber_nl
+      fiber_uinterp(1,l) = rigid_kinematics_shear_rate * fiber_x(2,l)
+      fiber_uinterp(2,l) = 0._mytype
+      fiber_uinterp(3,l) = 0._mytype
+    enddo
+  end subroutine populate_simple_shear_velocity
 
   subroutine compute_omega_one_way(ucm)
     real(mytype), intent(in) :: ucm(3)

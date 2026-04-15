@@ -1,6 +1,7 @@
 ! -*- mode: f90 -*-
 
 ! Stage 2.5 one-way rigid kinematics verification input
+! Case: Poiseuille/channel background sampled from solver field for mode=2
 
 &BasicParam
 itype = 3

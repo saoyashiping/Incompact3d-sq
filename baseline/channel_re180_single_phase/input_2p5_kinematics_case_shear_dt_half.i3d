@@ -1,6 +1,10 @@
 ! -*- mode: f90 -*-
 
 ! Stage 2.5 one-way rigid kinematics verification input
+! Case: true simple shear background for mode=1
+! dt-half sensitivity case with same final physical time as baseline shear:
+! baseline  : dt=0.005,  ilast=200
+! dt-half   : dt=0.0025, ilast=400
 
 &BasicParam
 itype = 3
@@ -18,7 +22,7 @@ re  = 180.
 cpg = F
 dt = 0.0025
 ifirst = 1
-ilast = 200
+ilast = 400
 ilesmod=0
 numscalar = 0
 iibm=0
@@ -78,5 +82,6 @@ rigid_free_test_active = F
 rigid_kinematics_test_active = T
 rigid_kinematics_one_way = T
 rigid_kinematics_mode = 1
+rigid_kinematics_shear_rate = 1.0
 rigid_kinematics_output_interval = 20
 /End
