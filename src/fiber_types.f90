@@ -49,6 +49,9 @@ module fiber_types
   real(mytype) :: rigid_two_way_force_relaxation
   real(mytype) :: rigid_two_way_velocity_relaxation
   real(mytype) :: rigid_two_way_omega_relaxation
+  integer :: rigid_two_way_subiterations
+  real(mytype) :: rigid_two_way_subiter_slip_tol
+  logical :: rigid_two_way_subiter_verbose
   logical :: rigid_two_way_startup_fit
   logical :: rigid_two_way_initialized
   real(mytype) :: fiber_mass
@@ -108,6 +111,9 @@ contains
     rigid_two_way_force_relaxation = 0.25_mytype
     rigid_two_way_velocity_relaxation = 0.10_mytype
     rigid_two_way_omega_relaxation = 0.10_mytype
+    rigid_two_way_subiterations = 2
+    rigid_two_way_subiter_slip_tol = 1.0e-3_mytype
+    rigid_two_way_subiter_verbose = .false.
     rigid_two_way_startup_fit = .true.
     rigid_two_way_initialized = .false.
     fiber_mass = 1._mytype

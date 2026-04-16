@@ -13,6 +13,7 @@ module fiber_coupling
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, rigid_free_test_active, &
        rigid_two_way_test_active, ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_subiterations, rigid_two_way_subiter_slip_tol, rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, rigid_two_way_initialized, &
        fiber_x, fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, &
        fiber_uinterp, fiber_slip, fiber_coupling_force, fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, &
@@ -324,20 +325,12 @@ contains
     real(mytype) :: beta_eff, ramp_factor, ramp_linear, coupling_step, dt_stage
     real(mytype) :: r(3), torque_local(3), pnorm
     real(mytype) :: lag_impulse(3), euler_impulse(3)
-    real(mytype) :: relax_alpha, alpha_u, alpha_omega
+    real(mytype) :: relax_alpha, alpha_u, alpha_omega, slip_max_iter, slip_rms_iter
     real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm
-    real(mytype) :: xc_old(3), uc_old(3), omega_old(3), p_old(3)
-    real(mytype) :: xc_pred(3), uc_pred_raw(3), uc_pred_used(3)
-    real(mytype) :: omega_pred_raw(3), omega_pred_used(3), p_pred(3)
-    real(mytype) :: xc_new_raw(3), xc_used(3), uc_new_raw(3), uc_used(3)
-    real(mytype) :: omega_new_raw(3), omega_used(3), p_new_raw(3), p_used(3)
-    real(mytype) :: lag_total_pred_local(3), lag_total_pred(3), lag_total_corr_local(3), lag_total_corr(3)
-    real(mytype) :: torque_pred_local(3), torque_pred(3), torque_corr_local(3), torque_corr(3)
-    real(mytype) :: torque_pred_perp(3), omega_dot_pred(3)
-    real(mytype) :: torque_used(3), torque_used_perp(3), omega_dot_used(3)
-    real(mytype), allocatable :: x_backup(:,:), xdot_backup(:,:), uinterp_backup(:,:), slip_backup(:,:)
-    real(mytype), allocatable :: x_pred(:,:), xdot_pred(:,:), uinterp_pred(:,:), slip_pred(:,:), force_pred(:,:)
-    real(mytype), allocatable :: force_corr(:,:)
+    real(mytype) :: torque_used_perp(3), omega_dot_used(3)
+    real(mytype) :: uc_new_raw(3), xc_new_raw(3), omega_new_raw(3), p_new_raw(3)
+    real(mytype) :: force_seed_norm
+    real(mytype), allocatable :: force_seed(:,:), uxe_eff(:,:,:), uye_eff(:,:,:), uze_eff(:,:,:)
     real(mytype), parameter :: fail_uc_limit = 1.0e3_mytype
     real(mytype), parameter :: fail_omega_limit = 1.0e5_mytype
     real(mytype), parameter :: fail_xc_limit_factor = 10._mytype
@@ -345,7 +338,7 @@ contains
     real(mytype), parameter :: fail_slip_limit = 1.0e5_mytype
     real(mytype), parameter :: fail_spacing_limit = 0.25_mytype
     real(mytype), parameter :: fail_pnorm_error_limit = 0.25_mytype
-    integer :: l, npts, ierr
+    integer :: l, npts, ierr, isubiter, nsubiter
     integer :: failure_code
     logical :: output_now
     logical :: failed_flag, is_finite
@@ -365,10 +358,6 @@ contains
     failure_code = 0
     fail_stage = 'none'
     fail_quantity = 'none'
-
-    call update_rigid_free_geometry()
-    call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
 
     if (.not.allocated(fiber_slip)) allocate(fiber_slip(3, fiber_nl))
     if (.not.allocated(fiber_coupling_force)) allocate(fiber_coupling_force(3, fiber_nl))
@@ -398,183 +387,102 @@ contains
     endif
     beta_eff = ibm_beta * ramp_factor
 
-    allocate(x_backup(3, fiber_nl), xdot_backup(3, fiber_nl), uinterp_backup(3, fiber_nl), slip_backup(3, fiber_nl), &
-         x_pred(3, fiber_nl), xdot_pred(3, fiber_nl), uinterp_pred(3, fiber_nl), &
-         slip_pred(3, fiber_nl), force_pred(3, fiber_nl), force_corr(3, fiber_nl))
+    nsubiter = max(1, rigid_two_way_subiterations)
+    allocate(force_seed(3, fiber_nl), uxe_eff(size(uxe,1), size(uxe,2), size(uxe,3)), &
+         uye_eff(size(uye,1), size(uye,2), size(uye,3)), uze_eff(size(uze,1), size(uze,2), size(uze,3)))
+    force_seed = rigid_two_way_force_prev
+    uxe_eff = uxe
+    uye_eff = uye
+    uze_eff = uze
 
-    x_backup = fiber_x
-    xdot_backup = fiber_xdot
-    uinterp_backup = fiber_uinterp
+    do isubiter = 1, nsubiter
 
-    xc_old = fiber_xc
-    uc_old = fiber_uc
-    omega_old = fiber_omega
-    p_old = fiber_p
+      ! Stage A (prepare forcing): rigid geometry/interpolation/slip/force/spread
+      call update_rigid_free_geometry()
+      call update_rigid_free_xdot()
+      call run_fiber_interp_solver_readonly(uxe_eff, uye_eff, uze_eff, itime)
 
-    ! Predictor pass: use current state
-    slip_pred = uinterp_backup - xdot_backup
-    force_pred = beta_eff * slip_pred
-    force_pred = relax_alpha * force_pred + (1._mytype - relax_alpha) * rigid_two_way_force_prev
+      fiber_slip = fiber_uinterp - fiber_xdot
+      fiber_coupling_force = beta_eff * fiber_slip
+      fiber_coupling_force = relax_alpha * fiber_coupling_force + (1._mytype - relax_alpha) * force_seed
 
-    is_finite = all(ieee_is_finite(uinterp_backup))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 101
-      fail_stage = 'post_interp'
-      fail_quantity = 'fiber_uinterp'
-    endif
-    is_finite = all(ieee_is_finite(slip_pred))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 102
-      fail_stage = 'post_interp'
-      fail_quantity = 'slip_pred'
-    endif
+      if (.not.allocated(fiber_euler_force_x)) allocate(fiber_euler_force_x(size(uxe,1), size(uxe,2), size(uxe,3)))
+      if (.not.allocated(fiber_euler_force_y)) allocate(fiber_euler_force_y(size(uxe,1), size(uxe,2), size(uxe,3)))
+      if (.not.allocated(fiber_euler_force_z)) allocate(fiber_euler_force_z(size(uxe,1), size(uxe,2), size(uxe,3)))
+      fiber_euler_force_x = 0._mytype
+      fiber_euler_force_y = 0._mytype
+      fiber_euler_force_z = 0._mytype
 
-    lag_total_pred_local = 0._mytype
-    torque_pred_local = 0._mytype
-    do l = 1, fiber_nl
-      lag_total_pred_local = lag_total_pred_local + force_pred(:,l) * fiber_quad_w(l)
-      r(1) = periodic_delta(x_backup(1,l) - xc_old(1), xlx)
-      r(2) = x_backup(2,l) - xc_old(2)
-      r(3) = periodic_delta(x_backup(3,l) - xc_old(3), zlz)
-      torque_pred_local = torque_pred_local + cross_product(r, force_pred(:,l)) * fiber_quad_w(l)
+      call spread_lagrangian_force_to_euler(fiber_coupling_force, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, &
+           eul_total_local, sumw_min, sumw_max, xp, yp, zp, spread_hy_loc_min, spread_hy_loc_max)
+
+      lag_total_local = 0._mytype
+      torque_local = 0._mytype
+      do l = 1, fiber_nl
+        lag_total_local = lag_total_local + fiber_coupling_force(:,l) * fiber_quad_w(l)
+        r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+        r(2) = fiber_x(2,l) - fiber_xc(2)
+        r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
+        torque_local = torque_local + cross_product(r, fiber_coupling_force(:,l)) * fiber_quad_w(l)
+      enddo
+      call MPI_ALLREDUCE(lag_total_local, lag_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      call MPI_ALLREDUCE(torque_local, fiber_torque_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      call MPI_ALLREDUCE(eul_total_local, eul_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      fiber_force_total = lag_total
+
+      is_finite = all(ieee_is_finite(fiber_uinterp)) .and. all(ieee_is_finite(fiber_slip)) .and. all(ieee_is_finite(fiber_coupling_force))
+      if (.not.is_finite .and. .not.failed_flag) then
+        failed_flag = .true.
+        failure_code = 201
+        fail_stage = 'prepare_forcing'
+        fail_quantity = 'interp_slip_force'
+      endif
+
+      ! Stage B (finalize update): rigid-body update from updated force/torque
+      torque_used_perp = fiber_torque_total - dot_product(fiber_torque_total, fiber_p) * fiber_p
+      omega_dot_used = torque_used_perp / fiber_inertia_perp
+      uc_new_raw = fiber_uc + dt_stage * (fiber_force_total / fiber_mass)
+      fiber_uc = alpha_u * uc_new_raw + (1._mytype - alpha_u) * fiber_uc
+      xc_new_raw = fiber_xc + dt_stage * fiber_uc
+      fiber_xc = xc_new_raw
+      fiber_xc(1) = wrap_periodic(fiber_xc(1), xlx)
+      fiber_xc(3) = wrap_periodic(fiber_xc(3), zlz)
+      omega_new_raw = fiber_omega + dt_stage * omega_dot_used
+      fiber_omega = alpha_omega * omega_new_raw + (1._mytype - alpha_omega) * fiber_omega
+      p_new_raw = fiber_p + dt_stage * cross_product(fiber_omega, fiber_p)
+      pnorm = sqrt(sum(p_new_raw**2))
+      if (pnorm > 0._mytype) then
+        fiber_p = p_new_raw / pnorm
+      else
+        fiber_p = p_new_raw
+      endif
+
+      call update_rigid_free_geometry()
+      call update_rigid_free_xdot()
+      call run_fiber_interp_solver_readonly(uxe_eff, uye_eff, uze_eff, itime)
+      fiber_slip = fiber_uinterp - fiber_xdot
+      slip_max_iter = maxval(abs(fiber_slip))
+      npts = 3 * fiber_nl
+      slip_rms_iter = sqrt(sum(fiber_slip**2) / real(npts, mytype))
+
+      force_seed = fiber_coupling_force
+      force_seed_norm = sqrt(sum(force_seed**2))
+      if (rigid_two_way_subiter_verbose .and. nrank == 0) then
+        write(*,'(A,I3,A,ES12.4,A,ES12.4,A,ES12.4)') 'two_way_subiter=', isubiter, ' slip_max=', slip_max_iter, &
+             ' slip_rms=', slip_rms_iter, ' force_seed_norm=', force_seed_norm
+      endif
+
+      if (slip_max_iter <= max(0._mytype, rigid_two_way_subiter_slip_tol)) exit
+
+      if (isubiter < nsubiter) then
+        uxe_eff = uxe + dt_stage * fiber_euler_force_x
+        uye_eff = uye + dt_stage * fiber_euler_force_y
+        uze_eff = uze + dt_stage * fiber_euler_force_z
+      endif
+
     enddo
-    call MPI_ALLREDUCE(lag_total_pred_local, lag_total_pred, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-    call MPI_ALLREDUCE(torque_pred_local, torque_pred, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-    torque_pred_perp = torque_pred - dot_product(torque_pred, p_old) * p_old
-    omega_dot_pred = torque_pred_perp / fiber_inertia_perp
-    uc_pred_raw = uc_old + dt_stage * (lag_total_pred / fiber_mass)
-    uc_pred_used = alpha_u * uc_pred_raw + (1._mytype - alpha_u) * uc_old
-    xc_pred = xc_old + dt_stage * uc_pred_used
-    xc_pred(1) = wrap_periodic(xc_pred(1), xlx)
-    xc_pred(3) = wrap_periodic(xc_pred(3), zlz)
-    omega_pred_raw = omega_old + dt_stage * omega_dot_pred
-    omega_pred_used = alpha_omega * omega_pred_raw + (1._mytype - alpha_omega) * omega_old
-    p_pred = p_old + dt_stage * cross_product(omega_pred_used, p_old)
-    pnorm = sqrt(sum(p_pred**2))
-    if (pnorm > 0._mytype) p_pred = p_pred / pnorm
-
-    ! Corrector pass: use predicted state
-    fiber_xc = xc_pred
-    fiber_uc = uc_pred_used
-    fiber_omega = omega_pred_used
-    fiber_p = p_pred
-    call update_rigid_free_geometry()
-    call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
-
-    x_pred = fiber_x
-    xdot_pred = fiber_xdot
-    uinterp_pred = fiber_uinterp
-    slip_backup = uinterp_pred - xdot_pred
-    force_corr = beta_eff * slip_backup
-    force_corr = relax_alpha * force_corr + (1._mytype - relax_alpha) * force_pred
-
-    if (.not.allocated(fiber_euler_force_x)) allocate(fiber_euler_force_x(size(uxe,1), size(uxe,2), size(uxe,3)))
-    if (.not.allocated(fiber_euler_force_y)) allocate(fiber_euler_force_y(size(uxe,1), size(uxe,2), size(uxe,3)))
-    if (.not.allocated(fiber_euler_force_z)) allocate(fiber_euler_force_z(size(uxe,1), size(uxe,2), size(uxe,3)))
-    fiber_euler_force_x = 0._mytype
-    fiber_euler_force_y = 0._mytype
-    fiber_euler_force_z = 0._mytype
-
-    fiber_coupling_force = 0.5_mytype * (force_pred + force_corr)
     rigid_two_way_force_prev = fiber_coupling_force
-
-    call spread_lagrangian_force_to_euler(fiber_coupling_force, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, &
-         eul_total_local, sumw_min, sumw_max, xp, yp, zp, spread_hy_loc_min, spread_hy_loc_max)
-
-    lag_total_corr_local = 0._mytype
-    torque_corr_local = 0._mytype
-    do l = 1, fiber_nl
-      lag_total_corr_local = lag_total_corr_local + force_corr(:,l) * fiber_quad_w(l)
-      r(1) = periodic_delta(x_pred(1,l) - xc_pred(1), xlx)
-      r(2) = x_pred(2,l) - xc_pred(2)
-      r(3) = periodic_delta(x_pred(3,l) - xc_pred(3), zlz)
-      torque_corr_local = torque_corr_local + cross_product(r, force_corr(:,l)) * fiber_quad_w(l)
-    enddo
-    call MPI_ALLREDUCE(lag_total_corr_local, lag_total_corr, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-    call MPI_ALLREDUCE(torque_corr_local, torque_corr, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-
-    lag_total = 0.5_mytype * (lag_total_pred + lag_total_corr)
-    torque_used = 0.5_mytype * (torque_pred + torque_corr)
-    fiber_force_total = lag_total
-    fiber_torque_total = torque_used
-    call MPI_ALLREDUCE(eul_total_local, eul_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
-    abs_force_balance = abs(eul_total - fiber_force_total)
-
-    is_finite = all(ieee_is_finite(fiber_coupling_force))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 103
-      fail_stage = 'post_force_build'
-      fail_quantity = 'force_used'
-    endif
-    is_finite = all(ieee_is_finite(lag_total))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 104
-      fail_stage = 'post_force_build'
-      fail_quantity = 'lag_total_force_used'
-    endif
-    is_finite = all(ieee_is_finite(fiber_torque_total))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 105
-      fail_stage = 'post_force_build'
-      fail_quantity = 'lag_total_torque'
-    endif
-
-    torque_used_perp = fiber_torque_total - dot_product(fiber_torque_total, p_old) * p_old
-    omega_dot_used = torque_used_perp / fiber_inertia_perp
-    uc_new_raw = uc_old + dt_stage * (fiber_force_total / fiber_mass)
-    uc_used = alpha_u * uc_new_raw + (1._mytype - alpha_u) * uc_old
-    xc_new_raw = xc_old + dt_stage * uc_used
-    xc_used = xc_new_raw
-    xc_used(1) = wrap_periodic(xc_used(1), xlx)
-    xc_used(3) = wrap_periodic(xc_used(3), zlz)
-    omega_new_raw = omega_old + dt_stage * omega_dot_used
-    omega_used = alpha_omega * omega_new_raw + (1._mytype - alpha_omega) * omega_old
-    p_new_raw = p_old + dt_stage * cross_product(omega_used, p_old)
-    pnorm = sqrt(sum(p_new_raw**2))
-    p_used = p_new_raw
-    if (pnorm > 0._mytype) p_used = p_new_raw / pnorm
-
-    fiber_uc = uc_used
-    fiber_xc = xc_used
-    fiber_omega = omega_used
-    fiber_p = p_used
-    p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
-
-    is_finite = all(ieee_is_finite(fiber_uc))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 106
-      fail_stage = 'post_rigid_update'
-      fail_quantity = 'fiber_uc'
-    endif
-    is_finite = all(ieee_is_finite(fiber_xc))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 107
-      fail_stage = 'post_rigid_update'
-      fail_quantity = 'fiber_xc'
-    endif
-    is_finite = all(ieee_is_finite(fiber_omega))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 108
-      fail_stage = 'post_rigid_update'
-      fail_quantity = 'fiber_omega'
-    endif
-    is_finite = all(ieee_is_finite(fiber_p))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 109
-      fail_stage = 'post_rigid_update'
-      fail_quantity = 'fiber_p'
-    endif
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
@@ -585,28 +493,32 @@ contains
     slip_max = maxval(abs(fiber_slip))
     npts = 3 * fiber_nl
     slip_rms = sqrt(sum(fiber_slip**2) / real(npts, mytype))
-    lag_impulse = lag_total * dt_stage
+    p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
+    abs_force_balance = abs(eul_total - fiber_force_total)
+    lag_impulse = fiber_force_total * dt_stage
     euler_impulse = eul_total * dt_stage
-
-    is_finite = all(ieee_is_finite(fiber_x))
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 110
-      fail_stage = 'post_geometry'
-      fail_quantity = 'fiber_x'
-    endif
-    is_finite = ieee_is_finite(spacing_error_max) .and. ieee_is_finite(p_norm_error)
-    if (.not.is_finite .and. .not.failed_flag) then
-      failed_flag = .true.
-      failure_code = 111
-      fail_stage = 'post_geometry'
-      fail_quantity = 'spacing_or_pnorm_error'
-    endif
 
     uc_norm = sqrt(fiber_uc(1)**2 + fiber_uc(2)**2 + fiber_uc(3)**2)
     omega_norm = sqrt(fiber_omega(1)**2 + fiber_omega(2)**2 + fiber_omega(3)**2)
     xc_abs_max = maxval(abs(fiber_xc))
-    lag_force_norm = sqrt(lag_total(1)**2 + lag_total(2)**2 + lag_total(3)**2)
+    lag_force_norm = sqrt(fiber_force_total(1)**2 + fiber_force_total(2)**2 + fiber_force_total(3)**2)
+
+    is_finite = all(ieee_is_finite(fiber_uc)) .and. all(ieee_is_finite(fiber_xc)) .and. all(ieee_is_finite(fiber_omega)) .and. &
+         all(ieee_is_finite(fiber_p)) .and. all(ieee_is_finite(fiber_x))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 202
+      fail_stage = 'post_rigid_update'
+      fail_quantity = 'non_finite_state'
+    endif
+
+    if ((.not.ieee_is_finite(spacing_error_max) .or. .not.ieee_is_finite(p_norm_error)) .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 203
+      fail_stage = 'post_geometry'
+      fail_quantity = 'spacing_or_pnorm_error'
+    endif
+
     if (uc_norm > fail_uc_limit .and. .not.failed_flag) then
       failed_flag = .true.
       failure_code = 112
@@ -656,8 +568,8 @@ contains
     if (output_now) then
       call write_fiber_rigid_two_way_points(itime)
       call write_fiber_rigid_two_way_summary(itime, time, slip_max, slip_rms, spacing_error_max, p_norm_error, &
-           lag_total, eul_total)
-      call write_fiber_rigid_two_way_momentum(itime, time, lag_total, eul_total, abs_force_balance, dt_stage, &
+           fiber_force_total, eul_total)
+      call write_fiber_rigid_two_way_momentum(itime, time, fiber_force_total, eul_total, abs_force_balance, dt_stage, &
            lag_impulse, euler_impulse)
     endif
 
@@ -673,8 +585,7 @@ contains
       call MPI_ABORT(MPI_COMM_WORLD, 913, ierr)
     endif
 
-    deallocate(x_backup, xdot_backup, uinterp_backup, slip_backup, x_pred, xdot_pred, uinterp_pred, &
-         slip_pred, force_pred, force_corr)
+    deallocate(force_seed, uxe_eff, uye_eff, uze_eff)
 
   end subroutine run_rigid_two_way_step
 
