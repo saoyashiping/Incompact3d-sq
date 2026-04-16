@@ -13,6 +13,10 @@ module fiber_coupling
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, rigid_free_test_active, &
        rigid_two_way_test_active, ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_velocity_relaxation_x, rigid_two_way_velocity_relaxation_y, rigid_two_way_velocity_relaxation_z, &
+       rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_parallel_streamwise_correction, rigid_two_way_parallel_streamwise_alpha, &
+       rigid_two_way_parallel_cosine_threshold, &
        rigid_two_way_subiterations, rigid_two_way_subiter_slip_tol, rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, rigid_two_way_initialized, &
        fiber_x, fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, &
@@ -460,10 +464,15 @@ contains
     real(mytype) :: lag_total_local(3), lag_total(3), eul_total_local(3), eul_total(3), abs_force_balance(3)
     real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     real(mytype) :: ramp_factor, ramp_linear, coupling_step, beta_eff, dt_stage
-    real(mytype) :: relax_alpha, alpha_u, alpha_omega
+    real(mytype) :: relax_alpha, alpha_omega
+    real(mytype) :: alpha_u_vec(3)
     real(mytype) :: torque_local(3), r(3), pnorm
     real(mytype) :: torque_used_perp(3), omega_dot_used(3)
     real(mytype) :: uc_new_raw(3), xc_new_raw(3), omega_new_raw(3), p_new_raw(3)
+    real(mytype) :: omega_cross_r(3)
+    real(mytype) :: uc_x_fit_local, uc_x_fit_global, wsum_local, wsum_global, wq
+    real(mytype) :: streamwise_alpha, parallel_threshold
+    logical :: apply_parallel_streamwise_corr
     real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm, slip_tol
     real(mytype), parameter :: fail_uc_limit = 1.0e3_mytype
     real(mytype), parameter :: fail_omega_limit = 1.0e5_mytype
@@ -491,7 +500,13 @@ contains
     fail_quantity = 'none'
 
     dt_stage = gdt(isubstep)
-    alpha_u = max(0._mytype, min(1._mytype, rigid_two_way_velocity_relaxation))
+    alpha_u_vec(1) = rigid_two_way_velocity_relaxation_x
+    alpha_u_vec(2) = rigid_two_way_velocity_relaxation_y
+    alpha_u_vec(3) = rigid_two_way_velocity_relaxation_z
+    if (alpha_u_vec(1) < 0._mytype .or. alpha_u_vec(1) > 1._mytype) alpha_u_vec(1) = rigid_two_way_velocity_relaxation
+    if (alpha_u_vec(2) < 0._mytype .or. alpha_u_vec(2) > 1._mytype) alpha_u_vec(2) = rigid_two_way_velocity_relaxation
+    if (alpha_u_vec(3) < 0._mytype .or. alpha_u_vec(3) > 1._mytype) alpha_u_vec(3) = rigid_two_way_velocity_relaxation
+    alpha_u_vec = max(0._mytype, min(1._mytype, alpha_u_vec))
     alpha_omega = max(0._mytype, min(1._mytype, rigid_two_way_omega_relaxation))
     relax_alpha = max(0._mytype, min(1._mytype, rigid_two_way_force_relaxation))
 
@@ -541,7 +556,7 @@ contains
     torque_used_perp = fiber_torque_total - dot_product(fiber_torque_total, fiber_p) * fiber_p
     omega_dot_used = torque_used_perp / fiber_inertia_perp
     uc_new_raw = fiber_uc + dt_stage * (fiber_force_total / fiber_mass)
-    fiber_uc = alpha_u * uc_new_raw + (1._mytype - alpha_u) * fiber_uc
+    fiber_uc = alpha_u_vec * uc_new_raw + (1._mytype - alpha_u_vec) * fiber_uc
     xc_new_raw = fiber_xc + dt_stage * fiber_uc
     fiber_xc = xc_new_raw
     fiber_xc(1) = wrap_periodic(fiber_xc(1), xlx)
@@ -554,6 +569,35 @@ contains
       fiber_p = p_new_raw / pnorm
     else
       fiber_p = p_new_raw
+    endif
+
+    streamwise_alpha = max(0._mytype, min(1._mytype, rigid_two_way_parallel_streamwise_alpha))
+    parallel_threshold = max(0._mytype, min(1._mytype, rigid_two_way_parallel_cosine_threshold))
+    apply_parallel_streamwise_corr = rigid_two_way_parallel_streamwise_correction .and. &
+         (abs(fiber_p(1)) >= parallel_threshold)
+    if (apply_parallel_streamwise_corr) then
+      call update_rigid_free_geometry()
+      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+      uc_x_fit_local = 0._mytype
+      wsum_local = 0._mytype
+      do l = 1, fiber_nl
+        r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+        r(2) = fiber_x(2,l) - fiber_xc(2)
+        r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
+        if (allocated(fiber_quad_w)) then
+          wq = max(0._mytype, fiber_quad_w(l))
+        else
+          wq = 1._mytype
+        endif
+        omega_cross_r = cross_product(fiber_omega, r)
+        uc_x_fit_local = uc_x_fit_local + wq * (fiber_uinterp(1,l) - omega_cross_r(1))
+        wsum_local = wsum_local + wq
+      enddo
+      call MPI_ALLREDUCE(uc_x_fit_local, uc_x_fit_global, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      call MPI_ALLREDUCE(wsum_local, wsum_global, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      if (wsum_global <= 0._mytype) wsum_global = 1._mytype
+      uc_x_fit_global = uc_x_fit_global / wsum_global
+      fiber_uc(1) = (1._mytype - streamwise_alpha) * fiber_uc(1) + streamwise_alpha * uc_x_fit_global
     endif
 
     call update_rigid_free_geometry()
@@ -677,6 +721,7 @@ contains
 
     real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error, dt_stage
     real(mytype) :: lag_impulse(3), euler_impulse(3)
+    real(mytype) :: seed_eta
     integer :: npts
     logical :: output_now
 
@@ -691,7 +736,8 @@ contains
     fiber_uc = rigid_two_way_uc_guess
     fiber_omega = rigid_two_way_omega_guess
     fiber_p = rigid_two_way_p_guess
-    rigid_two_way_force_prev = rigid_two_way_force_seed
+    seed_eta = max(0._mytype, min(1._mytype, rigid_two_way_force_seed_relaxation))
+    rigid_two_way_force_prev = seed_eta * rigid_two_way_force_seed + (1._mytype - seed_eta) * rigid_two_way_force_prev
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()

@@ -48,7 +48,14 @@ module fiber_types
   integer :: rigid_two_way_output_interval
   real(mytype) :: rigid_two_way_force_relaxation
   real(mytype) :: rigid_two_way_velocity_relaxation
+  real(mytype) :: rigid_two_way_velocity_relaxation_x
+  real(mytype) :: rigid_two_way_velocity_relaxation_y
+  real(mytype) :: rigid_two_way_velocity_relaxation_z
   real(mytype) :: rigid_two_way_omega_relaxation
+  real(mytype) :: rigid_two_way_force_seed_relaxation
+  logical :: rigid_two_way_parallel_streamwise_correction
+  real(mytype) :: rigid_two_way_parallel_streamwise_alpha
+  real(mytype) :: rigid_two_way_parallel_cosine_threshold
   integer :: rigid_two_way_subiterations
   real(mytype) :: rigid_two_way_subiter_slip_tol
   logical :: rigid_two_way_subiter_verbose
@@ -110,7 +117,14 @@ contains
     rigid_two_way_output_interval = 1
     rigid_two_way_force_relaxation = 0.25_mytype
     rigid_two_way_velocity_relaxation = 0.10_mytype
+    rigid_two_way_velocity_relaxation_x = 0.10_mytype
+    rigid_two_way_velocity_relaxation_y = 0.10_mytype
+    rigid_two_way_velocity_relaxation_z = 0.10_mytype
     rigid_two_way_omega_relaxation = 0.10_mytype
+    rigid_two_way_force_seed_relaxation = 0.5_mytype
+    rigid_two_way_parallel_streamwise_correction = .false.
+    rigid_two_way_parallel_streamwise_alpha = 0.05_mytype
+    rigid_two_way_parallel_cosine_threshold = 0.98_mytype
     rigid_two_way_subiterations = 2
     rigid_two_way_subiter_slip_tol = 1.0e-3_mytype
     rigid_two_way_subiter_verbose = .false.
