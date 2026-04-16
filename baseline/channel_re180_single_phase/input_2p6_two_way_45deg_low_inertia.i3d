@@ -156,6 +156,7 @@ rigid_two_way_output_interval = 1
 rigid_two_way_force_relaxation = 0.25
 rigid_two_way_velocity_relaxation = 0.10
 rigid_two_way_omega_relaxation = 0.10
+rigid_two_way_startup_fit = T
 fiber_mass = 0.1
 fiber_inertia_perp = 0.01
 fiber_uc = 0.0, 0.0, 0.0

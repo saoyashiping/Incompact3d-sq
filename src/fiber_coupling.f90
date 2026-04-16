@@ -13,6 +13,7 @@ module fiber_coupling
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, rigid_free_test_active, &
        rigid_two_way_test_active, ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_startup_fit, rigid_two_way_initialized, &
        fiber_x, fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, &
        fiber_uinterp, fiber_slip, fiber_coupling_force, fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, &
        fiber_euler_force_z, rigid_motion_case, fiber_mass, fiber_inertia_perp
@@ -194,6 +195,122 @@ contains
 
   end subroutine run_rigid_coupling_step
 
+  subroutine startup_fit_two_way_state(uxe, uye, uze, itime)
+
+    real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
+    integer, intent(in) :: itime
+
+    real(mytype) :: normal_mat(6,6), rhs(6), sol(6)
+    real(mytype) :: row1(6), row2(6), row3(6), r(3), wq, diag_scale, wsum
+    integer :: l, i, j
+    logical :: solved
+
+    call update_rigid_free_geometry()
+    call update_rigid_free_xdot()
+    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+
+    normal_mat = 0._mytype
+    rhs = 0._mytype
+    wsum = 0._mytype
+
+    do l = 1, fiber_nl
+      r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+      r(2) = fiber_x(2,l) - fiber_xc(2)
+      r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
+
+      if (allocated(fiber_quad_w)) then
+        wq = max(0._mytype, fiber_quad_w(l))
+      else
+        wq = 1._mytype
+      endif
+      wsum = wsum + wq
+
+      row1 = (/1._mytype, 0._mytype, 0._mytype, 0._mytype, r(3), -r(2)/)
+      row2 = (/0._mytype, 1._mytype, 0._mytype, -r(3), 0._mytype, r(1)/)
+      row3 = (/0._mytype, 0._mytype, 1._mytype, r(2), -r(1), 0._mytype/)
+
+      do i = 1, 6
+        do j = 1, 6
+          normal_mat(i,j) = normal_mat(i,j) + wq * row1(i) * row1(j)
+          normal_mat(i,j) = normal_mat(i,j) + wq * row2(i) * row2(j)
+          normal_mat(i,j) = normal_mat(i,j) + wq * row3(i) * row3(j)
+        enddo
+      enddo
+      rhs = rhs + wq * row1 * fiber_uinterp(1,l) + wq * row2 * fiber_uinterp(2,l) + wq * row3 * fiber_uinterp(3,l)
+    enddo
+
+    if (wsum <= 0._mytype) wsum = real(fiber_nl, mytype)
+    diag_scale = max(1._mytype, maxval(abs(normal_mat)))
+    do i = 1, 6
+      normal_mat(i,i) = normal_mat(i,i) + 1.0e-12_mytype * diag_scale
+    enddo
+
+    call solve_linear_6x6(normal_mat, rhs, sol, solved)
+
+    if (solved) then
+      fiber_uc = sol(1:3)
+      fiber_omega = sol(4:6)
+    else
+      fiber_uc = sum(fiber_uinterp, dim=2) / real(fiber_nl, mytype)
+      fiber_omega = 0._mytype
+    endif
+
+    call update_rigid_free_xdot()
+
+  end subroutine startup_fit_two_way_state
+
+  subroutine solve_linear_6x6(a_in, b_in, x_out, solved)
+
+    real(mytype), intent(in) :: a_in(6,6), b_in(6)
+    real(mytype), intent(out) :: x_out(6)
+    logical, intent(out) :: solved
+
+    real(mytype) :: a(6,6), b(6), pivot_row(6), pivot_val, factor, tmp
+    integer :: i, j, k, p
+
+    a = a_in
+    b = b_in
+    solved = .true.
+
+    do k = 1, 6
+      p = k
+      pivot_val = abs(a(k,k))
+      do i = k+1, 6
+        if (abs(a(i,k)) > pivot_val) then
+          pivot_val = abs(a(i,k))
+          p = i
+        endif
+      enddo
+
+      if (pivot_val <= 1.0e-14_mytype) then
+        solved = .false.
+        x_out = 0._mytype
+        return
+      endif
+
+      if (p /= k) then
+        pivot_row = a(k,:)
+        a(k,:) = a(p,:)
+        a(p,:) = pivot_row
+        tmp = b(k)
+        b(k) = b(p)
+        b(p) = tmp
+      endif
+
+      do i = k+1, 6
+        factor = a(i,k) / a(k,k)
+        a(i,k:6) = a(i,k:6) - factor * a(k,k:6)
+        b(i) = b(i) - factor * b(k)
+      enddo
+    enddo
+
+    x_out = 0._mytype
+    do i = 6, 1, -1
+      x_out(i) = (b(i) - sum(a(i,i+1:6) * x_out(i+1:6))) / a(i,i)
+    enddo
+
+  end subroutine solve_linear_6x6
+
   subroutine run_rigid_two_way_step(uxe, uye, uze, time, itime, isubstep, nsubsteps)
 
     real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
@@ -236,6 +353,13 @@ contains
 
     if (.not.fiber_active) return
     if (.not.rigid_two_way_test_active) return
+
+    if (.not.rigid_two_way_initialized) then
+      if (rigid_two_way_startup_fit) then
+        call startup_fit_two_way_state(uxe, uye, uze, itime)
+      endif
+      rigid_two_way_initialized = .true.
+    endif
 
     failed_flag = .false.
     failure_code = 0

@@ -43,6 +43,7 @@ subroutine parameter(input_i3d)
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
        rigid_output_interval, rigid_kinematics_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_startup_fit, &
        free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
 
   implicit none
@@ -103,6 +104,7 @@ subroutine parameter(input_i3d)
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
        rigid_output_interval,free_output_interval,rigid_two_way_output_interval,rigid_two_way_force_relaxation, &
        rigid_two_way_velocity_relaxation,rigid_two_way_omega_relaxation, &
+       rigid_two_way_startup_fit, &
        rigid_kinematics_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega
 
 
