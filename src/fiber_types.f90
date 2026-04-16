@@ -47,6 +47,8 @@ module fiber_types
   integer :: rigid_kinematics_output_interval
   integer :: rigid_two_way_output_interval
   real(mytype) :: rigid_two_way_force_relaxation
+  real(mytype) :: rigid_two_way_velocity_relaxation
+  real(mytype) :: rigid_two_way_omega_relaxation
   real(mytype) :: fiber_mass
   real(mytype) :: fiber_inertia_perp
   real(mytype), dimension(3) :: rigid_translation_velocity
@@ -102,6 +104,8 @@ contains
     rigid_kinematics_output_interval = 1
     rigid_two_way_output_interval = 1
     rigid_two_way_force_relaxation = 0.25_mytype
+    rigid_two_way_velocity_relaxation = 0.10_mytype
+    rigid_two_way_omega_relaxation = 0.10_mytype
     fiber_mass = 1._mytype
     fiber_inertia_perp = 1._mytype
     rigid_translation_velocity = 0._mytype
