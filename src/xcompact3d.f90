@@ -22,16 +22,17 @@ program xcompact3d
   use particle, only : intt_particles
   use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
        rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, rigid_two_way_test_active, &
-       rigid_kinematics_standalone
+       rigid_kinematics_standalone, rigid_two_way_subiterations
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
-  use fiber_coupling, only : run_rigid_coupling_step, run_rigid_two_way_step
+  use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update
   use fiber_rigid_free, only : run_rigid_free_step
   use fiber_rigid_kinematics, only : rigid_kinematics_step
 
   implicit none
 
-  logical :: solver_interp_done
+  logical :: solver_interp_done, two_way_converged
+  integer :: two_way_isubiter, two_way_nsubiter
 
   solver_interp_done = .false.
 
@@ -64,57 +65,113 @@ program xcompact3d
 
      do itr=1,iadvance_time
 
-        call set_fluid_properties(rho1,mu1)
-        call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
+        if (fiber_active .and. rigid_two_way_test_active) then
+           two_way_nsubiter = max(1, rigid_two_way_subiterations)
+           two_way_converged = .false.
 
-        if (imove.eq.1) then ! update epsi for moving objects
-          if ((iibm.eq.2).or.(iibm.eq.3)) then
-             call genepsi3d(ep1)
-          else if (iibm.eq.1) then
-             call body(ux1,uy1,uz1,ep1)
-          endif
-        endif
+           do two_way_isubiter = 1, two_way_nsubiter
+              call set_fluid_properties(rho1,mu1)
+              call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
 
-        if (fiber_active .and. rigid_coupling_test_active) then
-           call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_free_test_active) then
-           call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_two_way_test_active) then
-           call run_rigid_two_way_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_kinematics_test_active) then
-           call rigid_kinematics_step(ux1, uy1, uz1, t, itime, itr)
-        endif
-        call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+              if (imove.eq.1) then ! update epsi for moving objects
+                if ((iibm.eq.2).or.(iibm.eq.3)) then
+                   call genepsi3d(ep1)
+                else if (iibm.eq.1) then
+                   call body(ux1,uy1,uz1,ep1)
+                endif
+              endif
+
+              call rigid_two_way_prepare_forcing(ux1, uy1, uz1, t, itime, itr, iadvance_time, two_way_isubiter, two_way_nsubiter)
+
+              call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
 
 #ifdef DEBG
-        call check_transients()
+              call check_transients()
 #endif
-        
-        if (ilmn) then
-           !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
-           call velocity_to_momentum(rho1,ux1,uy1,uz1)
+
+              if (ilmn) then
+                 !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
+                 call velocity_to_momentum(rho1,ux1,uy1,uz1)
+              endif
+
+              call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
+              call pre_correc(ux1,uy1,uz1,ep1)
+
+              call calc_divu_constraint(divu3,rho1,phi1)
+              call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
+              call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
+
+              if(mhd_active .and. mhd_equation == 'induction') then
+                call solve_poisson_mhd()
+              endif
+
+              if (ilmn) then
+                 call momentum_to_velocity(rho1,ux1,uy1,uz1)
+                 !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
+                 !! Note - all other solvers work on velocity always
+              endif
+
+              call rigid_two_way_finalize_update(ux1, uy1, uz1, t, itime, itr, iadvance_time, &
+                   two_way_isubiter, two_way_nsubiter, two_way_converged)
+
+              call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
+
+              if(mhd_active) call test_magnetic
+
+              if (two_way_converged) exit
+           enddo
+        else
+           call set_fluid_properties(rho1,mu1)
+           call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
+
+           if (imove.eq.1) then ! update epsi for moving objects
+             if ((iibm.eq.2).or.(iibm.eq.3)) then
+                call genepsi3d(ep1)
+             else if (iibm.eq.1) then
+                call body(ux1,uy1,uz1,ep1)
+             endif
+           endif
+
+           if (fiber_active .and. rigid_coupling_test_active) then
+              call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+           else if (fiber_active .and. rigid_free_test_active) then
+              call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+           else if (fiber_active .and. rigid_kinematics_test_active) then
+              call rigid_kinematics_step(ux1, uy1, uz1, t, itime, itr)
+           endif
+
+           call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+
+#ifdef DEBG
+           call check_transients()
+#endif
+
+           if (ilmn) then
+              !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
+              call velocity_to_momentum(rho1,ux1,uy1,uz1)
+           endif
+
+           call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
+           call pre_correc(ux1,uy1,uz1,ep1)
+
+           call calc_divu_constraint(divu3,rho1,phi1)
+           call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
+           call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
+
+           if(mhd_active .and. mhd_equation == 'induction') then
+             call solve_poisson_mhd()
+           endif
+
+           if (ilmn) then
+              call momentum_to_velocity(rho1,ux1,uy1,uz1)
+              !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
+              !! Note - all other solvers work on velocity always
+           endif
+
+           call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
+
+           if(mhd_active) call test_magnetic
         endif
-
-        call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
-        call pre_correc(ux1,uy1,uz1,ep1)
-
-        call calc_divu_constraint(divu3,rho1,phi1)
-        call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
-        call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
-
-        if(mhd_active .and. mhd_equation == 'induction') then
-          call solve_poisson_mhd()
-        endif
-
-        if (ilmn) then
-           call momentum_to_velocity(rho1,ux1,uy1,uz1)
-           !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
-           !! Note - all other solvers work on velocity always
-        endif
-        
-        call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
-
-        if(mhd_active) call test_magnetic
 
      enddo !! End sub timesteps
 
