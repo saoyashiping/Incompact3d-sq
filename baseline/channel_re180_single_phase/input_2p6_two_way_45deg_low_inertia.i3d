@@ -24,7 +24,7 @@ yly = 2.              ! Ly (Size of the box in y-direction)
 zlz = 4.              ! Lz (Size of the box in z-direction)
 
 ! Flow parameters
-re  = 4200.           ! nu=1/re (Kinematic Viscosity)
+re  = 180.           ! nu=1/re (Kinematic Viscosity)
 cpg = F               ! if cpg=T, then re is friction Reynolds number
 
 ! Time stepping
@@ -41,7 +41,7 @@ iibm=0                ! Flag for immersed boundary method
 iin = 1               ! Inflow conditions (1: classic, 2: turbinit, 4: SEM)
 u1  = 1.              ! u1 (max velocity) (for inflow condition)
 u2  = 1.              ! u2 (min velocity) (for inflow condition)
-init_noise = 0.125    ! Turbulence intensity (1=100%) !! Initial condition
+init_noise = 0.0    ! Turbulence intensity (1=100%) !! Initial condition
 inflow_noise = 0.0    ! Turbulence intensity (1=100%) !! Inflow condition
 idir_stream  = 1      ! Index of the streamwise direction (1=X, 3=Z, 2 not available)
 
@@ -90,10 +90,10 @@ nvisu = 1             ! Size for visualisation collection
 &Statistics
 !=================
 
-wrotation = 0.12      ! rotation speed to trigger turbulence
-spinup_time = 5000    ! number of time steps with a rotation to trigger turbulence
+wrotation = 0.0      ! rotation speed to trigger turbulence
+spinup_time = 0    ! number of time steps with a rotation to trigger turbulence
 nstat = 1             ! Size arrays for statistic collection
-initstat = 40000      ! Time steps after which statistics are collected
+initstat = 0      ! Time steps after which statistics are collected
 
 /End
 

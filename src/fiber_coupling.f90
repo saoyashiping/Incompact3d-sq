@@ -8,7 +8,7 @@ module fiber_coupling
   use decomp_2d_mpi, only : nrank, nproc
   use mpi, only : MPI_COMM_WORLD, MPI_ABORT, MPI_ALLREDUCE, MPI_DOUBLE_PRECISION, MPI_SUM
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
-  use param, only : ifirst, xlx, zlz, gdt
+  use param, only : ifirst, xlx, yly, zlz, gdt
   use variables, only : xp, yp, zp
   use fiber_types, only : fiber_active, fiber_nl, rigid_coupling_test_active, rigid_free_test_active, &
        rigid_two_way_test_active, ibm_beta, coupling_ramp_steps, rigid_output_interval, rigid_two_way_output_interval, &
@@ -202,17 +202,33 @@ contains
     integer, intent(in) :: isubstep, nsubsteps
 
     real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error
-    real(mytype) :: lag_total_local(3), lag_total(3), eul_total(3), abs_force_balance(3)
+    real(mytype) :: lag_total_local(3), lag_total(3), eul_total_local(3), eul_total(3), abs_force_balance(3)
     real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     real(mytype) :: beta_eff, ramp_factor, ramp_linear, coupling_step, dt_stage
     real(mytype) :: r(3), torque_local(3), omega_dot(3), torque_perp(3), pnorm
     real(mytype) :: lag_impulse(3), euler_impulse(3)
     real(mytype) :: relax_alpha
+    real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm
+    real(mytype), parameter :: fail_uc_limit = 1.0e3_mytype
+    real(mytype), parameter :: fail_omega_limit = 1.0e5_mytype
+    real(mytype), parameter :: fail_xc_limit_factor = 10._mytype
+    real(mytype), parameter :: fail_lag_force_limit = 1.0e8_mytype
+    real(mytype), parameter :: fail_slip_limit = 1.0e5_mytype
+    real(mytype), parameter :: fail_spacing_limit = 0.25_mytype
+    real(mytype), parameter :: fail_pnorm_error_limit = 0.25_mytype
     integer :: l, npts, ierr
+    integer :: failure_code
     logical :: output_now
+    logical :: failed_flag, is_finite
+    character(len=64) :: fail_stage, fail_quantity
 
     if (.not.fiber_active) return
     if (.not.rigid_two_way_test_active) return
+
+    failed_flag = .false.
+    failure_code = 0
+    fail_stage = 'none'
+    fail_quantity = 'none'
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
@@ -245,6 +261,22 @@ contains
     beta_eff = ibm_beta * ramp_factor
 
     fiber_slip = fiber_uinterp - fiber_xdot
+
+    is_finite = all(ieee_is_finite(fiber_uinterp))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 101
+      fail_stage = 'post_interp'
+      fail_quantity = 'fiber_uinterp'
+    endif
+    is_finite = all(ieee_is_finite(fiber_slip))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 102
+      fail_stage = 'post_interp'
+      fail_quantity = 'fiber_slip'
+    endif
+
     fiber_coupling_force = beta_eff * fiber_slip
     fiber_coupling_force = relax_alpha * fiber_coupling_force + (1._mytype - relax_alpha) * rigid_two_way_force_prev
     rigid_two_way_force_prev = fiber_coupling_force
@@ -257,7 +289,7 @@ contains
     fiber_euler_force_z = 0._mytype
 
     call spread_lagrangian_force_to_euler(fiber_coupling_force, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z, &
-         eul_total, sumw_min, sumw_max, xp, yp, zp, spread_hy_loc_min, spread_hy_loc_max)
+         eul_total_local, sumw_min, sumw_max, xp, yp, zp, spread_hy_loc_min, spread_hy_loc_max)
 
     lag_total_local = 0._mytype
     torque_local = 0._mytype
@@ -271,8 +303,31 @@ contains
 
     call MPI_ALLREDUCE(lag_total_local, lag_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
     call MPI_ALLREDUCE(torque_local, fiber_torque_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_ALLREDUCE(eul_total_local, eul_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
     fiber_force_total = lag_total
     abs_force_balance = abs(eul_total - lag_total)
+
+    is_finite = all(ieee_is_finite(fiber_coupling_force))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 103
+      fail_stage = 'post_force_build'
+      fail_quantity = 'fiber_coupling_force'
+    endif
+    is_finite = all(ieee_is_finite(lag_total))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 104
+      fail_stage = 'post_force_build'
+      fail_quantity = 'lag_total_force'
+    endif
+    is_finite = all(ieee_is_finite(fiber_torque_total))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 105
+      fail_stage = 'post_force_build'
+      fail_quantity = 'lag_total_torque'
+    endif
 
     torque_perp = fiber_torque_total - dot_product(fiber_torque_total, fiber_p) * fiber_p
     omega_dot = torque_perp / fiber_inertia_perp
@@ -286,6 +341,35 @@ contains
     if (pnorm > 0._mytype) fiber_p = fiber_p / pnorm
     p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
 
+    is_finite = all(ieee_is_finite(fiber_uc))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 106
+      fail_stage = 'post_rigid_update'
+      fail_quantity = 'fiber_uc'
+    endif
+    is_finite = all(ieee_is_finite(fiber_xc))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 107
+      fail_stage = 'post_rigid_update'
+      fail_quantity = 'fiber_xc'
+    endif
+    is_finite = all(ieee_is_finite(fiber_omega))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 108
+      fail_stage = 'post_rigid_update'
+      fail_quantity = 'fiber_omega'
+    endif
+    is_finite = all(ieee_is_finite(fiber_p))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 109
+      fail_stage = 'post_rigid_update'
+      fail_quantity = 'fiber_p'
+    endif
+
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
     call compute_rigid_free_spacing_error(spacing_error_max)
@@ -296,14 +380,89 @@ contains
     lag_impulse = lag_total * dt_stage
     euler_impulse = eul_total * dt_stage
 
+    is_finite = all(ieee_is_finite(fiber_x))
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 110
+      fail_stage = 'post_geometry'
+      fail_quantity = 'fiber_x'
+    endif
+    is_finite = ieee_is_finite(spacing_error_max) .and. ieee_is_finite(p_norm_error)
+    if (.not.is_finite .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 111
+      fail_stage = 'post_geometry'
+      fail_quantity = 'spacing_or_pnorm_error'
+    endif
+
+    uc_norm = sqrt(fiber_uc(1)**2 + fiber_uc(2)**2 + fiber_uc(3)**2)
+    omega_norm = sqrt(fiber_omega(1)**2 + fiber_omega(2)**2 + fiber_omega(3)**2)
+    xc_abs_max = maxval(abs(fiber_xc))
+    lag_force_norm = sqrt(lag_total(1)**2 + lag_total(2)**2 + lag_total(3)**2)
+    if (uc_norm > fail_uc_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 112
+      fail_stage = 'threshold'
+      fail_quantity = '|fiber_uc|'
+    endif
+    if (omega_norm > fail_omega_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 113
+      fail_stage = 'threshold'
+      fail_quantity = '|fiber_omega|'
+    endif
+    if (xc_abs_max > fail_xc_limit_factor * max(xlx, max(yly, zlz)) .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 114
+      fail_stage = 'threshold'
+      fail_quantity = '|fiber_xc|'
+    endif
+    if (lag_force_norm > fail_lag_force_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 115
+      fail_stage = 'threshold'
+      fail_quantity = '|lag_total_force|'
+    endif
+    if (slip_max > fail_slip_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 116
+      fail_stage = 'threshold'
+      fail_quantity = 'slip_max'
+    endif
+    if (spacing_error_max > fail_spacing_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 117
+      fail_stage = 'threshold'
+      fail_quantity = 'spacing_error_max'
+    endif
+    if (p_norm_error > fail_pnorm_error_limit .and. .not.failed_flag) then
+      failed_flag = .true.
+      failure_code = 118
+      fail_stage = 'threshold'
+      fail_quantity = 'p_norm_error'
+    endif
+
     output_now = (isubstep == nsubsteps) .and. &
          ((itime == ifirst) .or. (mod(itime, max(1, rigid_two_way_output_interval)) == 0))
+    if (failed_flag) output_now = .true.
     if (output_now) then
       call write_fiber_rigid_two_way_points(itime)
       call write_fiber_rigid_two_way_summary(itime, time, slip_max, slip_rms, spacing_error_max, p_norm_error, &
            lag_total, eul_total)
       call write_fiber_rigid_two_way_momentum(itime, time, lag_total, eul_total, abs_force_balance, dt_stage, &
            lag_impulse, euler_impulse)
+    endif
+
+    if (failed_flag) then
+      if (nrank == 0) then
+        write(*,'(A)') 'RIGID TWO-WAY TEST FAILED (FAIL-FAST)'
+        write(*,'(A,I6)') 'failure_code                                   : ', failure_code
+        write(*,'(A,I10)') 'Failure at itime                               : ', itime
+        write(*,'(A,ES12.4)') 'Failure time                                   : ', time
+        write(*,'(A,A)') 'failure_stage                                  : ', trim(fail_stage)
+        write(*,'(A,A)') 'failure_quantity                               : ', trim(fail_quantity)
+      endif
+      call MPI_ABORT(MPI_COMM_WORLD, 913, ierr)
     endif
 
   end subroutine run_rigid_two_way_step
