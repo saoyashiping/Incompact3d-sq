@@ -31,6 +31,10 @@ module fiber_coupling
   real(mytype), allocatable, save :: fiber_coupling_force_prev(:,:)
   real(mytype), allocatable, save :: rigid_two_way_force_prev(:,:)
   real(mytype), allocatable, save :: rigid_two_way_force_seed(:,:)
+  real(mytype), save :: rigid_two_way_xc_base(3), rigid_two_way_uc_base(3), rigid_two_way_omega_base(3), rigid_two_way_p_base(3)
+  real(mytype), save :: rigid_two_way_xc_guess(3), rigid_two_way_uc_guess(3), rigid_two_way_omega_guess(3), rigid_two_way_p_guess(3)
+  real(mytype), save :: rigid_two_way_eul_total_commit(3), rigid_two_way_abs_force_balance_commit(3)
+  logical, save :: rigid_two_way_guess_initialized = .false.
   real(mytype), parameter :: coupling_force_relaxation = 0.25_mytype
 
 contains
@@ -336,6 +340,7 @@ contains
         call startup_fit_two_way_state(uxe, uye, uze, itime)
       endif
       rigid_two_way_initialized = .true.
+      rigid_two_way_guess_initialized = .false.
     endif
 
     if (.not.allocated(fiber_slip)) allocate(fiber_slip(3, fiber_nl))
@@ -357,7 +362,24 @@ contains
       allocate(rigid_two_way_force_seed(3, fiber_nl))
       rigid_two_way_force_seed = 0._mytype
     endif
-    if (isubiter == 1) rigid_two_way_force_seed = rigid_two_way_force_prev
+    if (isubiter == 1) then
+      rigid_two_way_force_seed = rigid_two_way_force_prev
+      rigid_two_way_xc_base = fiber_xc
+      rigid_two_way_uc_base = fiber_uc
+      rigid_two_way_omega_base = fiber_omega
+      rigid_two_way_p_base = fiber_p
+      rigid_two_way_xc_guess = rigid_two_way_xc_base
+      rigid_two_way_uc_guess = rigid_two_way_uc_base
+      rigid_two_way_omega_guess = rigid_two_way_omega_base
+      rigid_two_way_p_guess = rigid_two_way_p_base
+      rigid_two_way_guess_initialized = .true.
+    else if (.not.rigid_two_way_guess_initialized) then
+      rigid_two_way_xc_guess = rigid_two_way_xc_base
+      rigid_two_way_uc_guess = rigid_two_way_uc_base
+      rigid_two_way_omega_guess = rigid_two_way_omega_base
+      rigid_two_way_p_guess = rigid_two_way_p_base
+      rigid_two_way_guess_initialized = .true.
+    endif
 
     coupling_step = real(max(1, itime - ifirst + 1), mytype)
     if (coupling_ramp_steps > 0) then
@@ -370,6 +392,10 @@ contains
     beta_eff = ibm_beta * ramp_factor
     relax_alpha = max(0._mytype, min(1._mytype, rigid_two_way_force_relaxation))
 
+    fiber_xc = rigid_two_way_xc_guess
+    fiber_uc = rigid_two_way_uc_guess
+    fiber_omega = rigid_two_way_omega_guess
+    fiber_p = rigid_two_way_p_guess
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
     call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
@@ -415,6 +441,11 @@ contains
       call MPI_ABORT(MPI_COMM_WORLD, 913, ierr)
     endif
 
+    fiber_xc = rigid_two_way_xc_base
+    fiber_uc = rigid_two_way_uc_base
+    fiber_omega = rigid_two_way_omega_base
+    fiber_p = rigid_two_way_p_base
+
   end subroutine rigid_two_way_prepare_forcing
 
   subroutine rigid_two_way_finalize_update(uxe, uye, uze, time, itime, isubstep, nsubsteps, isubiter, nsubiter, converged)
@@ -430,7 +461,6 @@ contains
     real(mytype) :: sumw_min, sumw_max, spread_hy_loc_min, spread_hy_loc_max
     real(mytype) :: ramp_factor, ramp_linear, coupling_step, beta_eff, dt_stage
     real(mytype) :: relax_alpha, alpha_u, alpha_omega
-    real(mytype) :: lag_impulse(3), euler_impulse(3)
     real(mytype) :: torque_local(3), r(3), pnorm
     real(mytype) :: torque_used_perp(3), omega_dot_used(3)
     real(mytype) :: uc_new_raw(3), xc_new_raw(3), omega_new_raw(3), p_new_raw(3)
@@ -443,7 +473,7 @@ contains
     real(mytype), parameter :: fail_spacing_limit = 0.25_mytype
     real(mytype), parameter :: fail_pnorm_error_limit = 0.25_mytype
     integer :: l, npts, ierr, failure_code
-    logical :: output_now, failed_flag, is_finite
+    logical :: failed_flag, is_finite
     character(len=64) :: fail_stage, fail_quantity
 
     if (.not.fiber_active) then
@@ -475,6 +505,10 @@ contains
     endif
     beta_eff = ibm_beta * ramp_factor
 
+    fiber_xc = rigid_two_way_xc_guess
+    fiber_uc = rigid_two_way_uc_guess
+    fiber_omega = rigid_two_way_omega_guess
+    fiber_p = rigid_two_way_p_guess
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
     call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
@@ -529,15 +563,14 @@ contains
     call compute_rigid_free_spacing_error(spacing_error_max)
 
     rigid_two_way_force_seed = fiber_coupling_force
-    if (isubiter == nsubiter) rigid_two_way_force_prev = rigid_two_way_force_seed
+    rigid_two_way_eul_total_commit = eul_total
 
     slip_max = maxval(abs(fiber_slip))
     npts = 3 * fiber_nl
     slip_rms = sqrt(sum(fiber_slip**2) / real(npts, mytype))
     p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
     abs_force_balance = abs(eul_total - fiber_force_total)
-    lag_impulse = fiber_force_total * dt_stage
-    euler_impulse = eul_total * dt_stage
+    rigid_two_way_abs_force_balance_commit = abs_force_balance
 
     uc_norm = sqrt(sum(fiber_uc**2))
     omega_norm = sqrt(sum(fiber_omega**2))
@@ -609,18 +642,11 @@ contains
 
     slip_tol = max(0._mytype, rigid_two_way_subiter_slip_tol)
     converged = (slip_max <= slip_tol)
-    if (converged) rigid_two_way_force_prev = rigid_two_way_force_seed
 
-    output_now = (isubstep == nsubsteps) .and. (converged .or. isubiter == nsubiter) .and. &
-         ((itime == ifirst) .or. (mod(itime, max(1, rigid_two_way_output_interval)) == 0))
-    if (failed_flag) output_now = .true.
-    if (output_now) then
-      call write_fiber_rigid_two_way_points(itime)
-      call write_fiber_rigid_two_way_summary(itime, time, slip_max, slip_rms, spacing_error_max, p_norm_error, &
-           fiber_force_total, eul_total)
-      call write_fiber_rigid_two_way_momentum(itime, time, fiber_force_total, eul_total, abs_force_balance, dt_stage, &
-           lag_impulse, euler_impulse)
-    endif
+    rigid_two_way_xc_guess = fiber_xc
+    rigid_two_way_uc_guess = fiber_uc
+    rigid_two_way_omega_guess = fiber_omega
+    rigid_two_way_p_guess = fiber_p
 
     if (failed_flag) then
       if (nrank == 0) then
@@ -634,7 +660,63 @@ contains
       call MPI_ABORT(MPI_COMM_WORLD, 913, ierr)
     endif
 
+    fiber_xc = rigid_two_way_xc_base
+    fiber_uc = rigid_two_way_uc_base
+    fiber_omega = rigid_two_way_omega_base
+    fiber_p = rigid_two_way_p_base
+
   end subroutine rigid_two_way_finalize_update
+
+  subroutine rigid_two_way_commit_state(ux_main, uy_main, uz_main, ux_work, uy_work, uz_work, time, itime, isubstep, nsubsteps, &
+       isubiter, nsubiter)
+
+    real(mytype), intent(inout), dimension(:,:,:) :: ux_main, uy_main, uz_main
+    real(mytype), intent(in), dimension(:,:,:) :: ux_work, uy_work, uz_work
+    real(mytype), intent(in) :: time
+    integer, intent(in) :: itime, isubstep, nsubsteps, isubiter, nsubiter
+
+    real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error, dt_stage
+    real(mytype) :: lag_impulse(3), euler_impulse(3)
+    integer :: npts
+    logical :: output_now
+
+    if (.not.fiber_active) return
+    if (.not.rigid_two_way_test_active) return
+
+    ux_main = ux_work
+    uy_main = uy_work
+    uz_main = uz_work
+
+    fiber_xc = rigid_two_way_xc_guess
+    fiber_uc = rigid_two_way_uc_guess
+    fiber_omega = rigid_two_way_omega_guess
+    fiber_p = rigid_two_way_p_guess
+    rigid_two_way_force_prev = rigid_two_way_force_seed
+
+    call update_rigid_free_geometry()
+    call update_rigid_free_xdot()
+    call run_fiber_interp_solver_readonly(ux_main, uy_main, uz_main, itime)
+    fiber_slip = fiber_uinterp - fiber_xdot
+    call compute_rigid_free_spacing_error(spacing_error_max)
+
+    slip_max = maxval(abs(fiber_slip))
+    npts = 3 * fiber_nl
+    slip_rms = sqrt(sum(fiber_slip**2) / real(npts, mytype))
+    p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
+    dt_stage = gdt(isubstep)
+    lag_impulse = fiber_force_total * dt_stage
+    euler_impulse = rigid_two_way_eul_total_commit * dt_stage
+
+    output_now = (isubstep == nsubsteps) .and. ((itime == ifirst) .or. (mod(itime, max(1, rigid_two_way_output_interval)) == 0))
+    if (output_now) then
+      call write_fiber_rigid_two_way_points(itime)
+      call write_fiber_rigid_two_way_summary(itime, time, slip_max, slip_rms, spacing_error_max, p_norm_error, &
+           fiber_force_total, rigid_two_way_eul_total_commit)
+      call write_fiber_rigid_two_way_momentum(itime, time, fiber_force_total, rigid_two_way_eul_total_commit, &
+           rigid_two_way_abs_force_balance_commit, dt_stage, lag_impulse, euler_impulse)
+    endif
+
+  end subroutine rigid_two_way_commit_state
 
   subroutine add_rigid_coupling_rhs(dux, duy, duz)
 

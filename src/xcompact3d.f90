@@ -25,7 +25,8 @@ program xcompact3d
        rigid_kinematics_standalone, rigid_two_way_subiterations
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
-  use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update
+  use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update, &
+       rigid_two_way_commit_state
   use fiber_rigid_free, only : run_rigid_free_step
   use fiber_rigid_kinematics, only : rigid_kinematics_step
 
@@ -33,6 +34,9 @@ program xcompact3d
 
   logical :: solver_interp_done, two_way_converged
   integer :: two_way_isubiter, two_way_nsubiter
+  real(mytype), allocatable :: ux_base(:,:,:), uy_base(:,:,:), uz_base(:,:,:)
+  real(mytype), allocatable :: ux_work(:,:,:), uy_work(:,:,:), uz_work(:,:,:)
+  real(mytype), allocatable :: rho_base(:,:,:,:), phi_base(:,:,:,:)
 
   solver_interp_done = .false.
 
@@ -68,22 +72,43 @@ program xcompact3d
         if (fiber_active .and. rigid_two_way_test_active) then
            two_way_nsubiter = max(1, rigid_two_way_subiterations)
            two_way_converged = .false.
+           if (.not.allocated(ux_base)) then
+              allocate(ux_base(size(ux1,1), size(ux1,2), size(ux1,3)))
+              allocate(uy_base(size(uy1,1), size(uy1,2), size(uy1,3)))
+              allocate(uz_base(size(uz1,1), size(uz1,2), size(uz1,3)))
+              allocate(ux_work(size(ux1,1), size(ux1,2), size(ux1,3)))
+              allocate(uy_work(size(uy1,1), size(uy1,2), size(uy1,3)))
+              allocate(uz_work(size(uz1,1), size(uz1,2), size(uz1,3)))
+              allocate(rho_base(size(rho1,1), size(rho1,2), size(rho1,3), size(rho1,4)))
+              allocate(phi_base(size(phi1,1), size(phi1,2), size(phi1,3), size(phi1,4)))
+           endif
+           ux_base = ux1
+           uy_base = uy1
+           uz_base = uz1
+           rho_base = rho1
+           phi_base = phi1
 
            do two_way_isubiter = 1, two_way_nsubiter
+              ux_work = ux_base
+              uy_work = uy_base
+              uz_work = uz_base
+              rho1 = rho_base
+              phi1 = phi_base
               call set_fluid_properties(rho1,mu1)
-              call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
+              call boundary_conditions(rho1,ux_work,uy_work,uz_work,phi1,ep1)
 
               if (imove.eq.1) then ! update epsi for moving objects
                 if ((iibm.eq.2).or.(iibm.eq.3)) then
                    call genepsi3d(ep1)
                 else if (iibm.eq.1) then
-                   call body(ux1,uy1,uz1,ep1)
+                   call body(ux_work,uy_work,uz_work,ep1)
                 endif
               endif
 
-              call rigid_two_way_prepare_forcing(ux1, uy1, uz1, t, itime, itr, iadvance_time, two_way_isubiter, two_way_nsubiter)
+              call rigid_two_way_prepare_forcing(ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
+                   two_way_isubiter, two_way_nsubiter)
 
-              call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+              call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux_work,uy_work,uz_work,ep1,phi1,divu3)
 
 #ifdef DEBG
               call check_transients()
@@ -91,35 +116,37 @@ program xcompact3d
 
               if (ilmn) then
                  !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
-                 call velocity_to_momentum(rho1,ux1,uy1,uz1)
+                 call velocity_to_momentum(rho1,ux_work,uy_work,uz_work)
               endif
 
-              call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
-              call pre_correc(ux1,uy1,uz1,ep1)
+              call int_time(rho1,ux_work,uy_work,uz_work,phi1,drho1,dux1,duy1,duz1,dphi1)
+              call pre_correc(ux_work,uy_work,uz_work,ep1)
 
               call calc_divu_constraint(divu3,rho1,phi1)
-              call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
-              call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
+              call solve_poisson(pp3,px1,py1,pz1,rho1,ux_work,uy_work,uz_work,ep1,drho1,divu3)
+              call cor_vel(ux_work,uy_work,uz_work,px1,py1,pz1)
 
               if(mhd_active .and. mhd_equation == 'induction') then
                 call solve_poisson_mhd()
               endif
 
               if (ilmn) then
-                 call momentum_to_velocity(rho1,ux1,uy1,uz1)
+                 call momentum_to_velocity(rho1,ux_work,uy_work,uz_work)
                  !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
                  !! Note - all other solvers work on velocity always
               endif
 
-              call rigid_two_way_finalize_update(ux1, uy1, uz1, t, itime, itr, iadvance_time, &
+              call rigid_two_way_finalize_update(ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
                    two_way_isubiter, two_way_nsubiter, two_way_converged)
 
-              call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
+              call test_flow(rho1,ux_work,uy_work,uz_work,phi1,ep1,drho1,divu3)
 
               if(mhd_active) call test_magnetic
 
               if (two_way_converged) exit
            enddo
+           call rigid_two_way_commit_state(ux1, uy1, uz1, ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
+                min(two_way_isubiter, two_way_nsubiter), two_way_nsubiter)
         else
            call set_fluid_properties(rho1,mu1)
            call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
