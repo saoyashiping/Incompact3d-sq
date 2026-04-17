@@ -43,6 +43,14 @@ subroutine parameter(input_i3d)
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
        rigid_output_interval, rigid_kinematics_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_velocity_relaxation_x, rigid_two_way_velocity_relaxation_y, rigid_two_way_velocity_relaxation_z, &
+       rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_write_turb_series, rigid_two_way_turb_series_interval, rigid_two_way_min_wall_gap, &
+       rigid_two_way_parallel_streamwise_correction, rigid_two_way_parallel_streamwise_alpha, &
+       rigid_two_way_parallel_cosine_threshold, &
+       rigid_two_way_parallel_ucx_implicit, rigid_two_way_parallel_ucx_newton_iters, &
+       rigid_two_way_parallel_ucx_newton_relaxation, rigid_two_way_parallel_ucx_max_increment, &
+       rigid_two_way_parallel_ucx_fd_eps, &
        rigid_two_way_subiterations, rigid_two_way_subiter_slip_tol, rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, &
        free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
@@ -105,6 +113,14 @@ subroutine parameter(input_i3d)
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
        rigid_output_interval,free_output_interval,rigid_two_way_output_interval,rigid_two_way_force_relaxation, &
        rigid_two_way_velocity_relaxation,rigid_two_way_omega_relaxation, &
+       rigid_two_way_velocity_relaxation_x,rigid_two_way_velocity_relaxation_y,rigid_two_way_velocity_relaxation_z, &
+       rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_write_turb_series,rigid_two_way_turb_series_interval,rigid_two_way_min_wall_gap, &
+       rigid_two_way_parallel_streamwise_correction,rigid_two_way_parallel_streamwise_alpha, &
+       rigid_two_way_parallel_cosine_threshold, &
+       rigid_two_way_parallel_ucx_implicit,rigid_two_way_parallel_ucx_newton_iters, &
+       rigid_two_way_parallel_ucx_newton_relaxation,rigid_two_way_parallel_ucx_max_increment, &
+       rigid_two_way_parallel_ucx_fd_eps, &
        rigid_two_way_subiterations,rigid_two_way_subiter_slip_tol,rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, &
        rigid_kinematics_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega

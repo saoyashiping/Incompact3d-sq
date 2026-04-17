@@ -30,7 +30,7 @@ cpg = F               ! if cpg=T, then re is friction Reynolds number
 ! Time stepping
 dt = 0.005            ! Time step
 ifirst = 1            ! First iteration
-ilast = 200        ! Last iteration
+ilast = 400        ! Last iteration
 
 ! Enable modelling tools
 ilesmod=0             ! if 0 then DNS
@@ -93,7 +93,8 @@ nvisu = 1             ! Size for visualisation collection
 wrotation = 0.12      ! rotation speed to trigger turbulence
 spinup_time = 5000    ! number of time steps with a rotation to trigger turbulence
 nstat = 1             ! Size arrays for statistic collection
-initstat = 40000      ! Time steps after which statistics are collected
+initstat = 1      ! Time steps after which statistics are collected
+istatfreq = 1      ! Statistics write frequency
 
 /End
 
@@ -138,7 +139,7 @@ fiber_active = T
 fiber_nl = 9
 fiber_length = 1.0
 fiber_center = 4.0, 1.0, 2.0
-fiber_direction = 1.0, 0.0, 0.0
+fiber_direction = 0.7071067811865476, 0.0000000000000000, 0.7071067811865476
 interp_test_active = F
 interp_solver_test_active = F
 spread_test_active = F
@@ -160,6 +161,9 @@ rigid_two_way_subiterations = 4
 rigid_two_way_subiter_slip_tol = 1.0e-4
 rigid_two_way_subiter_verbose = T
 rigid_two_way_startup_fit = T
+rigid_two_way_write_turb_series = T
+rigid_two_way_turb_series_interval = 1
+rigid_two_way_min_wall_gap = 5.0e-3
 rigid_two_way_parallel_streamwise_correction = T
 rigid_two_way_parallel_streamwise_alpha = 0.05
 rigid_two_way_parallel_cosine_threshold = 0.98
