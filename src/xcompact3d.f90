@@ -572,6 +572,7 @@ subroutine finalise_xcompact3d()
   use decomp_2d_io, only : decomp_2d_io_finalise
 
   use tools, only : simu_stats
+  use stats, only : write_channel_mean_profile_outputs
   use param, only : itype, jles, ilesmod, mhd_active
   use probes, only : finalize_probes
   use visu, only : visu_finalise
@@ -608,6 +609,7 @@ subroutine finalise_xcompact3d()
   endif
   
   call simu_stats(4)
+  call write_channel_mean_profile_outputs()
   call finalize_probes()
   call visu_case_finalise()
   call visu_finalise()

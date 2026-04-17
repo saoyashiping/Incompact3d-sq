@@ -96,8 +96,8 @@ nstat = 1             ! Size arrays for statistic collection
 initstat = 1      ! Time steps after which statistics are collected
 istatfreq = 1      ! Statistics write frequency
 mean_profile_output_active = T
-single_phase_profile_reference_file = 'channel_mean_profile_single_phase.dat'
-mean_profile_output_filename = 'channel_mean_profile_with_fiber.dat'
+single_phase_profile_reference_file = ''
+mean_profile_output_filename = 'channel_mean_profile_single_phase.dat'
 delta_mean_profile_output_filename = 'delta_mean_profile.dat'
 
 /End
@@ -139,7 +139,7 @@ iconserv = 0          ! Formulation SGS divergence (0: non conservative, 1: cons
 !================
 &FiberParam
 !================
-fiber_active = T
+fiber_active = F
 fiber_nl = 9
 fiber_length = 1.0
 fiber_center = 4.0, 1.0, 2.0
@@ -150,7 +150,7 @@ spread_test_active = F
 rigid_coupling_test_active = F
 rigid_free_test_active = F
 rigid_kinematics_test_active = F
-rigid_two_way_test_active = T
+rigid_two_way_test_active = F
 rigid_motion_case = 1
 rigid_free_case = 1
 ibm_beta = -20.0
@@ -165,7 +165,7 @@ rigid_two_way_subiterations = 4
 rigid_two_way_subiter_slip_tol = 1.0e-4
 rigid_two_way_subiter_verbose = T
 rigid_two_way_startup_fit = T
-rigid_two_way_write_turb_series = T
+rigid_two_way_write_turb_series = F
 rigid_two_way_turb_series_interval = 1
 rigid_two_way_min_wall_gap = 5.0e-3
 rigid_two_way_parallel_streamwise_correction = T

@@ -95,6 +95,10 @@ spinup_time = 5000    ! number of time steps with a rotation to trigger turbulen
 nstat = 1             ! Size arrays for statistic collection
 initstat = 1      ! Time steps after which statistics are collected
 istatfreq = 1      ! Statistics write frequency
+mean_profile_output_active = T
+single_phase_profile_reference_file = 'channel_mean_profile_single_phase.dat'
+mean_profile_output_filename = 'channel_mean_profile_with_fiber.dat'
+delta_mean_profile_output_filename = 'delta_mean_profile.dat'
 
 /End
 

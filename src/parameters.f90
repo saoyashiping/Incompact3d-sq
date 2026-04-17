@@ -77,7 +77,9 @@ subroutine parameter(input_i3d)
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, ilist, iprocessing, &
        ninflows, ntimesteps, inflowpath, ioutflow, output2D, nprobes, &
        validation_restart
-  NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat, istatfreq
+  NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat, istatfreq, &
+       mean_profile_output_active, single_phase_profile_reference_file, &
+       mean_profile_output_filename, delta_mean_profile_output_filename
   NAMELIST /ProbesParam/ flag_all_digits, flag_extra_probes, xyzprobes
   NAMELIST /ScalarParam/ sc, ri, uset, cp, &
        nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn, &
@@ -878,6 +880,10 @@ subroutine parameter_defaults()
   iprocessing = huge(i)
   initstat = huge(i)
   istatfreq =1
+  mean_profile_output_active = .false.
+  single_phase_profile_reference_file = ''
+  mean_profile_output_filename = 'channel_mean_profile.dat'
+  delta_mean_profile_output_filename = 'delta_mean_profile.dat'
   ninflows=1
   ntimesteps=1
   inflowpath='./'
