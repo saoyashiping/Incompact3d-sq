@@ -16,7 +16,7 @@ module stats
   integer :: stats_time
   
   private
-  public overall_statistic
+  public overall_statistic, write_channel_mean_profile_outputs
 
 contains
 
@@ -450,5 +450,151 @@ contains
 
     write(int_to_str, "(I0)") i
   end function int_to_str
-endmodule stats
 
+  subroutine write_channel_mean_profile_outputs()
+
+    use mpi, only : MPI_ALLREDUCE, MPI_SUM, MPI_COMM_WORLD
+    use param, only : mean_profile_output_active, mean_profile_output_filename, single_phase_profile_reference_file, &
+         delta_mean_profile_output_filename, itype, itype_channel, ny, itime, initstat, istret, dy
+    use variables, only : yp
+    use var, only : umean
+
+    implicit none
+
+    real(mytype), allocatable :: sum_local(:), sum_global(:), cnt_local(:), cnt_global(:), yvals(:), uprof(:)
+    integer :: j, i, k, ifile, ierr
+
+    if (.not.mean_profile_output_active) return
+    if (itype /= itype_channel) return
+    if (itime < initstat) then
+      if (nrank == 0) then
+        write(*,'(A)') 'Mean profile output skipped: no statistics accumulated yet (itime < initstat).'
+      endif
+      return
+    endif
+
+    allocate(sum_local(ny), sum_global(ny), cnt_local(ny), cnt_global(ny), yvals(ny), uprof(ny))
+    sum_local = 0._mytype
+    cnt_local = 0._mytype
+
+    do k = xstS(3), xenS(3)
+      do j = xstS(2), xenS(2)
+        do i = xstS(1), xenS(1)
+          sum_local(j) = sum_local(j) + umean(i,j,k)
+          cnt_local(j) = cnt_local(j) + 1._mytype
+        enddo
+      enddo
+    enddo
+
+    call MPI_ALLREDUCE(sum_local, sum_global, ny, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_ALLREDUCE(cnt_local, cnt_global, ny, real_type, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+    do j = 1, ny
+      if (cnt_global(j) > 0._mytype) then
+        uprof(j) = sum_global(j) / cnt_global(j)
+      else
+        uprof(j) = 0._mytype
+      endif
+      if (istret == 0) then
+        yvals(j) = real(j - 1, mytype) * dy
+      else
+        yvals(j) = yp(j)
+      endif
+    enddo
+
+    if (nrank == 0) then
+      call write_mean_profile_file(trim(mean_profile_output_filename), yvals, uprof)
+      call write_delta_profile_file(trim(single_phase_profile_reference_file), trim(delta_mean_profile_output_filename), yvals, uprof)
+    endif
+
+    deallocate(sum_local, sum_global, cnt_local, cnt_global, yvals, uprof)
+
+  end subroutine write_channel_mean_profile_outputs
+
+  subroutine write_mean_profile_file(filename, yvals, uvals)
+
+    character(len=*), intent(in) :: filename
+    real(mytype), intent(in) :: yvals(:), uvals(:)
+
+    integer :: ifile, j
+
+    if (len_trim(filename) == 0) return
+
+    open(newunit=ifile, file=trim(filename), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# y Umean'
+    do j = 1, size(yvals)
+      write(ifile,'(2(ES24.16,1X))') yvals(j), uvals(j)
+    enddo
+    close(ifile)
+
+  end subroutine write_mean_profile_file
+
+  subroutine write_delta_profile_file(reference_file, delta_file, yvals, u_with_fiber)
+
+    character(len=*), intent(in) :: reference_file, delta_file
+    real(mytype), intent(in) :: yvals(:), u_with_fiber(:)
+
+    real(mytype), allocatable :: y_ref(:), u_ref(:)
+    character(len=1024) :: line
+    integer :: ifile_in, ifile_out, ios, nlines, j
+    real(mytype) :: ytmp, utmp
+    logical :: exists_ref
+
+    if (len_trim(reference_file) == 0) return
+    if (len_trim(delta_file) == 0) return
+
+    inquire(file=trim(reference_file), exist=exists_ref)
+    if (.not.exists_ref) then
+      write(*,'(A,A)') 'Mean profile delta skipped: reference file not found: ', trim(reference_file)
+      return
+    endif
+
+    open(newunit=ifile_in, file=trim(reference_file), status='old', action='read', form='formatted')
+    nlines = 0
+    do
+      read(ifile_in,'(A)',iostat=ios) line
+      if (ios /= 0) exit
+      if (len_trim(line) == 0) cycle
+      if (line(1:1) == '#') cycle
+      read(line,*,iostat=ios) ytmp, utmp
+      if (ios /= 0) cycle
+      nlines = nlines + 1
+    enddo
+    rewind(ifile_in)
+
+    if (nlines /= size(yvals)) then
+      write(*,'(A,I0,A,I0)') 'Mean profile delta skipped: reference/profile line mismatch (ref=', nlines, &
+           ', current=', size(yvals), ').'
+      close(ifile_in)
+      return
+    endif
+
+    allocate(y_ref(nlines), u_ref(nlines))
+    nlines = 0
+    do
+      read(ifile_in,'(A)',iostat=ios) line
+      if (ios /= 0) exit
+      if (len_trim(line) == 0) cycle
+      if (line(1:1) == '#') cycle
+      read(line,*,iostat=ios) ytmp, utmp
+      if (ios /= 0) cycle
+      nlines = nlines + 1
+      y_ref(nlines) = ytmp
+      u_ref(nlines) = utmp
+    enddo
+    close(ifile_in)
+
+    open(newunit=ifile_out, file=trim(delta_file), status='replace', action='write', form='formatted')
+    write(ifile_out,'(A)') '# y U_single_phase U_with_fiber deltaU'
+    do j = 1, size(yvals)
+      if (abs(yvals(j) - y_ref(j)) > 1.0e-10_mytype) then
+        write(*,'(A,I0)') 'Mean profile delta warning: y-grid mismatch at row ', j
+      endif
+      write(ifile_out,'(4(ES24.16,1X))') yvals(j), u_ref(j), u_with_fiber(j), u_with_fiber(j) - u_ref(j)
+    enddo
+    close(ifile_out)
+
+    deallocate(y_ref, u_ref)
+
+  end subroutine write_delta_profile_file
+endmodule stats
