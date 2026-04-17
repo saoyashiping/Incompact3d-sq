@@ -15,6 +15,7 @@ module fiber_coupling
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
        rigid_two_way_velocity_relaxation_x, rigid_two_way_velocity_relaxation_y, rigid_two_way_velocity_relaxation_z, &
        rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_write_turb_series, rigid_two_way_turb_series_interval, rigid_two_way_min_wall_gap, &
        rigid_two_way_parallel_streamwise_correction, rigid_two_way_parallel_streamwise_alpha, &
        rigid_two_way_parallel_cosine_threshold, &
        rigid_two_way_parallel_ucx_implicit, rigid_two_way_parallel_ucx_newton_iters, &
@@ -31,7 +32,8 @@ module fiber_coupling
   use fiber_interp, only : run_fiber_interp_solver_readonly
   use fiber_spread, only : spread_lagrangian_force_to_euler
   use fiber_io, only : write_fiber_rigid_coupling_points, write_fiber_rigid_coupling_summary, &
-       write_fiber_rigid_two_way_points, write_fiber_rigid_two_way_summary, write_fiber_rigid_two_way_momentum
+       write_fiber_rigid_two_way_points, write_fiber_rigid_two_way_summary, write_fiber_rigid_two_way_momentum, &
+       write_fiber_rigid_two_way_turb_series
 
   implicit none
 
@@ -479,7 +481,7 @@ contains
     real(mytype) :: ucx_newton_relax, ucx_step_cap, ucx_fd_eps
     integer :: ucx_newton_iters, inewton
     logical :: apply_parallel_streamwise_corr, apply_parallel_mode, apply_parallel_implicit
-    real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm, slip_tol
+    real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm, slip_tol, min_wall_gap
     real(mytype), parameter :: fail_uc_limit = 1.0e3_mytype
     real(mytype), parameter :: fail_omega_limit = 1.0e5_mytype
     real(mytype), parameter :: fail_xc_limit_factor = 10._mytype
@@ -726,6 +728,16 @@ contains
       fail_quantity = 'p_norm_error'
     endif
 
+    min_wall_gap = min(minval(fiber_x(2,:)), minval(yly - fiber_x(2,:)))
+    if (rigid_two_way_min_wall_gap > 0._mytype) then
+      if (min_wall_gap < rigid_two_way_min_wall_gap .and. .not.failed_flag) then
+        failed_flag = .true.
+        failure_code = 119
+        fail_stage = 'threshold'
+        fail_quantity = 'min_wall_gap'
+      endif
+    endif
+
     if (rigid_two_way_subiter_verbose .and. nrank == 0) then
       write(*,'(A,I3,A,ES12.4,A,ES12.4)') 'two_way_subiter=', isubiter, ' slip_max=', slip_max, ' slip_rms=', slip_rms
     endif
@@ -790,7 +802,7 @@ contains
     real(mytype), intent(in) :: time
     integer, intent(in) :: itime, isubstep, nsubsteps, isubiter, nsubiter
 
-    real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error, dt_stage
+    real(mytype) :: slip_max, slip_rms, spacing_error_max, p_norm_error, dt_stage, min_wall_gap
     real(mytype) :: lag_impulse(3), euler_impulse(3)
     real(mytype) :: seed_eta
     integer :: npts
@@ -820,6 +832,7 @@ contains
     npts = 3 * fiber_nl
     slip_rms = sqrt(sum(fiber_slip**2) / real(npts, mytype))
     p_norm_error = abs(sqrt(sum(fiber_p**2)) - 1._mytype)
+    min_wall_gap = min(minval(fiber_x(2,:)), minval(yly - fiber_x(2,:)))
     dt_stage = gdt(isubstep)
     lag_impulse = fiber_force_total * dt_stage
     euler_impulse = rigid_two_way_eul_total_commit * dt_stage
@@ -831,6 +844,11 @@ contains
            fiber_force_total, rigid_two_way_eul_total_commit)
       call write_fiber_rigid_two_way_momentum(itime, time, fiber_force_total, rigid_two_way_eul_total_commit, &
            rigid_two_way_abs_force_balance_commit, dt_stage, lag_impulse, euler_impulse)
+    endif
+    if (rigid_two_way_write_turb_series) then
+      if (itime == ifirst .or. mod(itime, max(1, rigid_two_way_turb_series_interval)) == 0) then
+        call write_fiber_rigid_two_way_turb_series(itime, time, slip_max, slip_rms, min_wall_gap)
+      endif
     endif
 
   end subroutine rigid_two_way_commit_state

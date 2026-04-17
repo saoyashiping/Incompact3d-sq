@@ -53,6 +53,9 @@ module fiber_types
   real(mytype) :: rigid_two_way_velocity_relaxation_z
   real(mytype) :: rigid_two_way_omega_relaxation
   real(mytype) :: rigid_two_way_force_seed_relaxation
+  logical :: rigid_two_way_write_turb_series
+  integer :: rigid_two_way_turb_series_interval
+  real(mytype) :: rigid_two_way_min_wall_gap
   logical :: rigid_two_way_parallel_streamwise_correction
   real(mytype) :: rigid_two_way_parallel_streamwise_alpha
   real(mytype) :: rigid_two_way_parallel_cosine_threshold
@@ -127,6 +130,9 @@ contains
     rigid_two_way_velocity_relaxation_z = 0.10_mytype
     rigid_two_way_omega_relaxation = 0.10_mytype
     rigid_two_way_force_seed_relaxation = 0.5_mytype
+    rigid_two_way_write_turb_series = .false.
+    rigid_two_way_turb_series_interval = 1
+    rigid_two_way_min_wall_gap = 0._mytype
     rigid_two_way_parallel_streamwise_correction = .false.
     rigid_two_way_parallel_streamwise_alpha = 0.05_mytype
     rigid_two_way_parallel_cosine_threshold = 0.98_mytype
