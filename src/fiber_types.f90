@@ -56,6 +56,11 @@ module fiber_types
   logical :: rigid_two_way_parallel_streamwise_correction
   real(mytype) :: rigid_two_way_parallel_streamwise_alpha
   real(mytype) :: rigid_two_way_parallel_cosine_threshold
+  logical :: rigid_two_way_parallel_ucx_implicit
+  integer :: rigid_two_way_parallel_ucx_newton_iters
+  real(mytype) :: rigid_two_way_parallel_ucx_newton_relaxation
+  real(mytype) :: rigid_two_way_parallel_ucx_max_increment
+  real(mytype) :: rigid_two_way_parallel_ucx_fd_eps
   integer :: rigid_two_way_subiterations
   real(mytype) :: rigid_two_way_subiter_slip_tol
   logical :: rigid_two_way_subiter_verbose
@@ -125,6 +130,11 @@ contains
     rigid_two_way_parallel_streamwise_correction = .false.
     rigid_two_way_parallel_streamwise_alpha = 0.05_mytype
     rigid_two_way_parallel_cosine_threshold = 0.98_mytype
+    rigid_two_way_parallel_ucx_implicit = .false.
+    rigid_two_way_parallel_ucx_newton_iters = 2
+    rigid_two_way_parallel_ucx_newton_relaxation = 0.5_mytype
+    rigid_two_way_parallel_ucx_max_increment = 0.05_mytype
+    rigid_two_way_parallel_ucx_fd_eps = 1.0e-4_mytype
     rigid_two_way_subiterations = 2
     rigid_two_way_subiter_slip_tol = 1.0e-3_mytype
     rigid_two_way_subiter_verbose = .false.

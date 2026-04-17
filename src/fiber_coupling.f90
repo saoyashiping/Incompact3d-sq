@@ -17,6 +17,9 @@ module fiber_coupling
        rigid_two_way_force_seed_relaxation, &
        rigid_two_way_parallel_streamwise_correction, rigid_two_way_parallel_streamwise_alpha, &
        rigid_two_way_parallel_cosine_threshold, &
+       rigid_two_way_parallel_ucx_implicit, rigid_two_way_parallel_ucx_newton_iters, &
+       rigid_two_way_parallel_ucx_newton_relaxation, rigid_two_way_parallel_ucx_max_increment, &
+       rigid_two_way_parallel_ucx_fd_eps, &
        rigid_two_way_subiterations, rigid_two_way_subiter_slip_tol, rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, rigid_two_way_initialized, &
        fiber_x, fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, &
@@ -472,7 +475,10 @@ contains
     real(mytype) :: omega_cross_r(3)
     real(mytype) :: uc_x_fit_local, uc_x_fit_global, wsum_local, wsum_global, wq
     real(mytype) :: streamwise_alpha, parallel_threshold
-    logical :: apply_parallel_streamwise_corr
+    real(mytype) :: ucx_base, ucx_trial, ucx_r, ucx_rp, ucx_drdx, ucx_delta, ucx_fx, ucx_fxp
+    real(mytype) :: ucx_newton_relax, ucx_step_cap, ucx_fd_eps
+    integer :: ucx_newton_iters, inewton
+    logical :: apply_parallel_streamwise_corr, apply_parallel_mode, apply_parallel_implicit
     real(mytype) :: uc_norm, omega_norm, xc_abs_max, lag_force_norm, slip_tol
     real(mytype), parameter :: fail_uc_limit = 1.0e3_mytype
     real(mytype), parameter :: fail_omega_limit = 1.0e5_mytype
@@ -573,9 +579,35 @@ contains
 
     streamwise_alpha = max(0._mytype, min(1._mytype, rigid_two_way_parallel_streamwise_alpha))
     parallel_threshold = max(0._mytype, min(1._mytype, rigid_two_way_parallel_cosine_threshold))
-    apply_parallel_streamwise_corr = rigid_two_way_parallel_streamwise_correction .and. &
-         (abs(fiber_p(1)) >= parallel_threshold)
-    if (apply_parallel_streamwise_corr) then
+    apply_parallel_mode = (abs(fiber_p(1)) >= parallel_threshold)
+    apply_parallel_streamwise_corr = rigid_two_way_parallel_streamwise_correction .and. apply_parallel_mode
+    apply_parallel_implicit = rigid_two_way_parallel_ucx_implicit .and. apply_parallel_mode
+
+    if (apply_parallel_implicit) then
+      ucx_newton_iters = max(1, rigid_two_way_parallel_ucx_newton_iters)
+      ucx_newton_relax = max(0._mytype, min(1._mytype, rigid_two_way_parallel_ucx_newton_relaxation))
+      ucx_step_cap = max(0._mytype, rigid_two_way_parallel_ucx_max_increment)
+      ucx_fd_eps = abs(rigid_two_way_parallel_ucx_fd_eps)
+      if (ucx_fd_eps <= 1.0e-12_mytype) ucx_fd_eps = 1.0e-4_mytype
+      ucx_base = rigid_two_way_uc_base(1)
+      call update_rigid_free_geometry()
+      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+      ucx_trial = fiber_uc(1)
+      do inewton = 1, ucx_newton_iters
+        call evaluate_parallel_fx_of_ucx(ucx_trial, beta_eff, relax_alpha, ucx_fx)
+        ucx_r = ucx_trial - ucx_base - (dt_stage / fiber_mass) * ucx_fx
+        call evaluate_parallel_fx_of_ucx(ucx_trial + ucx_fd_eps, beta_eff, relax_alpha, ucx_fxp)
+        ucx_rp = (ucx_trial + ucx_fd_eps) - ucx_base - (dt_stage / fiber_mass) * ucx_fxp
+        ucx_drdx = (ucx_rp - ucx_r) / ucx_fd_eps
+        if (abs(ucx_drdx) <= 1.0e-12_mytype) exit
+        ucx_delta = -ucx_newton_relax * ucx_r / ucx_drdx
+        if (ucx_step_cap > 0._mytype) ucx_delta = max(-ucx_step_cap, min(ucx_step_cap, ucx_delta))
+        ucx_trial = ucx_trial + ucx_delta
+      enddo
+      fiber_uc(1) = ucx_trial
+      call evaluate_parallel_fx_of_ucx(ucx_trial, beta_eff, relax_alpha, ucx_fx)
+      fiber_force_total(1) = ucx_fx
+    else if (apply_parallel_streamwise_corr) then
       call update_rigid_free_geometry()
       call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
       uc_x_fit_local = 0._mytype
@@ -604,6 +636,20 @@ contains
     call update_rigid_free_xdot()
     call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
     fiber_slip = fiber_uinterp - fiber_xdot
+    fiber_coupling_force = beta_eff * fiber_slip
+    fiber_coupling_force = relax_alpha * fiber_coupling_force + (1._mytype - relax_alpha) * rigid_two_way_force_seed
+    lag_total_local = 0._mytype
+    torque_local = 0._mytype
+    do l = 1, fiber_nl
+      lag_total_local = lag_total_local + fiber_coupling_force(:,l) * fiber_quad_w(l)
+      r(1) = periodic_delta(fiber_x(1,l) - fiber_xc(1), xlx)
+      r(2) = fiber_x(2,l) - fiber_xc(2)
+      r(3) = periodic_delta(fiber_x(3,l) - fiber_xc(3), zlz)
+      torque_local = torque_local + cross_product(r, fiber_coupling_force(:,l)) * fiber_quad_w(l)
+    enddo
+    call MPI_ALLREDUCE(lag_total_local, lag_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_ALLREDUCE(torque_local, fiber_torque_total, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    fiber_force_total = lag_total
     call compute_rigid_free_spacing_error(spacing_error_max)
 
     rigid_two_way_force_seed = fiber_coupling_force
@@ -710,6 +756,31 @@ contains
     fiber_p = rigid_two_way_p_base
 
   end subroutine rigid_two_way_finalize_update
+
+  subroutine evaluate_parallel_fx_of_ucx(ucx_trial, beta_eff, relax_alpha, fx_global)
+
+    real(mytype), intent(in) :: ucx_trial, beta_eff, relax_alpha
+    real(mytype), intent(out) :: fx_global
+
+    real(mytype) :: fx_local, wq
+    integer :: l, ierr
+
+    fiber_uc(1) = ucx_trial
+    call update_rigid_free_xdot()
+    fiber_slip = fiber_uinterp - fiber_xdot
+    fx_local = 0._mytype
+    do l = 1, fiber_nl
+      if (allocated(fiber_quad_w)) then
+        wq = max(0._mytype, fiber_quad_w(l))
+      else
+        wq = 1._mytype
+      endif
+      fx_local = fx_local + wq * (relax_alpha * beta_eff * fiber_slip(1,l) + &
+           (1._mytype - relax_alpha) * rigid_two_way_force_seed(1,l))
+    enddo
+    call MPI_ALLREDUCE(fx_local, fx_global, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  end subroutine evaluate_parallel_fx_of_ucx
 
   subroutine rigid_two_way_commit_state(ux_main, uy_main, uz_main, ux_work, uy_work, uz_work, time, itime, isubstep, nsubsteps, &
        isubiter, nsubiter)
