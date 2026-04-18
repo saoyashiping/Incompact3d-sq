@@ -6,6 +6,7 @@ module fiber_interp
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank, nproc
+  use mpi, only : MPI_ALLREDUCE, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD
   use variables, only : nx, ny, nz, xp, yp, zp
   use param, only : xlx, yly, zlz
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
@@ -203,6 +204,75 @@ contains
     deallocate(xg, yg, zg, uxe, uye, uze)
 
   end subroutine run_fiber_interp_operator_test
+
+  subroutine run_fiber_interp_solver_production(uxe, uye, uze, itime)
+
+    real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
+    integer, intent(in) :: itime
+
+    integer :: i, j, k, l, ierr
+    real(mytype) :: hx, hz, hy_loc, weight, sumw
+    real(mytype) :: rx, ry, rz
+    integer :: jmin, jmax
+    real(mytype), allocatable :: uinterp_local(:,:), sumw_local(:)
+
+    if (.not.fiber_active) return
+    if (itime < 0) return
+
+    hx = xp(2) - xp(1)
+    hz = zp(2) - zp(1)
+
+    jmin = lbound(uxe,2)
+    jmax = ubound(uxe,2)
+
+    if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
+    if (.not.allocated(fiber_sumw)) allocate(fiber_sumw(fiber_nl))
+    allocate(uinterp_local(3, fiber_nl), sumw_local(fiber_nl))
+
+    fiber_uinterp = 0._mytype
+    fiber_sumw = 0._mytype
+    uinterp_local = 0._mytype
+    sumw_local = 0._mytype
+
+    do l = 1, fiber_nl
+      sumw = 0._mytype
+
+      do k = lbound(uxe,3), ubound(uxe,3)
+        rz = minimum_image(fiber_x(3,l) - zp(k), zlz)
+        if (abs(rz) > 2._mytype * hz) cycle
+
+        do j = lbound(uxe,2), ubound(uxe,2)
+          hy_loc = local_dy(yp, j, jmin, jmax)
+
+          ry = fiber_x(2,l) - yp(j)
+          if (abs(ry) > 2._mytype * hy_loc) cycle
+
+          do i = lbound(uxe,1), ubound(uxe,1)
+            rx = minimum_image(fiber_x(1,l) - xp(i), xlx)
+            if (abs(rx) > 2._mytype * hx) cycle
+
+            weight = delta_kernel_3d(rx, ry, rz, hx, hy_loc, hz) * hx * hy_loc * hz
+            sumw = sumw + weight
+            uinterp_local(1,l) = uinterp_local(1,l) + uxe(i,j,k) * weight
+            uinterp_local(2,l) = uinterp_local(2,l) + uye(i,j,k) * weight
+            uinterp_local(3,l) = uinterp_local(3,l) + uze(i,j,k) * weight
+          enddo
+        enddo
+      enddo
+
+      sumw_local(l) = sumw
+    enddo
+
+    call MPI_ALLREDUCE(uinterp_local, fiber_uinterp, 3 * fiber_nl, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_ALLREDUCE(sumw_local, fiber_sumw, fiber_nl, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+    do l = 1, fiber_nl
+      if (fiber_sumw(l) > 0._mytype) fiber_uinterp(:,l) = fiber_uinterp(:,l) / fiber_sumw(l)
+    enddo
+
+    deallocate(uinterp_local, sumw_local)
+
+  end subroutine run_fiber_interp_solver_production
 
 
   subroutine run_fiber_interp_solver_readonly(uxe, uye, uze, itime)

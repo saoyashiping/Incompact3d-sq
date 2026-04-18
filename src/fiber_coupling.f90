@@ -29,7 +29,7 @@ module fiber_coupling
   use fiber_rigid_motion, only : update_rigid_motion, compute_rigid_spacing_error
   use fiber_rigid_free, only : wrap_periodic, periodic_delta, cross_product, compute_rigid_free_spacing_error, &
        update_rigid_free_xdot, update_rigid_free_geometry
-  use fiber_interp, only : run_fiber_interp_solver_readonly
+  use fiber_interp, only : run_fiber_interp_solver_production
   use fiber_spread, only : spread_lagrangian_force_to_euler
   use fiber_io, only : write_fiber_rigid_coupling_points, write_fiber_rigid_coupling_summary, &
        write_fiber_rigid_two_way_points, write_fiber_rigid_two_way_summary, write_fiber_rigid_two_way_momentum, &
@@ -77,7 +77,7 @@ contains
     endif
 
     call update_rigid_motion(time)
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
 
     if (.not.allocated(fiber_slip)) allocate(fiber_slip(3, fiber_nl))
     if (.not.allocated(fiber_coupling_force)) allocate(fiber_coupling_force(3, fiber_nl))
@@ -222,7 +222,7 @@ contains
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
 
     normal_mat = 0._mytype
     rhs = 0._mytype
@@ -407,7 +407,7 @@ contains
     fiber_p = rigid_two_way_p_guess
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
 
     fiber_slip = fiber_uinterp - fiber_xdot
     fiber_coupling_force = beta_eff * fiber_slip
@@ -534,7 +534,7 @@ contains
     fiber_p = rigid_two_way_p_guess
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
 
     fiber_slip = fiber_uinterp - fiber_xdot
     fiber_coupling_force = beta_eff * fiber_slip
@@ -593,7 +593,7 @@ contains
       if (ucx_fd_eps <= 1.0e-12_mytype) ucx_fd_eps = 1.0e-4_mytype
       ucx_base = rigid_two_way_uc_base(1)
       call update_rigid_free_geometry()
-      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+      call run_fiber_interp_solver_production(uxe, uye, uze, itime)
       ucx_trial = fiber_uc(1)
       do inewton = 1, ucx_newton_iters
         call evaluate_parallel_fx_of_ucx(ucx_trial, beta_eff, relax_alpha, ucx_fx)
@@ -611,7 +611,7 @@ contains
       fiber_force_total(1) = ucx_fx
     else if (apply_parallel_streamwise_corr) then
       call update_rigid_free_geometry()
-      call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+      call run_fiber_interp_solver_production(uxe, uye, uze, itime)
       uc_x_fit_local = 0._mytype
       wsum_local = 0._mytype
       do l = 1, fiber_nl
@@ -636,7 +636,7 @@ contains
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
     fiber_slip = fiber_uinterp - fiber_xdot
     fiber_coupling_force = beta_eff * fiber_slip
     fiber_coupling_force = relax_alpha * fiber_coupling_force + (1._mytype - relax_alpha) * rigid_two_way_force_seed
@@ -824,7 +824,7 @@ contains
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(ux_main, uy_main, uz_main, itime)
+    call run_fiber_interp_solver_production(ux_main, uy_main, uz_main, itime)
     fiber_slip = fiber_uinterp - fiber_xdot
     call compute_rigid_free_spacing_error(spacing_error_max)
 
