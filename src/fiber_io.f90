@@ -434,12 +434,13 @@ contains
       open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
     else
       open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'itime time xc yc zc uc_x uc_y uc_z omega_x omega_y omega_z ' // &
+      write(ifile,'(A)') 'itime time xc yc zc uc_x uc_y uc_z p_x p_y p_z omega_x omega_y omega_z ' // &
            'slip_max slip_rms min_wall_gap min_wall_gap_limit'
     endif
 
-    write(ifile,'(I10,1X,14(ES24.16,1X))') itime, time, fiber_xc(1), fiber_xc(2), fiber_xc(3), &
-         fiber_uc(1), fiber_uc(2), fiber_uc(3), fiber_omega(1), fiber_omega(2), fiber_omega(3), &
+    write(ifile,'(I10,1X,17(ES24.16,1X))') itime, time, fiber_xc(1), fiber_xc(2), fiber_xc(3), &
+         fiber_uc(1), fiber_uc(2), fiber_uc(3), fiber_p(1), fiber_p(2), fiber_p(3), &
+         fiber_omega(1), fiber_omega(2), fiber_omega(3), &
          slip_max, slip_rms, min_wall_gap, rigid_two_way_min_wall_gap
     close(ifile)
 
