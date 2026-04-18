@@ -8,7 +8,8 @@ module fiber_io
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force, &
-       fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total
+       fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
+       rigid_two_way_min_wall_gap
 
   implicit none
 
@@ -412,5 +413,37 @@ contains
     close(ifile)
 
   end subroutine write_fiber_rigid_two_way_momentum
+
+  subroutine write_fiber_rigid_two_way_turb_series(itime, time, slip_max, slip_rms, min_wall_gap, filename)
+
+    integer, intent(in) :: itime
+    real(mytype), intent(in) :: time, slip_max, slip_rms, min_wall_gap
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+    logical :: file_exists
+
+    if (nrank /= 0) return
+
+    output_file = 'rigid_two_way_turb_series.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime time xc yc zc uc_x uc_y uc_z p_x p_y p_z omega_x omega_y omega_z ' // &
+           'slip_max slip_rms min_wall_gap min_wall_gap_limit'
+    endif
+
+    write(ifile,'(I10,1X,17(ES24.16,1X))') itime, time, fiber_xc(1), fiber_xc(2), fiber_xc(3), &
+         fiber_uc(1), fiber_uc(2), fiber_uc(3), fiber_p(1), fiber_p(2), fiber_p(3), &
+         fiber_omega(1), fiber_omega(2), fiber_omega(3), &
+         slip_max, slip_rms, min_wall_gap, rigid_two_way_min_wall_gap
+    close(ifile)
+
+  end subroutine write_fiber_rigid_two_way_turb_series
 
 end module fiber_io
