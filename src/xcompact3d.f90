@@ -322,6 +322,18 @@ subroutine init_xcompact3d()
   
   call parameter(InputFN)
 
+  if (nrank == 0) then
+     write(*,'(A,L1,A,L1,A,L1,A,L1,A,L1,A,L1,A,L1,A,L1)') &
+          'DEBUG FLAGS: interp_test_active=', interp_test_active, &
+          ', interp_solver_test_active=', interp_solver_test_active, &
+          ', spread_test_active=', spread_test_active, &
+          ', rigid_coupling_test_active=', rigid_coupling_test_active, &
+          ', rigid_free_test_active=', rigid_free_test_active, &
+          ', rigid_kinematics_test_active=', rigid_kinematics_test_active, &
+          ', rigid_two_way_test_active=', rigid_two_way_test_active, &
+          ', fiber_active=', fiber_active
+  endif
+
   if (interp_test_active .and. interp_solver_test_active) then
      if (nrank == 0) write(*,*) "Error: interp_test_active and interp_solver_test_active cannot both be true."
      call MPI_FINALIZE(ierr)
