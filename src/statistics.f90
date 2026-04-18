@@ -455,7 +455,8 @@ contains
 
     use mpi, only : MPI_ALLREDUCE, MPI_SUM, MPI_COMM_WORLD
     use param, only : mean_profile_output_active, mean_profile_output_filename, single_phase_profile_reference_file, &
-         delta_mean_profile_output_filename, itype, itype_channel, ny, itime, initstat, istret, dy
+         delta_mean_profile_output_filename, itype, itype_channel, itime, initstat, istret, dy
+    use module_param, only : ny
     use variables, only : yp
     use var, only : umean
 
