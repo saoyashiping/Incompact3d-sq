@@ -14,7 +14,7 @@ module fiber_rigid_free
        coupling_ramp_steps, free_output_interval, fiber_mass, fiber_inertia_perp, fiber_x, fiber_s_ref, &
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, fiber_xdot, fiber_uinterp, &
        fiber_slip, fiber_coupling_force, fiber_quad_w, fiber_euler_force_x, fiber_euler_force_y, fiber_euler_force_z
-  use fiber_interp, only : run_fiber_interp_solver_readonly
+  use fiber_interp, only : run_fiber_interp_solver_production
   use fiber_spread, only : spread_lagrangian_force_to_euler
   use fiber_io, only : write_fiber_rigid_free_points, write_fiber_rigid_free_summary
 
@@ -167,7 +167,7 @@ contains
 
     call update_rigid_free_geometry()
     call update_rigid_free_xdot()
-    call run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
+    call run_fiber_interp_solver_production(uxe, uye, uze, itime)
 
     if (.not.allocated(fiber_slip)) allocate(fiber_slip(3, fiber_nl))
     if (.not.allocated(fiber_coupling_force)) allocate(fiber_coupling_force(3, fiber_nl))
