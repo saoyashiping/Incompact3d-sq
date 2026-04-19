@@ -37,7 +37,8 @@ subroutine parameter(input_i3d)
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
        spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
-       rigid_kinematics_test_active, rigid_two_way_test_active, rigid_kinematics_one_way, rigid_kinematics_standalone, &
+       rigid_kinematics_test_active, rigid_two_way_test_active, fiber_flexible_active, &
+       rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
@@ -109,7 +110,8 @@ subroutine parameter(input_i3d)
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
        spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
-       rigid_kinematics_test_active,rigid_two_way_test_active,rigid_kinematics_one_way,rigid_kinematics_standalone, &
+       rigid_kinematics_test_active,rigid_two_way_test_active,fiber_flexible_active, &
+       rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
@@ -326,6 +328,25 @@ subroutine parameter(input_i3d)
   ! read(10, nml=TurbulenceWallModel)
   read(10, nml=CASE); rewind(10) !! Read case-specific variables
   close(10)
+
+  if (fiber_flexible_active) then
+     if (.not.fiber_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flexible_active requires fiber_active = true.'
+        stop
+     endif
+     if (fiber_nl < 5) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flexible_active requires fiber_nl >= 5.'
+        stop
+     endif
+     if (rigid_coupling_test_active .or. rigid_free_test_active .or. rigid_kinematics_test_active .or. &
+          rigid_two_way_test_active) then
+        if (nrank == 0) then
+           write(*,*) 'Error: fiber_flexible_active cannot be combined with rigid fiber test modes.'
+           write(*,*) 'Disable rigid_coupling/free/kinematics/two_way test flags for Step 3.1 flexible init.'
+        endif
+        stop
+     endif
+  endif
 
   ! allocate(sc(numscalar),cp(numscalar),ri(numscalar),group(numscalar))
 

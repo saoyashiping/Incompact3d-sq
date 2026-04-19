@@ -9,7 +9,8 @@ module fiber_io
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force, &
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
-       rigid_two_way_min_wall_gap
+       rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
+       fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction
 
   implicit none
 
@@ -445,5 +446,97 @@ contains
     close(ifile)
 
   end subroutine write_fiber_rigid_two_way_turb_series
+
+  subroutine write_fiber_flex_init_points(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_s_ref)) then
+      write(*,*) 'Error: fiber_s_ref is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_old)) then
+      write(*,*) 'Error: fiber_x_old is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_nm1)) then
+      write(*,*) 'Error: fiber_x_nm1 is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+
+    output_file = 'fiber_flex_init_points.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init points (Step 3.1 data layer only)'
+    write(ifile,'(A)') '# l s_ref x y z x_old y_old z_old x_nm1 y_nm1 z_nm1'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,10(ES24.16,1X))') l, fiber_s_ref(l), &
+           fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_x_old(1,l), fiber_x_old(2,l), fiber_x_old(3,l), &
+           fiber_x_nm1(1,l), fiber_x_nm1(2,l), fiber_x_nm1(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_points
+
+  subroutine write_fiber_flex_init_summary(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+    real(mytype) :: dx, dy, dz, seg_len, spacing_error_max, end_to_end_length
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_summary.'
+      stop
+    endif
+
+    spacing_error_max = 0._mytype
+    do l = 1, fiber_nl - 1
+      dx = fiber_x(1,l+1) - fiber_x(1,l)
+      dy = fiber_x(2,l+1) - fiber_x(2,l)
+      dz = fiber_x(3,l+1) - fiber_x(3,l)
+      seg_len = sqrt(dx*dx + dy*dy + dz*dz)
+      spacing_error_max = max(spacing_error_max, abs(seg_len - fiber_ds))
+    enddo
+
+    dx = fiber_x(1,fiber_nl) - fiber_x(1,1)
+    dy = fiber_x(2,fiber_nl) - fiber_x(2,1)
+    dz = fiber_x(3,fiber_nl) - fiber_x(3,1)
+    end_to_end_length = sqrt(dx*dx + dy*dy + dz*dz)
+
+    output_file = 'fiber_flex_init_summary.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init summary (Step 3.1 data layer only)'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_length ', fiber_length
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,3(ES24.16,1X))') 'fiber_center ', fiber_center(1), fiber_center(2), fiber_center(3)
+    write(ifile,'(A,3(ES24.16,1X))') 'fiber_direction ', fiber_direction(1), fiber_direction(2), fiber_direction(3)
+    write(ifile,'(A,ES24.16)') 'end_to_end_length ', end_to_end_length
+    write(ifile,'(A,ES24.16)') 'spacing_error_max ', spacing_error_max
+    write(ifile,'(A,L1)') 'fiber_flex_initialized ', fiber_flex_initialized
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_summary
 
 end module fiber_io

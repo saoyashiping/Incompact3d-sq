@@ -31,6 +31,8 @@ module fiber_types
   logical :: rigid_free_test_active
   logical :: rigid_kinematics_test_active
   logical :: rigid_two_way_test_active
+  logical :: fiber_flexible_active
+  logical :: fiber_flex_initialized
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -71,6 +73,10 @@ module fiber_types
   logical :: rigid_two_way_initialized
   real(mytype) :: fiber_mass
   real(mytype) :: fiber_inertia_perp
+  real(mytype) :: fiber_ds
+  real(mytype) :: fiber_length_error_max
+  real(mytype) :: fiber_inext_error_max
+  real(mytype) :: fiber_bc_residual_max
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
   real(mytype), dimension(3) :: fiber_uc
@@ -81,8 +87,19 @@ module fiber_types
   real(mytype), allocatable, dimension(:) :: fiber_s_ref
   real(mytype), allocatable, dimension(:,:) :: fiber_x_ref
   real(mytype), allocatable, dimension(:,:) :: fiber_xdot
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_old
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_nm1
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_stage
   real(mytype), allocatable, dimension(:,:) :: fiber_slip
   real(mytype), allocatable, dimension(:,:) :: fiber_coupling_force
+  real(mytype), allocatable, dimension(:) :: fiber_tension
+  real(mytype), allocatable, dimension(:) :: fiber_tension_old
+  real(mytype), allocatable, dimension(:,:) :: fiber_bending_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_tension_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_hydro_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_struct_rhs
+  real(mytype), allocatable, dimension(:) :: fiber_constraint_residual
+  real(mytype), allocatable, dimension(:) :: fiber_kappa
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_x
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_y
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_z
@@ -108,6 +125,8 @@ contains
     rigid_free_test_active = .false.
     rigid_kinematics_test_active = .false.
     rigid_two_way_test_active = .false.
+    fiber_flexible_active = .false.
+    fiber_flex_initialized = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -148,6 +167,10 @@ contains
     rigid_two_way_initialized = .false.
     fiber_mass = 1._mytype
     fiber_inertia_perp = 1._mytype
+    fiber_ds = 0._mytype
+    fiber_length_error_max = 0._mytype
+    fiber_inext_error_max = 0._mytype
+    fiber_bc_residual_max = 0._mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
     fiber_uc = 0._mytype
@@ -160,8 +183,19 @@ contains
     if (allocated(fiber_s_ref)) deallocate(fiber_s_ref)
     if (allocated(fiber_x_ref)) deallocate(fiber_x_ref)
     if (allocated(fiber_xdot)) deallocate(fiber_xdot)
+    if (allocated(fiber_x_old)) deallocate(fiber_x_old)
+    if (allocated(fiber_x_nm1)) deallocate(fiber_x_nm1)
+    if (allocated(fiber_x_stage)) deallocate(fiber_x_stage)
     if (allocated(fiber_slip)) deallocate(fiber_slip)
     if (allocated(fiber_coupling_force)) deallocate(fiber_coupling_force)
+    if (allocated(fiber_tension)) deallocate(fiber_tension)
+    if (allocated(fiber_tension_old)) deallocate(fiber_tension_old)
+    if (allocated(fiber_bending_force)) deallocate(fiber_bending_force)
+    if (allocated(fiber_tension_force)) deallocate(fiber_tension_force)
+    if (allocated(fiber_hydro_force)) deallocate(fiber_hydro_force)
+    if (allocated(fiber_struct_rhs)) deallocate(fiber_struct_rhs)
+    if (allocated(fiber_constraint_residual)) deallocate(fiber_constraint_residual)
+    if (allocated(fiber_kappa)) deallocate(fiber_kappa)
     if (allocated(fiber_uinterp)) deallocate(fiber_uinterp)
     if (allocated(fiber_uexact)) deallocate(fiber_uexact)
     if (allocated(fiber_uerror)) deallocate(fiber_uerror)

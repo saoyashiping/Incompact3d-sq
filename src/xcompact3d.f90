@@ -22,7 +22,7 @@ program xcompact3d
   use particle, only : intt_particles
   use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
        rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, rigid_two_way_test_active, &
-       rigid_kinematics_standalone, rigid_two_way_subiterations
+       rigid_kinematics_standalone, rigid_two_way_subiterations, fiber_flexible_active
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
   use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update, &
@@ -267,13 +267,15 @@ subroutine init_xcompact3d()
   use particle,  only : particle_report,local_domain_size
   use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
        spread_test_active, rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, &
-       rigid_two_way_test_active, &
+       rigid_two_way_test_active, fiber_flexible_active, &
        rigid_kinematics_standalone
   use fiber_init, only : init_fiber
+  use fiber_flex_init, only : init_flexible_fiber_state
   use fiber_rigid_motion, only : init_rigid_motion_reference
   use fiber_rigid_free, only : init_rigid_free_state
   use fiber_io, only : write_fiber_points, write_fiber_interp, &
-       write_fiber_spread_lagrangian, write_fiber_spread_summary
+       write_fiber_spread_lagrangian, write_fiber_spread_summary, &
+       write_fiber_flex_init_points, write_fiber_flex_init_summary
   use fiber_interp, only : run_fiber_interp_operator_test
   use fiber_spread, only : run_fiber_spread_conservation_test
 
@@ -431,6 +433,11 @@ subroutine init_xcompact3d()
 
   if (fiber_active) then
      call init_fiber()
+     if (fiber_flexible_active) then
+        call init_flexible_fiber_state()
+        call write_fiber_flex_init_points()
+        call write_fiber_flex_init_summary()
+     endif
      if (rigid_coupling_test_active) call init_rigid_motion_reference()
      if (rigid_free_test_active .or. rigid_two_way_test_active) call init_rigid_free_state()
      call write_fiber_points()
