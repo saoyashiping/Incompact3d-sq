@@ -31,6 +31,9 @@ module fiber_types
   logical :: rigid_free_test_active
   logical :: rigid_kinematics_test_active
   logical :: rigid_two_way_test_active
+  logical :: fiber_flexible_active
+  logical :: fiber_flex_initialized
+  logical :: fiber_flex_operator_test_active
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -48,7 +51,22 @@ module fiber_types
   integer :: rigid_two_way_output_interval
   real(mytype) :: rigid_two_way_force_relaxation
   real(mytype) :: rigid_two_way_velocity_relaxation
+  real(mytype) :: rigid_two_way_velocity_relaxation_x
+  real(mytype) :: rigid_two_way_velocity_relaxation_y
+  real(mytype) :: rigid_two_way_velocity_relaxation_z
   real(mytype) :: rigid_two_way_omega_relaxation
+  real(mytype) :: rigid_two_way_force_seed_relaxation
+  logical :: rigid_two_way_write_turb_series
+  integer :: rigid_two_way_turb_series_interval
+  real(mytype) :: rigid_two_way_min_wall_gap
+  logical :: rigid_two_way_parallel_streamwise_correction
+  real(mytype) :: rigid_two_way_parallel_streamwise_alpha
+  real(mytype) :: rigid_two_way_parallel_cosine_threshold
+  logical :: rigid_two_way_parallel_ucx_implicit
+  integer :: rigid_two_way_parallel_ucx_newton_iters
+  real(mytype) :: rigid_two_way_parallel_ucx_newton_relaxation
+  real(mytype) :: rigid_two_way_parallel_ucx_max_increment
+  real(mytype) :: rigid_two_way_parallel_ucx_fd_eps
   integer :: rigid_two_way_subiterations
   real(mytype) :: rigid_two_way_subiter_slip_tol
   logical :: rigid_two_way_subiter_verbose
@@ -56,6 +74,11 @@ module fiber_types
   logical :: rigid_two_way_initialized
   real(mytype) :: fiber_mass
   real(mytype) :: fiber_inertia_perp
+  real(mytype) :: fiber_ds
+  real(mytype) :: fiber_length_error_max
+  real(mytype) :: fiber_inext_error_max
+  real(mytype) :: fiber_bc_residual_max
+  integer :: fiber_flex_operator_case
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
   real(mytype), dimension(3) :: fiber_uc
@@ -66,8 +89,22 @@ module fiber_types
   real(mytype), allocatable, dimension(:) :: fiber_s_ref
   real(mytype), allocatable, dimension(:,:) :: fiber_x_ref
   real(mytype), allocatable, dimension(:,:) :: fiber_xdot
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_old
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_nm1
+  real(mytype), allocatable, dimension(:,:) :: fiber_x_stage
+  real(mytype), allocatable, dimension(:,:) :: fiber_xs
+  real(mytype), allocatable, dimension(:,:) :: fiber_xss
+  real(mytype), allocatable, dimension(:,:) :: fiber_xssss
   real(mytype), allocatable, dimension(:,:) :: fiber_slip
   real(mytype), allocatable, dimension(:,:) :: fiber_coupling_force
+  real(mytype), allocatable, dimension(:) :: fiber_tension
+  real(mytype), allocatable, dimension(:) :: fiber_tension_old
+  real(mytype), allocatable, dimension(:,:) :: fiber_bending_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_tension_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_hydro_force
+  real(mytype), allocatable, dimension(:,:) :: fiber_struct_rhs
+  real(mytype), allocatable, dimension(:) :: fiber_constraint_residual
+  real(mytype), allocatable, dimension(:) :: fiber_kappa
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_x
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_y
   real(mytype), allocatable, dimension(:,:,:) :: fiber_euler_force_z
@@ -93,6 +130,9 @@ contains
     rigid_free_test_active = .false.
     rigid_kinematics_test_active = .false.
     rigid_two_way_test_active = .false.
+    fiber_flexible_active = .false.
+    fiber_flex_initialized = .false.
+    fiber_flex_operator_test_active = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -110,7 +150,22 @@ contains
     rigid_two_way_output_interval = 1
     rigid_two_way_force_relaxation = 0.25_mytype
     rigid_two_way_velocity_relaxation = 0.10_mytype
+    rigid_two_way_velocity_relaxation_x = 0.10_mytype
+    rigid_two_way_velocity_relaxation_y = 0.10_mytype
+    rigid_two_way_velocity_relaxation_z = 0.10_mytype
     rigid_two_way_omega_relaxation = 0.10_mytype
+    rigid_two_way_force_seed_relaxation = 0.5_mytype
+    rigid_two_way_write_turb_series = .false.
+    rigid_two_way_turb_series_interval = 1
+    rigid_two_way_min_wall_gap = 0._mytype
+    rigid_two_way_parallel_streamwise_correction = .false.
+    rigid_two_way_parallel_streamwise_alpha = 0.05_mytype
+    rigid_two_way_parallel_cosine_threshold = 0.98_mytype
+    rigid_two_way_parallel_ucx_implicit = .false.
+    rigid_two_way_parallel_ucx_newton_iters = 2
+    rigid_two_way_parallel_ucx_newton_relaxation = 0.5_mytype
+    rigid_two_way_parallel_ucx_max_increment = 0.05_mytype
+    rigid_two_way_parallel_ucx_fd_eps = 1.0e-4_mytype
     rigid_two_way_subiterations = 2
     rigid_two_way_subiter_slip_tol = 1.0e-3_mytype
     rigid_two_way_subiter_verbose = .false.
@@ -118,6 +173,11 @@ contains
     rigid_two_way_initialized = .false.
     fiber_mass = 1._mytype
     fiber_inertia_perp = 1._mytype
+    fiber_ds = 0._mytype
+    fiber_length_error_max = 0._mytype
+    fiber_inext_error_max = 0._mytype
+    fiber_bc_residual_max = 0._mytype
+    fiber_flex_operator_case = 1
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
     fiber_uc = 0._mytype
@@ -130,8 +190,22 @@ contains
     if (allocated(fiber_s_ref)) deallocate(fiber_s_ref)
     if (allocated(fiber_x_ref)) deallocate(fiber_x_ref)
     if (allocated(fiber_xdot)) deallocate(fiber_xdot)
+    if (allocated(fiber_x_old)) deallocate(fiber_x_old)
+    if (allocated(fiber_x_nm1)) deallocate(fiber_x_nm1)
+    if (allocated(fiber_x_stage)) deallocate(fiber_x_stage)
+    if (allocated(fiber_xs)) deallocate(fiber_xs)
+    if (allocated(fiber_xss)) deallocate(fiber_xss)
+    if (allocated(fiber_xssss)) deallocate(fiber_xssss)
     if (allocated(fiber_slip)) deallocate(fiber_slip)
     if (allocated(fiber_coupling_force)) deallocate(fiber_coupling_force)
+    if (allocated(fiber_tension)) deallocate(fiber_tension)
+    if (allocated(fiber_tension_old)) deallocate(fiber_tension_old)
+    if (allocated(fiber_bending_force)) deallocate(fiber_bending_force)
+    if (allocated(fiber_tension_force)) deallocate(fiber_tension_force)
+    if (allocated(fiber_hydro_force)) deallocate(fiber_hydro_force)
+    if (allocated(fiber_struct_rhs)) deallocate(fiber_struct_rhs)
+    if (allocated(fiber_constraint_residual)) deallocate(fiber_constraint_residual)
+    if (allocated(fiber_kappa)) deallocate(fiber_kappa)
     if (allocated(fiber_uinterp)) deallocate(fiber_uinterp)
     if (allocated(fiber_uexact)) deallocate(fiber_uexact)
     if (allocated(fiber_uerror)) deallocate(fiber_uerror)
