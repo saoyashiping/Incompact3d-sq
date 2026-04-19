@@ -37,12 +37,21 @@ subroutine parameter(input_i3d)
   use fiber_types, only : fiber_active, fiber_nl, fiber_length, fiber_center, fiber_direction, &
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
        spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
-       rigid_kinematics_test_active, rigid_two_way_test_active, rigid_kinematics_one_way, rigid_kinematics_standalone, &
+       rigid_kinematics_test_active, rigid_two_way_test_active, fiber_flexible_active, &
+       rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height, rigid_kinematics_lambda, ibm_beta, coupling_ramp_steps, &
        rigid_output_interval, rigid_kinematics_output_interval, rigid_two_way_output_interval, &
        rigid_two_way_force_relaxation, rigid_two_way_velocity_relaxation, rigid_two_way_omega_relaxation, &
+       rigid_two_way_velocity_relaxation_x, rigid_two_way_velocity_relaxation_y, rigid_two_way_velocity_relaxation_z, &
+       rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_write_turb_series, rigid_two_way_turb_series_interval, rigid_two_way_min_wall_gap, &
+       rigid_two_way_parallel_streamwise_correction, rigid_two_way_parallel_streamwise_alpha, &
+       rigid_two_way_parallel_cosine_threshold, &
+       rigid_two_way_parallel_ucx_implicit, rigid_two_way_parallel_ucx_newton_iters, &
+       rigid_two_way_parallel_ucx_newton_relaxation, rigid_two_way_parallel_ucx_max_increment, &
+       rigid_two_way_parallel_ucx_fd_eps, &
        rigid_two_way_subiterations, rigid_two_way_subiter_slip_tol, rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, &
        free_output_interval, rigid_translation_velocity, fiber_mass, fiber_inertia_perp, fiber_uc, fiber_omega
@@ -69,7 +78,9 @@ subroutine parameter(input_i3d)
   NAMELIST /InOutParam/ irestart, icheckpoint, ioutput, nvisu, ilist, iprocessing, &
        ninflows, ntimesteps, inflowpath, ioutflow, output2D, nprobes, &
        validation_restart
-  NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat, istatfreq
+  NAMELIST /Statistics/ wrotation,spinup_time, nstat, initstat, istatfreq, &
+       mean_profile_output_active, single_phase_profile_reference_file, &
+       mean_profile_output_filename, delta_mean_profile_output_filename
   NAMELIST /ProbesParam/ flag_all_digits, flag_extra_probes, xyzprobes
   NAMELIST /ScalarParam/ sc, ri, uset, cp, &
        nclxS1, nclxSn, nclyS1, nclySn, nclzS1, nclzSn, &
@@ -99,12 +110,21 @@ subroutine parameter(input_i3d)
   NAMELIST/FiberParam/fiber_active,fiber_nl,fiber_length,fiber_center,fiber_direction, &
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
        spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
-       rigid_kinematics_test_active,rigid_two_way_test_active,rigid_kinematics_one_way,rigid_kinematics_standalone, &
+       rigid_kinematics_test_active,rigid_two_way_test_active,fiber_flexible_active, &
+       rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
        rigid_kinematics_channel_height,rigid_kinematics_lambda,ibm_beta,coupling_ramp_steps, &
        rigid_output_interval,free_output_interval,rigid_two_way_output_interval,rigid_two_way_force_relaxation, &
        rigid_two_way_velocity_relaxation,rigid_two_way_omega_relaxation, &
+       rigid_two_way_velocity_relaxation_x,rigid_two_way_velocity_relaxation_y,rigid_two_way_velocity_relaxation_z, &
+       rigid_two_way_force_seed_relaxation, &
+       rigid_two_way_write_turb_series,rigid_two_way_turb_series_interval,rigid_two_way_min_wall_gap, &
+       rigid_two_way_parallel_streamwise_correction,rigid_two_way_parallel_streamwise_alpha, &
+       rigid_two_way_parallel_cosine_threshold, &
+       rigid_two_way_parallel_ucx_implicit,rigid_two_way_parallel_ucx_newton_iters, &
+       rigid_two_way_parallel_ucx_newton_relaxation,rigid_two_way_parallel_ucx_max_increment, &
+       rigid_two_way_parallel_ucx_fd_eps, &
        rigid_two_way_subiterations,rigid_two_way_subiter_slip_tol,rigid_two_way_subiter_verbose, &
        rigid_two_way_startup_fit, &
        rigid_kinematics_output_interval,rigid_translation_velocity,fiber_mass,fiber_inertia_perp,fiber_uc,fiber_omega
@@ -308,6 +328,25 @@ subroutine parameter(input_i3d)
   ! read(10, nml=TurbulenceWallModel)
   read(10, nml=CASE); rewind(10) !! Read case-specific variables
   close(10)
+
+  if (fiber_flexible_active) then
+     if (.not.fiber_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flexible_active requires fiber_active = true.'
+        stop
+     endif
+     if (fiber_nl < 5) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flexible_active requires fiber_nl >= 5.'
+        stop
+     endif
+     if (rigid_coupling_test_active .or. rigid_free_test_active .or. rigid_kinematics_test_active .or. &
+          rigid_two_way_test_active) then
+        if (nrank == 0) then
+           write(*,*) 'Error: fiber_flexible_active cannot be combined with rigid fiber test modes.'
+           write(*,*) 'Disable rigid_coupling/free/kinematics/two_way test flags for Step 3.1 flexible init.'
+        endif
+        stop
+     endif
+  endif
 
   ! allocate(sc(numscalar),cp(numscalar),ri(numscalar),group(numscalar))
 
@@ -862,6 +901,10 @@ subroutine parameter_defaults()
   iprocessing = huge(i)
   initstat = huge(i)
   istatfreq =1
+  mean_profile_output_active = .false.
+  single_phase_profile_reference_file = ''
+  mean_profile_output_filename = 'channel_mean_profile.dat'
+  delta_mean_profile_output_filename = 'delta_mean_profile.dat'
   ninflows=1
   ntimesteps=1
   inflowpath='./'
