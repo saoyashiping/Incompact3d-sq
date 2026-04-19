@@ -6,6 +6,7 @@ module fiber_io
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
+  use param, only : xlx, zlz
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force, &
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
@@ -15,6 +16,18 @@ module fiber_io
   implicit none
 
 contains
+
+  pure real(mytype) function periodic_delta_local(delta, period_length)
+
+    real(mytype), intent(in) :: delta, period_length
+
+    periodic_delta_local = delta
+    if (period_length > 0._mytype) then
+      if (periodic_delta_local >  0.5_mytype * period_length) periodic_delta_local = periodic_delta_local - period_length
+      if (periodic_delta_local < -0.5_mytype * period_length) periodic_delta_local = periodic_delta_local + period_length
+    endif
+
+  end function periodic_delta_local
 
   subroutine write_fiber_points(filename)
 
@@ -510,16 +523,16 @@ contains
 
     spacing_error_max = 0._mytype
     do l = 1, fiber_nl - 1
-      dx = fiber_x(1,l+1) - fiber_x(1,l)
+      dx = periodic_delta_local(fiber_x(1,l+1) - fiber_x(1,l), xlx)
       dy = fiber_x(2,l+1) - fiber_x(2,l)
-      dz = fiber_x(3,l+1) - fiber_x(3,l)
+      dz = periodic_delta_local(fiber_x(3,l+1) - fiber_x(3,l), zlz)
       seg_len = sqrt(dx*dx + dy*dy + dz*dz)
       spacing_error_max = max(spacing_error_max, abs(seg_len - fiber_ds))
     enddo
 
-    dx = fiber_x(1,fiber_nl) - fiber_x(1,1)
+    dx = periodic_delta_local(fiber_x(1,fiber_nl) - fiber_x(1,1), xlx)
     dy = fiber_x(2,fiber_nl) - fiber_x(2,1)
-    dz = fiber_x(3,fiber_nl) - fiber_x(3,1)
+    dz = periodic_delta_local(fiber_x(3,fiber_nl) - fiber_x(3,1), zlz)
     end_to_end_length = sqrt(dx*dx + dy*dy + dz*dz)
 
     output_file = 'fiber_flex_init_summary.dat'
