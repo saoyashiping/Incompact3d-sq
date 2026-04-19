@@ -11,7 +11,8 @@ module fiber_io
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force, &
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
        rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
-       fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction
+       fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
+       fiber_flex_operator_test_active
 
   implicit none
 
@@ -551,5 +552,74 @@ contains
     close(ifile)
 
   end subroutine write_fiber_flex_init_summary
+
+  subroutine write_fiber_flex_operator_points(x_exact, xs_num, xs_exact, xss_num, xss_exact, xssss_num, xssss_exact, filename)
+
+    real(mytype), intent(in) :: x_exact(3, fiber_nl), xs_num(3, fiber_nl), xs_exact(3, fiber_nl)
+    real(mytype), intent(in) :: xss_num(3, fiber_nl), xss_exact(3, fiber_nl)
+    real(mytype), intent(in) :: xssss_num(3, fiber_nl), xssss_exact(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (.not.fiber_flex_operator_test_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_flex_operator_points.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_exact_x x_exact_y x_exact_z ' // &
+         'xs_num_x xs_num_y xs_num_z xs_exact_x xs_exact_y xs_exact_z ' // &
+         'xss_num_x xss_num_y xss_num_z xss_exact_x xss_exact_y xss_exact_z ' // &
+         'xssss_num_x xssss_num_y xssss_num_z xssss_exact_x xssss_exact_y xssss_exact_z'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,22(ES24.16,1X))') l, fiber_s_ref(l), &
+           x_exact(1,l), x_exact(2,l), x_exact(3,l), &
+           xs_num(1,l), xs_num(2,l), xs_num(3,l), xs_exact(1,l), xs_exact(2,l), xs_exact(3,l), &
+           xss_num(1,l), xss_num(2,l), xss_num(3,l), xss_exact(1,l), xss_exact(2,l), xss_exact(3,l), &
+           xssss_num(1,l), xssss_num(2,l), xssss_num(3,l), xssss_exact(1,l), xssss_exact(2,l), xssss_exact(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_operator_points
+
+  subroutine write_fiber_flex_operator_summary(flex_case, err_xs_max, err_xss_max, err_xssss_max, &
+       bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, filename)
+
+    integer, intent(in) :: flex_case
+    real(mytype), intent(in) :: err_xs_max, err_xss_max, err_xssss_max
+    real(mytype), intent(in) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (.not.fiber_flex_operator_test_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_flex_operator_summary.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible operator summary (Step 3.2 spatial operator verification only)'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_operator_case ', flex_case
+    write(ifile,'(A,ES24.16)') 'err_xs_max ', err_xs_max
+    write(ifile,'(A,ES24.16)') 'err_xss_max ', err_xss_max
+    write(ifile,'(A,ES24.16)') 'err_xssss_max ', err_xssss_max
+    write(ifile,'(A,ES24.16)') 'bc_moment_left_max ', bc_moment_left_max
+    write(ifile,'(A,ES24.16)') 'bc_moment_right_max ', bc_moment_right_max
+    write(ifile,'(A,ES24.16)') 'bc_shear_left_max ', bc_shear_left_max
+    write(ifile,'(A,ES24.16)') 'bc_shear_right_max ', bc_shear_right_max
+    close(ifile)
+
+  end subroutine write_fiber_flex_operator_summary
 
 end module fiber_io

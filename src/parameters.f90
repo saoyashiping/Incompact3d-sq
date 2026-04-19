@@ -38,6 +38,7 @@ subroutine parameter(input_i3d)
        interp_test_active, interp_test_case, interp_solver_test_active, interp_solver_output_step, &
        spread_test_active, spread_test_case, rigid_coupling_test_active, rigid_free_test_active, &
        rigid_kinematics_test_active, rigid_two_way_test_active, fiber_flexible_active, &
+       fiber_flex_operator_test_active, fiber_flex_operator_case, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
@@ -111,6 +112,7 @@ subroutine parameter(input_i3d)
        interp_test_active,interp_test_case,interp_solver_test_active,interp_solver_output_step, &
        spread_test_active,spread_test_case,rigid_coupling_test_active,rigid_free_test_active, &
        rigid_kinematics_test_active,rigid_two_way_test_active,fiber_flexible_active, &
+       fiber_flex_operator_test_active,fiber_flex_operator_case, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
@@ -344,6 +346,22 @@ subroutine parameter(input_i3d)
            write(*,*) 'Error: fiber_flexible_active cannot be combined with rigid fiber test modes.'
            write(*,*) 'Disable rigid_coupling/free/kinematics/two_way test flags for Step 3.1 flexible init.'
         endif
+        stop
+     endif
+  endif
+
+  if (fiber_flex_operator_test_active) then
+     if (.not.fiber_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_operator_test_active requires fiber_active = true.'
+        stop
+     endif
+     if (.not.fiber_flexible_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_operator_test_active requires fiber_flexible_active = true.'
+        stop
+     endif
+     if (rigid_coupling_test_active .or. rigid_free_test_active .or. rigid_kinematics_test_active .or. &
+          rigid_two_way_test_active .or. interp_test_active .or. interp_solver_test_active .or. spread_test_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_operator_test_active cannot be combined with rigid/interp/spread tests.'
         stop
      endif
   endif

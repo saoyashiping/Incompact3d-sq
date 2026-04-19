@@ -33,6 +33,7 @@ module fiber_types
   logical :: rigid_two_way_test_active
   logical :: fiber_flexible_active
   logical :: fiber_flex_initialized
+  logical :: fiber_flex_operator_test_active
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -77,6 +78,7 @@ module fiber_types
   real(mytype) :: fiber_length_error_max
   real(mytype) :: fiber_inext_error_max
   real(mytype) :: fiber_bc_residual_max
+  integer :: fiber_flex_operator_case
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
   real(mytype), dimension(3) :: fiber_uc
@@ -90,6 +92,9 @@ module fiber_types
   real(mytype), allocatable, dimension(:,:) :: fiber_x_old
   real(mytype), allocatable, dimension(:,:) :: fiber_x_nm1
   real(mytype), allocatable, dimension(:,:) :: fiber_x_stage
+  real(mytype), allocatable, dimension(:,:) :: fiber_xs
+  real(mytype), allocatable, dimension(:,:) :: fiber_xss
+  real(mytype), allocatable, dimension(:,:) :: fiber_xssss
   real(mytype), allocatable, dimension(:,:) :: fiber_slip
   real(mytype), allocatable, dimension(:,:) :: fiber_coupling_force
   real(mytype), allocatable, dimension(:) :: fiber_tension
@@ -127,6 +132,7 @@ contains
     rigid_two_way_test_active = .false.
     fiber_flexible_active = .false.
     fiber_flex_initialized = .false.
+    fiber_flex_operator_test_active = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -171,6 +177,7 @@ contains
     fiber_length_error_max = 0._mytype
     fiber_inext_error_max = 0._mytype
     fiber_bc_residual_max = 0._mytype
+    fiber_flex_operator_case = 1
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
     fiber_uc = 0._mytype
@@ -186,6 +193,9 @@ contains
     if (allocated(fiber_x_old)) deallocate(fiber_x_old)
     if (allocated(fiber_x_nm1)) deallocate(fiber_x_nm1)
     if (allocated(fiber_x_stage)) deallocate(fiber_x_stage)
+    if (allocated(fiber_xs)) deallocate(fiber_xs)
+    if (allocated(fiber_xss)) deallocate(fiber_xss)
+    if (allocated(fiber_xssss)) deallocate(fiber_xssss)
     if (allocated(fiber_slip)) deallocate(fiber_slip)
     if (allocated(fiber_coupling_force)) deallocate(fiber_coupling_force)
     if (allocated(fiber_tension)) deallocate(fiber_tension)
