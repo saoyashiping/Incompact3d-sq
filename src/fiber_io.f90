@@ -12,7 +12,7 @@ module fiber_io
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
        rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
        fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
-       fiber_flex_operator_test_active
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active
 
   implicit none
 
@@ -621,5 +621,89 @@ contains
     close(ifile)
 
   end subroutine write_fiber_flex_operator_summary
+
+  subroutine write_fiber_flex_bending_initial_points(x0, filename)
+    real(mytype), intent(in) :: x0(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    output_file = 'fiber_flex_bending_initial_points.dat'
+    if (present(filename)) output_file = filename
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x0 y0 z0'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), x0(1,l), x0(2,l), x0(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_bending_initial_points
+
+  subroutine write_fiber_flex_bending_final_points(xf, filename)
+    real(mytype), intent(in) :: xf(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    output_file = 'fiber_flex_bending_final_points.dat'
+    if (present(filename)) output_file = filename
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_final y_final z_final'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), xf(1,l), xf(2,l), xf(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_bending_final_points
+
+  subroutine write_fiber_flex_bending_series(step, time, bending_energy, max_update_norm, overwrite)
+    integer, intent(in) :: step
+    real(mytype), intent(in) :: time, bending_energy, max_update_norm
+    logical, intent(in) :: overwrite
+    integer :: ifile
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    if (overwrite) then
+      open(newunit=ifile, file='fiber_flex_bending_series.dat', status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'step time bending_energy max_update_norm'
+    else
+      open(newunit=ifile, file='fiber_flex_bending_series.dat', status='old', action='write', position='append', form='formatted')
+    endif
+    write(ifile,'(I10,1X,3(ES24.16,1X))') step, time, bending_energy, max_update_norm
+    close(ifile)
+  end subroutine write_fiber_flex_bending_series
+
+  subroutine write_fiber_flex_bending_summary(case_id, dt_b, gamma_b, nsteps, e_init, e_final, energy_monotone, &
+       max_update_last_step, straight_preservation_error_max, final_displacement_norm)
+    integer, intent(in) :: case_id, nsteps
+    real(mytype), intent(in) :: dt_b, gamma_b, e_init, e_final, max_update_last_step
+    real(mytype), intent(in) :: straight_preservation_error_max, final_displacement_norm
+    logical, intent(in) :: energy_monotone
+    integer :: ifile
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    open(newunit=ifile, file='fiber_flex_bending_summary.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Step 3.3 bending-only implicit summary'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_bending_case ', case_id
+    write(ifile,'(A,ES24.16)') 'fiber_flex_bending_dt ', dt_b
+    write(ifile,'(A,ES24.16)') 'fiber_bending_gamma ', gamma_b
+    write(ifile,'(A,I8)') 'fiber_flex_bending_nsteps ', nsteps
+    write(ifile,'(A,ES24.16)') 'initial_bending_energy ', e_init
+    write(ifile,'(A,ES24.16)') 'final_bending_energy ', e_final
+    write(ifile,'(A,L1)') 'energy_monotone_decay ', energy_monotone
+    write(ifile,'(A,ES24.16)') 'max_update_last_step ', max_update_last_step
+    if (case_id == 1) then
+      write(ifile,'(A,ES24.16)') 'straight_preservation_error_max ', straight_preservation_error_max
+    else if (case_id == 2) then
+      write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
+    endif
+    close(ifile)
+  end subroutine write_fiber_flex_bending_summary
 
 end module fiber_io

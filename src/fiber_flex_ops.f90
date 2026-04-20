@@ -14,6 +14,72 @@ module fiber_flex_ops
 
 contains
 
+  subroutine construct_free_end_ghost_scalar(u, uext)
+
+    real(mytype), intent(in) :: u(fiber_nl)
+    real(mytype), intent(out) :: uext(fiber_nl + 4)
+    integer :: i
+
+    uext = 0._mytype
+    do i = 1, fiber_nl
+      uext(i + 2) = u(i)
+    enddo
+
+    uext(2) = 2._mytype * uext(3) - uext(4)
+    uext(1) = 4._mytype * uext(3) - 4._mytype * uext(4) + uext(5)
+    uext(fiber_nl + 3) = 2._mytype * uext(fiber_nl + 2) - uext(fiber_nl + 1)
+    uext(fiber_nl + 4) = 4._mytype * uext(fiber_nl + 2) - 4._mytype * uext(fiber_nl + 1) + uext(fiber_nl)
+
+  end subroutine construct_free_end_ghost_scalar
+
+  subroutine apply_free_end_d2_scalar(u, d2u)
+
+    real(mytype), intent(in) :: u(fiber_nl)
+    real(mytype), intent(out) :: d2u(fiber_nl)
+    real(mytype) :: uext(fiber_nl + 4), ds2
+    integer :: i
+
+    call construct_free_end_ghost_scalar(u, uext)
+    ds2 = fiber_ds * fiber_ds
+
+    do i = 1, fiber_nl
+      d2u(i) = (uext(i + 3) - 2._mytype * uext(i + 2) + uext(i + 1)) / ds2
+    enddo
+
+  end subroutine apply_free_end_d2_scalar
+
+  subroutine apply_free_end_d4_scalar(u, d4u)
+
+    real(mytype), intent(in) :: u(fiber_nl)
+    real(mytype), intent(out) :: d4u(fiber_nl)
+    real(mytype) :: uext(fiber_nl + 4), ds4
+    integer :: i
+
+    call construct_free_end_ghost_scalar(u, uext)
+    ds4 = fiber_ds**4
+
+    do i = 1, fiber_nl
+      d4u(i) = (uext(i) - 4._mytype * uext(i + 1) + 6._mytype * uext(i + 2) - 4._mytype * uext(i + 3) + uext(i + 4)) / ds4
+    enddo
+
+  end subroutine apply_free_end_d4_scalar
+
+  subroutine apply_free_end_bending_operator_scalar(u, bu, gamma_b)
+
+    ! Step 3.3 bending-only operator semantics:
+    !   B(u) = -d_ss( gamma * d_ss u )
+    ! For constant gamma_b, this is equivalent to:
+    !   B(u) = -gamma_b * d4u
+
+    real(mytype), intent(in) :: u(fiber_nl), gamma_b
+    real(mytype), intent(out) :: bu(fiber_nl)
+    real(mytype) :: d4u(fiber_nl)
+
+    call apply_free_end_d4_scalar(u, d4u)
+    bu = -gamma_b * d4u
+
+  end subroutine apply_free_end_bending_operator_scalar
+
   subroutine compute_flexible_spatial_operators(x_in, xs, xss, xssss, bc_moment_left, bc_moment_right, &
        bc_shear_left, bc_shear_right)
 
@@ -29,37 +95,29 @@ contains
     real(mytype), intent(out) :: bc_moment_left(3), bc_moment_right(3)
     real(mytype), intent(out) :: bc_shear_left(3), bc_shear_right(3)
 
-    real(mytype) :: xext(3, fiber_nl + 4)
-    real(mytype) :: ds, ds2, ds3, ds4
+    real(mytype) :: xext(3, fiber_nl + 4), uext(fiber_nl + 4)
+    real(mytype) :: ds, ds3
+    real(mytype) :: d2tmp(fiber_nl), d4tmp(fiber_nl)
     integer :: i
 
     ds = fiber_ds
-    ds2 = ds * ds
-    ds3 = ds2 * ds
-    ds4 = ds2 * ds2
+    ds3 = ds * ds * ds
 
-    xext = 0._mytype
-    do i = 1, fiber_nl
-      xext(:, i + 2) = x_in(:, i)
+    do i = 1, 3
+      call construct_free_end_ghost_scalar(x_in(i,:), uext)
+      xext(i,:) = uext
+      call apply_free_end_d2_scalar(x_in(i,:), d2tmp)
+      call apply_free_end_d4_scalar(x_in(i,:), d4tmp)
+      xss(i,:) = d2tmp
+      xssss(i,:) = d4tmp
+      xs(i,:) = (uext(4:fiber_nl+3) - uext(2:fiber_nl+1)) / (2._mytype * ds)
+      bc_shear_left(i) = (uext(1) - 2._mytype * uext(2) + 2._mytype * uext(4) - uext(5)) / (2._mytype * ds3)
+      bc_shear_right(i) = (uext(fiber_nl) - 2._mytype * uext(fiber_nl + 1) + 2._mytype * uext(fiber_nl + 3) - &
+           uext(fiber_nl + 4)) / (2._mytype * ds3)
     enddo
 
-    xext(:, 2) = 2._mytype * xext(:, 3) - xext(:, 4)
-    xext(:, 1) = 4._mytype * xext(:, 3) - 4._mytype * xext(:, 4) + xext(:, 5)
-    xext(:, fiber_nl + 3) = 2._mytype * xext(:, fiber_nl + 2) - xext(:, fiber_nl + 1)
-    xext(:, fiber_nl + 4) = 4._mytype * xext(:, fiber_nl + 2) - 4._mytype * xext(:, fiber_nl + 1) + xext(:, fiber_nl)
-
-    do i = 1, fiber_nl
-      xs(:, i) = (xext(:, i + 3) - xext(:, i + 1)) / (2._mytype * ds)
-      xss(:, i) = (xext(:, i + 3) - 2._mytype * xext(:, i + 2) + xext(:, i + 1)) / ds2
-      xssss(:, i) = (xext(:, i) - 4._mytype * xext(:, i + 1) + 6._mytype * xext(:, i + 2) - &
-           4._mytype * xext(:, i + 3) + xext(:, i + 4)) / ds4
-    enddo
-
-    bc_moment_left = xss(:, 1)
-    bc_moment_right = xss(:, fiber_nl)
-    bc_shear_left = (xext(:, 1) - 2._mytype * xext(:, 2) + 2._mytype * xext(:, 4) - xext(:, 5)) / (2._mytype * ds3)
-    bc_shear_right = (xext(:, fiber_nl) - 2._mytype * xext(:, fiber_nl + 1) + &
-         2._mytype * xext(:, fiber_nl + 3) - xext(:, fiber_nl + 4)) / (2._mytype * ds3)
+    bc_moment_left = xss(:,1)
+    bc_moment_right = xss(:,fiber_nl)
 
   end subroutine compute_flexible_spatial_operators
 

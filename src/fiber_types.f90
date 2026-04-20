@@ -34,6 +34,7 @@ module fiber_types
   logical :: fiber_flexible_active
   logical :: fiber_flex_initialized
   logical :: fiber_flex_operator_test_active
+  logical :: fiber_flex_bending_test_active
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -79,6 +80,11 @@ module fiber_types
   real(mytype) :: fiber_inext_error_max
   real(mytype) :: fiber_bc_residual_max
   integer :: fiber_flex_operator_case
+  integer :: fiber_flex_bending_case
+  integer :: fiber_flex_bending_nsteps
+  integer :: fiber_flex_bending_output_interval
+  real(mytype) :: fiber_flex_bending_dt
+  real(mytype) :: fiber_bending_gamma
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
   real(mytype), dimension(3) :: fiber_uc
@@ -133,6 +139,7 @@ contains
     fiber_flexible_active = .false.
     fiber_flex_initialized = .false.
     fiber_flex_operator_test_active = .false.
+    fiber_flex_bending_test_active = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -178,6 +185,11 @@ contains
     fiber_inext_error_max = 0._mytype
     fiber_bc_residual_max = 0._mytype
     fiber_flex_operator_case = 1
+    fiber_flex_bending_case = 1
+    fiber_flex_bending_nsteps = 20
+    fiber_flex_bending_output_interval = 1
+    fiber_flex_bending_dt = 1.0e-3_mytype
+    fiber_bending_gamma = 1._mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
     fiber_uc = 0._mytype
