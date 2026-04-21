@@ -247,11 +247,26 @@ contains
       s = fiber_s_ref(l)
       q = (s - smin) * invL
 
-      g = q**4 - 4._mytype*q**5 + 6._mytype*q**6 - 4._mytype*q**7 + q**8
-      g1 = 4._mytype*q**3 - 20._mytype*q**4 + 36._mytype*q**5 - 28._mytype*q**6 + 8._mytype*q**7
-      g2 = 12._mytype*q**2 - 80._mytype*q**3 + 180._mytype*q**4 - 168._mytype*q**5 + 56._mytype*q**6
-      g3 = 24._mytype*q - 240._mytype*q**2 + 720._mytype*q**3 - 840._mytype*q**4 + 336._mytype*q**5
-      g4 = 24._mytype - 480._mytype*q + 2160._mytype*q**2 - 3360._mytype*q**3 + 1680._mytype*q**4
+      select case (fiber_flex_operator_case)
+      case (1)
+        g = q**4 - 4._mytype*q**5 + 6._mytype*q**6 - 4._mytype*q**7 + q**8
+        g1 = 4._mytype*q**3 - 20._mytype*q**4 + 36._mytype*q**5 - 28._mytype*q**6 + 8._mytype*q**7
+        g2 = 12._mytype*q**2 - 80._mytype*q**3 + 180._mytype*q**4 - 168._mytype*q**5 + 56._mytype*q**6
+        g3 = 24._mytype*q - 240._mytype*q**2 + 720._mytype*q**3 - 840._mytype*q**4 + 336._mytype*q**5
+        g4 = 24._mytype - 480._mytype*q + 2160._mytype*q**2 - 3360._mytype*q**3 + 1680._mytype*q**4
+      case (2)
+        ! Distinct free-end manufactured basis for case 2:
+        ! g(q)=q^4(1-q)^4(2q-1), which keeps g''=g'''=0 at both ends but
+        ! changes xss/xssss/Fb exact distributions versus case 1.
+        g = -q**4 + 6._mytype*q**5 - 14._mytype*q**6 + 16._mytype*q**7 - 9._mytype*q**8 + 2._mytype*q**9
+        g1 = -4._mytype*q**3 + 30._mytype*q**4 - 84._mytype*q**5 + 112._mytype*q**6 - 72._mytype*q**7 + 18._mytype*q**8
+        g2 = -12._mytype*q**2 + 120._mytype*q**3 - 420._mytype*q**4 + 672._mytype*q**5 - 504._mytype*q**6 + 144._mytype*q**7
+        g3 = -24._mytype*q + 360._mytype*q**2 - 1680._mytype*q**3 + 3360._mytype*q**4 - 3024._mytype*q**5 + 1008._mytype*q**6
+        g4 = -24._mytype + 720._mytype*q - 5040._mytype*q**2 + 13440._mytype*q**3 - 15120._mytype*q**4 + 6048._mytype*q**5
+      case default
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_operator_case must be 1 or 2.'
+        stop
+      end select
 
       x_exact(1,l) = a1 * g
       x_exact(2,l) = a2 * g
