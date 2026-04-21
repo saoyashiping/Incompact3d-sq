@@ -41,6 +41,8 @@ subroutine parameter(input_i3d)
        fiber_flex_operator_test_active, fiber_flex_operator_case, &
        fiber_flex_bending_test_active, fiber_flex_bending_case, fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma, &
+       fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
+       fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
@@ -117,6 +119,8 @@ subroutine parameter(input_i3d)
        fiber_flex_operator_test_active,fiber_flex_operator_case, &
        fiber_flex_bending_test_active,fiber_flex_bending_case,fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval,fiber_flex_bending_dt,fiber_bending_gamma, &
+       fiber_flex_constraint_test_active,fiber_flex_constraint_case,fiber_flex_constraint_nsteps, &
+       fiber_flex_constraint_output_interval,fiber_flex_constraint_dt,fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
@@ -395,6 +399,31 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_bending_gamma <= 0._mytype) then
         if (nrank == 0) write(*,*) 'Error: fiber_bending_gamma must be > 0.'
+        stop
+     endif
+  endif
+
+  if (fiber_flex_constraint_test_active) then
+     if (.not.fiber_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_test_active requires fiber_active = true.'
+        stop
+     endif
+     if (.not.fiber_flexible_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_test_active requires fiber_flexible_active = true.'
+        stop
+     endif
+     if (rigid_coupling_test_active .or. rigid_free_test_active .or. rigid_kinematics_test_active .or. &
+          rigid_two_way_test_active .or. interp_test_active .or. interp_solver_test_active .or. spread_test_active .or. &
+          fiber_flex_operator_test_active .or. fiber_flex_bending_test_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_test_active cannot be combined with other fiber test modes.'
+        stop
+     endif
+     if (fiber_flex_constraint_nsteps < 1) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_nsteps must be >= 1.'
+        stop
+     endif
+     if (fiber_flex_constraint_dt <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_dt must be > 0.'
         stop
      endif
   endif

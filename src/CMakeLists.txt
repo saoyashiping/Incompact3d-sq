@@ -39,6 +39,7 @@ add_executable(xcompact3d
                     fiber_flex_init.f90
                     fiber_flex_ops.f90
                     fiber_flex_bending.f90
+                    fiber_flex_constraint.f90
                     fiber_io.f90
                     fiber_delta.f90
                     fiber_interp.f90

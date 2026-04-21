@@ -12,7 +12,7 @@ module fiber_io
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
        rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
        fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
-       fiber_flex_operator_test_active, fiber_flex_bending_test_active
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active
 
   implicit none
 
@@ -705,5 +705,90 @@ contains
     endif
     close(ifile)
   end subroutine write_fiber_flex_bending_summary
+
+  subroutine write_fiber_flex_constraint_initial_points(x0)
+    real(mytype), intent(in) :: x0(3, fiber_nl)
+    integer :: ifile, l
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_initial_points.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x0 y0 z0'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), x0(1,l), x0(2,l), x0(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_initial_points
+
+  subroutine write_fiber_flex_constraint_final_points(xf)
+    real(mytype), intent(in) :: xf(3, fiber_nl)
+    integer :: ifile, l
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_final_points.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_final y_final z_final'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), xf(1,l), xf(2,l), xf(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_final_points
+
+  subroutine write_fiber_flex_constraint_tension_last(t_half)
+    real(mytype), intent(in) :: t_half(fiber_nl-1)
+    integer :: ifile, i
+    real(mytype) :: sh
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_tension_last.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# i_half s_half T_last'
+    do i = 1, fiber_nl-1
+      sh = 0.5_mytype * (fiber_s_ref(i) + fiber_s_ref(i+1))
+      write(ifile,'(I8,1X,2(ES24.16,1X))') i, sh, t_half(i)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_tension_last
+
+  subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, overwrite)
+    integer, intent(in) :: step
+    real(mytype), intent(in) :: time, max_seg_err, max_inext_err, max_abs_tension
+    logical, intent(in) :: overwrite
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    if (overwrite) then
+      open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension'
+    else
+      open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='old', action='write', position='append', form='formatted')
+    endif
+    write(ifile,'(I10,1X,4(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_series
+
+  subroutine write_fiber_flex_constraint_summary(case_id, dt_c, nsteps, max_seg_err_global, max_inext_err_global, &
+       max_abs_tension_global, case_metric)
+    integer, intent(in) :: case_id, nsteps
+    real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_summary.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_constraint_case ', case_id
+    write(ifile,'(A,ES24.16)') 'fiber_flex_constraint_dt ', dt_c
+    write(ifile,'(A,I8)') 'fiber_flex_constraint_nsteps ', nsteps
+    write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
+    write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
+    write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
+    if (case_id == 1) then
+      write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
+    else if (case_id == 2) then
+      write(ifile,'(A,ES24.16)') 'translation_shape_error_max ', case_metric
+      write(ifile,'(A,ES24.16)') 'translation_tension_max ', max_abs_tension_global
+    else if (case_id == 3) then
+      write(ifile,'(A,ES24.16)') 'final_displacement_norm ', case_metric
+    endif
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_summary
 
 end module fiber_io
