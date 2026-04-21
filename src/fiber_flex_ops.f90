@@ -16,19 +16,28 @@ contains
 
   subroutine estimate_boundary_d2_independent(x_in, d2_left_indep, d2_right_indep)
 
-    ! Independent boundary curvature estimate from physical nodes only.
-    ! Uses second-order one-sided stencils and does not use ghost values.
+    ! Independent boundary second-derivative estimator (D2) from physical nodes only.
+    ! No ghost values, closure constraints, or bending operators are used here.
+    ! This uses a higher-order one-sided stencil to improve stability/credibility
+    ! of boundary-error decay under grid refinement.
 
     real(mytype), intent(in) :: x_in(3, fiber_nl)
     real(mytype), intent(out) :: d2_left_indep(3), d2_right_indep(3)
     real(mytype) :: ds2
     integer :: i
 
+    if (fiber_nl < 6) then
+      if (nrank == 0) write(*,*) 'Error: estimate_boundary_d2_independent requires fiber_nl >= 6.'
+      stop
+    endif
+
     ds2 = fiber_ds * fiber_ds
     do i = 1, 3
-      d2_left_indep(i) = (2._mytype * x_in(i,1) - 5._mytype * x_in(i,2) + 4._mytype * x_in(i,3) - x_in(i,4)) / ds2
-      d2_right_indep(i) = (2._mytype * x_in(i,fiber_nl) - 5._mytype * x_in(i,fiber_nl-1) + &
-           4._mytype * x_in(i,fiber_nl-2) - x_in(i,fiber_nl-3)) / ds2
+      d2_left_indep(i) = (45._mytype * x_in(i,1) - 154._mytype * x_in(i,2) + 214._mytype * x_in(i,3) - &
+           156._mytype * x_in(i,4) + 61._mytype * x_in(i,5) - 10._mytype * x_in(i,6)) / (12._mytype * ds2)
+      d2_right_indep(i) = (45._mytype * x_in(i,fiber_nl) - 154._mytype * x_in(i,fiber_nl-1) + &
+           214._mytype * x_in(i,fiber_nl-2) - 156._mytype * x_in(i,fiber_nl-3) + &
+           61._mytype * x_in(i,fiber_nl-4) - 10._mytype * x_in(i,fiber_nl-5)) / (12._mytype * ds2)
     enddo
 
   end subroutine estimate_boundary_d2_independent
