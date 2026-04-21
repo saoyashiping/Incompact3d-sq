@@ -10,7 +10,7 @@ module fiber_flex_constraint
        fiber_s_ref, fiber_x, fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp
   use fiber_types, only : fiber_bending_gamma
-  use fiber_flex_ops, only : apply_free_end_bending_operator_scalar
+  use fiber_flex_ops, only : apply_free_end_bending_operator_scalar, apply_free_end_d2_scalar
   use fiber_io, only : write_fiber_flex_constraint_initial_points, write_fiber_flex_constraint_final_points, &
        write_fiber_flex_constraint_tension_last, write_fiber_flex_constraint_series, write_fiber_flex_constraint_summary
 
@@ -50,12 +50,14 @@ contains
   end subroutine lag_ds_minus_node
 
   subroutine lag_dss_node_free_end(x_node, xss_node)
+    ! Free-end nodal second-derivative helper (Dss) for the centerline.
+    ! This uses the validated Step 3.2 D2 operator and is semantically
+    ! separate from bending-force operators.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: xss_node(3,fiber_nl)
     integer :: c
     do c = 1, 3
-      call apply_free_end_bending_operator_scalar(x_node(c,:), xss_node(c,:), -1._mytype)
-      xss_node(c,:) = xss_node(c,:) / (fiber_ds*fiber_ds)
+      call apply_free_end_d2_scalar(x_node(c,:), xss_node(c,:))
     enddo
   end subroutine lag_dss_node_free_end
 
