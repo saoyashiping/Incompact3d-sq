@@ -329,8 +329,12 @@ module param
   real(mytype) :: dens1, dens2
   real(mytype) :: C_filter
   character(len=512) :: inflowpath
+  character(len=512) :: single_phase_profile_reference_file
+  character(len=512) :: mean_profile_output_filename
+  character(len=512) :: delta_mean_profile_output_filename
   logical :: validation_restart
   logical :: mhd_active,particle_active
+  logical :: mean_profile_output_active
 
   ! Logical, true when synchronization is needed
   logical, save :: sync_vel_needed = .true.
