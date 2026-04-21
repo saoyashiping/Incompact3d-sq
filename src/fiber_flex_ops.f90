@@ -120,6 +120,24 @@ contains
 
   end subroutine apply_free_end_bending_operator_scalar
 
+  subroutine compute_bending_force_free_end(x_in, gamma_b, fb_out)
+
+    ! Structural bending force operator in vector form:
+    !   F_b = - d_ss( gamma * d_ss X )
+    ! For constant gamma_b in this Step 3.2 verification layer:
+    !   F_b = -gamma_b * X_ssss
+    ! This routine computes the force via the bending operator, component by component.
+
+    real(mytype), intent(in) :: x_in(3, fiber_nl), gamma_b
+    real(mytype), intent(out) :: fb_out(3, fiber_nl)
+    integer :: i
+
+    do i = 1, 3
+      call apply_free_end_bending_operator_scalar(x_in(i,:), fb_out(i,:), gamma_b)
+    enddo
+
+  end subroutine compute_bending_force_free_end
+
   subroutine compute_flexible_spatial_operators(x_in, xs, xss, xssss, bc_moment_left, bc_moment_right, &
        bc_shear_left, bc_shear_right)
 
@@ -164,10 +182,12 @@ contains
   subroutine run_flexible_operator_test()
 
     real(mytype), parameter :: a1 = 1._mytype, a2 = -0.5_mytype, a3 = 0.25_mytype
+    real(mytype), parameter :: gamma_test = 1._mytype
     real(mytype), allocatable :: x_exact(:,:), xs_exact(:,:), xss_exact(:,:), xsss_exact(:,:), xssss_exact(:,:)
+    real(mytype), allocatable :: fb_exact(:,:), fb_num(:,:)
     real(mytype) :: bc_moment_left(3), bc_moment_right(3), bc_shear_left(3), bc_shear_right(3)
     real(mytype) :: d2_left_indep(3), d2_right_indep(3), d3_left_indep(3), d3_right_indep(3)
-    real(mytype) :: err_xs_max, err_xss_max, err_xssss_max
+    real(mytype) :: err_xs_max, err_xss_max, err_xssss_max, err_fb_max
     real(mytype) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
     real(mytype) :: bc_d2_left_indep_err_max, bc_d2_right_indep_err_max
     real(mytype) :: bc_d3_left_indep_err_max, bc_d3_right_indep_err_max
@@ -197,8 +217,11 @@ contains
     if (allocated(xss_exact)) deallocate(xss_exact)
     if (allocated(xsss_exact)) deallocate(xsss_exact)
     if (allocated(xssss_exact)) deallocate(xssss_exact)
+    if (allocated(fb_exact)) deallocate(fb_exact)
+    if (allocated(fb_num)) deallocate(fb_num)
     allocate(x_exact(3, fiber_nl), xs_exact(3, fiber_nl), xss_exact(3, fiber_nl), xsss_exact(3, fiber_nl), &
          xssss_exact(3, fiber_nl))
+    allocate(fb_exact(3, fiber_nl), fb_num(3, fiber_nl))
 
     if (allocated(fiber_xs)) deallocate(fiber_xs)
     if (allocated(fiber_xss)) deallocate(fiber_xss)
@@ -250,6 +273,9 @@ contains
     err_xs_max = maxval(abs(fiber_xs - xs_exact))
     err_xss_max = maxval(abs(fiber_xss - xss_exact))
     err_xssss_max = maxval(abs(fiber_xssss - xssss_exact))
+    fb_exact = -gamma_test * xssss_exact
+    call compute_bending_force_free_end(x_exact, gamma_test, fb_num)
+    err_fb_max = maxval(abs(fb_num - fb_exact))
     bc_moment_left_max = maxval(abs(bc_moment_left))
     bc_moment_right_max = maxval(abs(bc_moment_right))
     bc_shear_left_max = maxval(abs(bc_shear_left))
@@ -263,10 +289,11 @@ contains
 
     call write_fiber_flex_operator_points(x_exact, fiber_xs, xs_exact, fiber_xss, xss_exact, fiber_xssss, xssss_exact)
     call write_fiber_flex_operator_summary(fiber_flex_operator_case, err_xs_max, err_xss_max, err_xssss_max, &
+         gamma_test, err_fb_max, &
          bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, &
          bc_d2_left_indep_err_max, bc_d2_right_indep_err_max, bc_d3_left_indep_err_max, bc_d3_right_indep_err_max)
 
-    deallocate(x_exact, xs_exact, xss_exact, xsss_exact, xssss_exact)
+    deallocate(x_exact, xs_exact, xss_exact, xsss_exact, xssss_exact, fb_exact, fb_num)
 
   end subroutine run_flexible_operator_test
 

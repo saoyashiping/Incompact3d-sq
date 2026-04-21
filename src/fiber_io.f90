@@ -653,12 +653,14 @@ contains
   end subroutine write_fiber_flex_operator_points
 
   subroutine write_fiber_flex_operator_summary(flex_case, err_xs_max, err_xss_max, err_xssss_max, &
+       gamma_test_for_fb, err_fb_max, &
        bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, &
        bc_d2_left_indep_err_max, bc_d2_right_indep_err_max, bc_d3_left_indep_err_max, bc_d3_right_indep_err_max, &
        filename)
 
     integer, intent(in) :: flex_case
     real(mytype), intent(in) :: err_xs_max, err_xss_max, err_xssss_max
+    real(mytype), intent(in) :: gamma_test_for_fb, err_fb_max
     real(mytype), intent(in) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
     real(mytype), intent(in) :: bc_d2_left_indep_err_max, bc_d2_right_indep_err_max
     real(mytype), intent(in) :: bc_d3_left_indep_err_max, bc_d3_right_indep_err_max
@@ -684,6 +686,10 @@ contains
     write(ifile,'(A,ES24.16)') 'err_xs_max ', err_xs_max
     write(ifile,'(A,ES24.16)') 'err_xss_max ', err_xss_max
     write(ifile,'(A,ES24.16)') 'err_xssss_max ', err_xssss_max
+    write(ifile,'(A)') 'operator_layer_semantics geometric_plus_bending_force_verification'
+    write(ifile,'(A)') 'bending_force_semantics Fb_equals_minus_gamma_times_Xssss_for_constant_gamma'
+    write(ifile,'(A,ES24.16)') 'gamma_test_for_fb ', gamma_test_for_fb
+    write(ifile,'(A,ES24.16)') 'err_fb_max ', err_fb_max
     write(ifile,'(A)') 'boundary_closure_residual_semantics ghost_closure_consistency_only'
     write(ifile,'(A)') 'boundary_independent_error_semantics one_sided_physical_node_boundary_error'
     write(ifile,'(A,ES24.16)') 'bc_moment_left_max ', bc_moment_left_max
