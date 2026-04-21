@@ -109,8 +109,13 @@ module fiber_types
   real(mytype), allocatable, dimension(:,:) :: fiber_xssss
   real(mytype), allocatable, dimension(:,:) :: fiber_slip
   real(mytype), allocatable, dimension(:,:) :: fiber_coupling_force
+  ! Legacy/transitional nodal tension containers (fiber_nl).
+  ! Keep for compatibility during migration; not the final staggered unknown semantics.
   real(mytype), allocatable, dimension(:) :: fiber_tension
   real(mytype), allocatable, dimension(:) :: fiber_tension_old
+  ! Future main storage for staggered tension unknowns on half-grid interfaces (fiber_nl-1).
+  real(mytype), allocatable, dimension(:) :: fiber_tension_half
+  real(mytype), allocatable, dimension(:) :: fiber_tension_half_old
   real(mytype), allocatable, dimension(:,:) :: fiber_bending_force
   real(mytype), allocatable, dimension(:,:) :: fiber_tension_force
   real(mytype), allocatable, dimension(:,:) :: fiber_hydro_force
@@ -224,6 +229,8 @@ contains
     if (allocated(fiber_coupling_force)) deallocate(fiber_coupling_force)
     if (allocated(fiber_tension)) deallocate(fiber_tension)
     if (allocated(fiber_tension_old)) deallocate(fiber_tension_old)
+    if (allocated(fiber_tension_half)) deallocate(fiber_tension_half)
+    if (allocated(fiber_tension_half_old)) deallocate(fiber_tension_half_old)
     if (allocated(fiber_bending_force)) deallocate(fiber_bending_force)
     if (allocated(fiber_tension_force)) deallocate(fiber_tension_force)
     if (allocated(fiber_hydro_force)) deallocate(fiber_hydro_force)

@@ -546,6 +546,8 @@ contains
     write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
     write(ifile,'(A,3(ES24.16,1X))') 'fiber_center ', fiber_center(1), fiber_center(2), fiber_center(3)
     write(ifile,'(A,3(ES24.16,1X))') 'fiber_direction ', fiber_direction(1), fiber_direction(2), fiber_direction(3)
+    write(ifile,'(A,I8)') 'fiber_tension_half_size ', fiber_nl - 1
+    write(ifile,'(A)') 'fiber_tension_storage_semantics half_grid_primary_nodal_legacy'
     write(ifile,'(A,ES24.16)') 'end_to_end_length ', end_to_end_length
     write(ifile,'(A,ES24.16)') 'spacing_error_max ', spacing_error_max
     write(ifile,'(A,L1)') 'fiber_flex_initialized ', fiber_flex_initialized
