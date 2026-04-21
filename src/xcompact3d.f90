@@ -22,16 +22,22 @@ program xcompact3d
   use particle, only : intt_particles
   use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
        rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, rigid_two_way_test_active, &
-       rigid_kinematics_standalone
+       rigid_kinematics_standalone, rigid_two_way_subiterations, fiber_flexible_active, &
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
-  use fiber_coupling, only : run_rigid_coupling_step, run_rigid_two_way_step
+  use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update, &
+       rigid_two_way_commit_state
   use fiber_rigid_free, only : run_rigid_free_step
   use fiber_rigid_kinematics, only : rigid_kinematics_step
 
   implicit none
 
-  logical :: solver_interp_done
+  logical :: solver_interp_done, two_way_converged
+  integer :: two_way_isubiter, two_way_nsubiter
+  real(mytype), allocatable :: ux_base(:,:,:), uy_base(:,:,:), uz_base(:,:,:)
+  real(mytype), allocatable :: ux_work(:,:,:), uy_work(:,:,:), uz_work(:,:,:)
+  real(mytype), allocatable :: rho_base(:,:,:,:), phi_base(:,:,:,:)
 
   solver_interp_done = .false.
 
@@ -64,57 +70,136 @@ program xcompact3d
 
      do itr=1,iadvance_time
 
-        call set_fluid_properties(rho1,mu1)
-        call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
+        if (fiber_active .and. rigid_two_way_test_active) then
+           two_way_nsubiter = max(1, rigid_two_way_subiterations)
+           two_way_converged = .false.
+           if (.not.allocated(ux_base)) then
+              allocate(ux_base(size(ux1,1), size(ux1,2), size(ux1,3)))
+              allocate(uy_base(size(uy1,1), size(uy1,2), size(uy1,3)))
+              allocate(uz_base(size(uz1,1), size(uz1,2), size(uz1,3)))
+              allocate(ux_work(size(ux1,1), size(ux1,2), size(ux1,3)))
+              allocate(uy_work(size(uy1,1), size(uy1,2), size(uy1,3)))
+              allocate(uz_work(size(uz1,1), size(uz1,2), size(uz1,3)))
+              allocate(rho_base(size(rho1,1), size(rho1,2), size(rho1,3), size(rho1,4)))
+              allocate(phi_base(size(phi1,1), size(phi1,2), size(phi1,3), size(phi1,4)))
+           endif
+           ux_base = ux1
+           uy_base = uy1
+           uz_base = uz1
+           rho_base = rho1
+           phi_base = phi1
 
-        if (imove.eq.1) then ! update epsi for moving objects
-          if ((iibm.eq.2).or.(iibm.eq.3)) then
-             call genepsi3d(ep1)
-          else if (iibm.eq.1) then
-             call body(ux1,uy1,uz1,ep1)
-          endif
-        endif
+           do two_way_isubiter = 1, two_way_nsubiter
+              ux_work = ux_base
+              uy_work = uy_base
+              uz_work = uz_base
+              rho1 = rho_base
+              phi1 = phi_base
+              call set_fluid_properties(rho1,mu1)
+              call boundary_conditions(rho1,ux_work,uy_work,uz_work,phi1,ep1)
 
-        if (fiber_active .and. rigid_coupling_test_active) then
-           call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_free_test_active) then
-           call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_two_way_test_active) then
-           call run_rigid_two_way_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
-        else if (fiber_active .and. rigid_kinematics_test_active) then
-           call rigid_kinematics_step(ux1, uy1, uz1, t, itime, itr)
-        endif
-        call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+              if (imove.eq.1) then ! update epsi for moving objects
+                if ((iibm.eq.2).or.(iibm.eq.3)) then
+                   call genepsi3d(ep1)
+                else if (iibm.eq.1) then
+                   call body(ux_work,uy_work,uz_work,ep1)
+                endif
+              endif
+
+              call rigid_two_way_prepare_forcing(ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
+                   two_way_isubiter, two_way_nsubiter)
+
+              call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux_work,uy_work,uz_work,ep1,phi1,divu3)
 
 #ifdef DEBG
-        call check_transients()
+              call check_transients()
 #endif
-        
-        if (ilmn) then
-           !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
-           call velocity_to_momentum(rho1,ux1,uy1,uz1)
+
+              if (ilmn) then
+                 !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
+                 call velocity_to_momentum(rho1,ux_work,uy_work,uz_work)
+              endif
+
+              call int_time(rho1,ux_work,uy_work,uz_work,phi1,drho1,dux1,duy1,duz1,dphi1)
+              call pre_correc(ux_work,uy_work,uz_work,ep1)
+
+              call calc_divu_constraint(divu3,rho1,phi1)
+              call solve_poisson(pp3,px1,py1,pz1,rho1,ux_work,uy_work,uz_work,ep1,drho1,divu3)
+              call cor_vel(ux_work,uy_work,uz_work,px1,py1,pz1)
+
+              if(mhd_active .and. mhd_equation == 'induction') then
+                call solve_poisson_mhd()
+              endif
+
+              if (ilmn) then
+                 call momentum_to_velocity(rho1,ux_work,uy_work,uz_work)
+                 !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
+                 !! Note - all other solvers work on velocity always
+              endif
+
+              call rigid_two_way_finalize_update(ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
+                   two_way_isubiter, two_way_nsubiter, two_way_converged)
+
+              call test_flow(rho1,ux_work,uy_work,uz_work,phi1,ep1,drho1,divu3)
+
+              if(mhd_active) call test_magnetic
+
+              if (two_way_converged) exit
+           enddo
+           call rigid_two_way_commit_state(ux1, uy1, uz1, ux_work, uy_work, uz_work, t, itime, itr, iadvance_time, &
+                min(two_way_isubiter, two_way_nsubiter), two_way_nsubiter)
+        else
+           call set_fluid_properties(rho1,mu1)
+           call boundary_conditions(rho1,ux1,uy1,uz1,phi1,ep1)
+
+           if (imove.eq.1) then ! update epsi for moving objects
+             if ((iibm.eq.2).or.(iibm.eq.3)) then
+                call genepsi3d(ep1)
+             else if (iibm.eq.1) then
+                call body(ux1,uy1,uz1,ep1)
+             endif
+           endif
+
+           if (fiber_active .and. rigid_coupling_test_active) then
+              call run_rigid_coupling_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+           else if (fiber_active .and. rigid_free_test_active) then
+              call run_rigid_free_step(ux1, uy1, uz1, t, itime, itr, iadvance_time)
+           else if (fiber_active .and. rigid_kinematics_test_active) then
+              call rigid_kinematics_step(ux1, uy1, uz1, t, itime, itr)
+           endif
+
+           call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
+
+#ifdef DEBG
+           call check_transients()
+#endif
+
+           if (ilmn) then
+              !! XXX N.B. from this point, X-pencil velocity arrays contain momentum (LMN only).
+              call velocity_to_momentum(rho1,ux1,uy1,uz1)
+           endif
+
+           call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
+           call pre_correc(ux1,uy1,uz1,ep1)
+
+           call calc_divu_constraint(divu3,rho1,phi1)
+           call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
+           call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
+
+           if(mhd_active .and. mhd_equation == 'induction') then
+             call solve_poisson_mhd()
+           endif
+
+           if (ilmn) then
+              call momentum_to_velocity(rho1,ux1,uy1,uz1)
+              !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
+              !! Note - all other solvers work on velocity always
+           endif
+
+           call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
+
+           if(mhd_active) call test_magnetic
         endif
-
-        call int_time(rho1,ux1,uy1,uz1,phi1,drho1,dux1,duy1,duz1,dphi1)
-        call pre_correc(ux1,uy1,uz1,ep1)
-
-        call calc_divu_constraint(divu3,rho1,phi1)
-        call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
-        call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
-
-        if(mhd_active .and. mhd_equation == 'induction') then
-          call solve_poisson_mhd()
-        endif
-
-        if (ilmn) then
-           call momentum_to_velocity(rho1,ux1,uy1,uz1)
-           !! XXX N.B. from this point, X-pencil velocity arrays contain velocity (LMN only).
-           !! Note - all other solvers work on velocity always
-        endif
-        
-        call test_flow(rho1,ux1,uy1,uz1,phi1,ep1,drho1,divu3)
-
-        if(mhd_active) call test_magnetic
 
      enddo !! End sub timesteps
 
@@ -183,13 +268,19 @@ subroutine init_xcompact3d()
   use particle,  only : particle_report,local_domain_size
   use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
        spread_test_active, rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, &
-       rigid_two_way_test_active, &
+       rigid_two_way_test_active, fiber_flexible_active, fiber_flex_operator_test_active, fiber_flex_bending_test_active, &
+       fiber_flex_constraint_test_active, &
        rigid_kinematics_standalone
   use fiber_init, only : init_fiber
+  use fiber_flex_init, only : init_flexible_fiber_state
+  use fiber_flex_ops, only : run_flexible_operator_test
+  use fiber_flex_bending, only : run_flexible_bending_test
+  use fiber_flex_constraint, only : run_flexible_constraint_test
   use fiber_rigid_motion, only : init_rigid_motion_reference
   use fiber_rigid_free, only : init_rigid_free_state
   use fiber_io, only : write_fiber_points, write_fiber_interp, &
-       write_fiber_spread_lagrangian, write_fiber_spread_summary
+       write_fiber_spread_lagrangian, write_fiber_spread_summary, &
+       write_fiber_flex_init_points, write_fiber_flex_init_points_wrapped, write_fiber_flex_init_summary
   use fiber_interp, only : run_fiber_interp_operator_test
   use fiber_spread, only : run_fiber_spread_conservation_test
 
@@ -237,6 +328,18 @@ subroutine init_xcompact3d()
 #endif
   
   call parameter(InputFN)
+
+  if (nrank == 0) then
+     write(*,'(A,L1,A,L1,A,L1,A,L1,A,L1,A,L1,A,L1,A,L1)') &
+          'DEBUG FLAGS: interp_test_active=', interp_test_active, &
+          ', interp_solver_test_active=', interp_solver_test_active, &
+          ', spread_test_active=', spread_test_active, &
+          ', rigid_coupling_test_active=', rigid_coupling_test_active, &
+          ', rigid_free_test_active=', rigid_free_test_active, &
+          ', rigid_kinematics_test_active=', rigid_kinematics_test_active, &
+          ', rigid_two_way_test_active=', rigid_two_way_test_active, &
+          ', fiber_active=', fiber_active
+  endif
 
   if (interp_test_active .and. interp_solver_test_active) then
      if (nrank == 0) write(*,*) "Error: interp_test_active and interp_solver_test_active cannot both be true."
@@ -335,6 +438,30 @@ subroutine init_xcompact3d()
 
   if (fiber_active) then
      call init_fiber()
+     if (fiber_flexible_active) then
+        call init_flexible_fiber_state()
+        call write_fiber_flex_init_points()
+        call write_fiber_flex_init_points_wrapped()
+        call write_fiber_flex_init_summary()
+     endif
+     if (fiber_flexible_active .and. fiber_flex_operator_test_active) then
+        call run_flexible_operator_test()
+        if (nrank == 0) write(*,*) "Flexible operator test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+     if (fiber_flexible_active .and. fiber_flex_bending_test_active) then
+        call run_flexible_bending_test()
+        if (nrank == 0) write(*,*) "Flexible bending test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+     if (fiber_flexible_active .and. fiber_flex_constraint_test_active) then
+        call run_flexible_constraint_test()
+        if (nrank == 0) write(*,*) "Flexible constraint/tension test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
      if (rigid_coupling_test_active) call init_rigid_motion_reference()
      if (rigid_free_test_active .or. rigid_two_way_test_active) call init_rigid_free_state()
      call write_fiber_points()
@@ -488,6 +615,7 @@ subroutine finalise_xcompact3d()
   use decomp_2d_io, only : decomp_2d_io_finalise
 
   use tools, only : simu_stats
+  use stats, only : write_channel_mean_profile_outputs
   use param, only : itype, jles, ilesmod, mhd_active
   use probes, only : finalize_probes
   use visu, only : visu_finalise
@@ -524,6 +652,7 @@ subroutine finalise_xcompact3d()
   endif
   
   call simu_stats(4)
+  call write_channel_mean_profile_outputs()
   call finalize_probes()
   call visu_case_finalise()
   call visu_finalise()
