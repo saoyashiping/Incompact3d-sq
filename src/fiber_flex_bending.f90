@@ -33,17 +33,18 @@ contains
   end subroutine assemble_free_end_bending_matrix
 
   subroutine build_bending_backward_euler_matrix(dt_b, gamma_b, amat)
-    ! Step 3.3 semantics:
-    !   x^{n+1} - x^n = -dt_b * B(x^{n+1})
-    ! => (I + dt_b * B) x^{n+1} = x^n
-    ! Here B = -gamma*d4 (constant gamma).
+    ! Step 3.3 bending-only backward Euler:
+    ! continuous target: x_t = B(x), with B(x) = -gamma*d4(x)
+    ! backward Euler: (x^{n+1} - x^n)/dt_b = B(x^{n+1})
+    ! therefore: (I - dt_b * B) x^{n+1} = x^n
+    ! since B = -gamma*d4, this is (I + dt_b * gamma * d4) x^{n+1} = x^n.
     real(mytype), intent(in) :: dt_b, gamma_b
     real(mytype), intent(out) :: amat(fiber_nl, fiber_nl)
     real(mytype) :: bmat(fiber_nl, fiber_nl)
     integer :: i
 
     call assemble_free_end_bending_matrix(bmat, gamma_b)
-    amat = dt_b * bmat
+    amat = -dt_b * bmat
     do i = 1, fiber_nl
       amat(i,i) = amat(i,i) + 1._mytype
     enddo
