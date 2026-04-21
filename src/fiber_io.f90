@@ -653,11 +653,15 @@ contains
   end subroutine write_fiber_flex_operator_points
 
   subroutine write_fiber_flex_operator_summary(flex_case, err_xs_max, err_xss_max, err_xssss_max, &
-       bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, filename)
+       bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, &
+       bc_d2_left_indep_err_max, bc_d2_right_indep_err_max, bc_d3_left_indep_err_max, bc_d3_right_indep_err_max, &
+       filename)
 
     integer, intent(in) :: flex_case
     real(mytype), intent(in) :: err_xs_max, err_xss_max, err_xssss_max
     real(mytype), intent(in) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
+    real(mytype), intent(in) :: bc_d2_left_indep_err_max, bc_d2_right_indep_err_max
+    real(mytype), intent(in) :: bc_d3_left_indep_err_max, bc_d3_right_indep_err_max
     character(len=*), intent(in), optional :: filename
 
     character(len=256) :: output_file
@@ -673,16 +677,23 @@ contains
 
     open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
     write(ifile,'(A)') '# Flexible operator summary (Step 3.2 spatial operator verification only)'
+    write(ifile,'(A)') '# boundary metrics include ghost-closure residuals and independent physical-node boundary errors'
     write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
     write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
     write(ifile,'(A,I8)') 'fiber_flex_operator_case ', flex_case
     write(ifile,'(A,ES24.16)') 'err_xs_max ', err_xs_max
     write(ifile,'(A,ES24.16)') 'err_xss_max ', err_xss_max
     write(ifile,'(A,ES24.16)') 'err_xssss_max ', err_xssss_max
+    write(ifile,'(A)') 'boundary_closure_residual_semantics ghost_closure_consistency_only'
+    write(ifile,'(A)') 'boundary_independent_error_semantics one_sided_physical_node_boundary_error'
     write(ifile,'(A,ES24.16)') 'bc_moment_left_max ', bc_moment_left_max
     write(ifile,'(A,ES24.16)') 'bc_moment_right_max ', bc_moment_right_max
     write(ifile,'(A,ES24.16)') 'bc_shear_left_max ', bc_shear_left_max
     write(ifile,'(A,ES24.16)') 'bc_shear_right_max ', bc_shear_right_max
+    write(ifile,'(A,ES24.16)') 'bc_d2_left_indep_err_max ', bc_d2_left_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d2_right_indep_err_max ', bc_d2_right_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d3_left_indep_err_max ', bc_d3_left_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d3_right_indep_err_max ', bc_d3_right_indep_err_max
     close(ifile)
 
   end subroutine write_fiber_flex_operator_summary

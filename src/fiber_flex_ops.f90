@@ -14,6 +14,46 @@ module fiber_flex_ops
 
 contains
 
+  subroutine estimate_boundary_d2_independent(x_in, d2_left_indep, d2_right_indep)
+
+    ! Independent boundary curvature estimate from physical nodes only.
+    ! Uses second-order one-sided stencils and does not use ghost values.
+
+    real(mytype), intent(in) :: x_in(3, fiber_nl)
+    real(mytype), intent(out) :: d2_left_indep(3), d2_right_indep(3)
+    real(mytype) :: ds2
+    integer :: i
+
+    ds2 = fiber_ds * fiber_ds
+    do i = 1, 3
+      d2_left_indep(i) = (2._mytype * x_in(i,1) - 5._mytype * x_in(i,2) + 4._mytype * x_in(i,3) - x_in(i,4)) / ds2
+      d2_right_indep(i) = (2._mytype * x_in(i,fiber_nl) - 5._mytype * x_in(i,fiber_nl-1) + &
+           4._mytype * x_in(i,fiber_nl-2) - x_in(i,fiber_nl-3)) / ds2
+    enddo
+
+  end subroutine estimate_boundary_d2_independent
+
+  subroutine estimate_boundary_d3_independent(x_in, d3_left_indep, d3_right_indep)
+
+    ! Independent boundary shear estimate from physical nodes only.
+    ! Uses second-order one-sided stencils and does not use ghost values.
+
+    real(mytype), intent(in) :: x_in(3, fiber_nl)
+    real(mytype), intent(out) :: d3_left_indep(3), d3_right_indep(3)
+    real(mytype) :: ds3
+    integer :: i
+
+    ds3 = fiber_ds * fiber_ds * fiber_ds
+    do i = 1, 3
+      d3_left_indep(i) = (-5._mytype * x_in(i,1) + 18._mytype * x_in(i,2) - 24._mytype * x_in(i,3) + &
+           14._mytype * x_in(i,4) - 3._mytype * x_in(i,5)) / (2._mytype * ds3)
+      d3_right_indep(i) = (5._mytype * x_in(i,fiber_nl) - 18._mytype * x_in(i,fiber_nl-1) + &
+           24._mytype * x_in(i,fiber_nl-2) - 14._mytype * x_in(i,fiber_nl-3) + 3._mytype * x_in(i,fiber_nl-4)) / &
+           (2._mytype * ds3)
+    enddo
+
+  end subroutine estimate_boundary_d3_independent
+
   subroutine construct_free_end_ghost_scalar(u, uext)
 
     real(mytype), intent(in) :: u(fiber_nl)
@@ -124,12 +164,15 @@ contains
   subroutine run_flexible_operator_test()
 
     real(mytype), parameter :: a1 = 1._mytype, a2 = -0.5_mytype, a3 = 0.25_mytype
-    real(mytype), allocatable :: x_exact(:,:), xs_exact(:,:), xss_exact(:,:), xssss_exact(:,:)
+    real(mytype), allocatable :: x_exact(:,:), xs_exact(:,:), xss_exact(:,:), xsss_exact(:,:), xssss_exact(:,:)
     real(mytype) :: bc_moment_left(3), bc_moment_right(3), bc_shear_left(3), bc_shear_right(3)
+    real(mytype) :: d2_left_indep(3), d2_right_indep(3), d3_left_indep(3), d3_right_indep(3)
     real(mytype) :: err_xs_max, err_xss_max, err_xssss_max
     real(mytype) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
+    real(mytype) :: bc_d2_left_indep_err_max, bc_d2_right_indep_err_max
+    real(mytype) :: bc_d3_left_indep_err_max, bc_d3_right_indep_err_max
     real(mytype) :: smin, s, q, invL, invL2, invL4
-    real(mytype) :: g, g1, g2, g4
+    real(mytype) :: invL3, g, g1, g2, g3, g4
     integer :: l
 
     if (.not.fiber_active) then
@@ -152,8 +195,10 @@ contains
     if (allocated(x_exact)) deallocate(x_exact)
     if (allocated(xs_exact)) deallocate(xs_exact)
     if (allocated(xss_exact)) deallocate(xss_exact)
+    if (allocated(xsss_exact)) deallocate(xsss_exact)
     if (allocated(xssss_exact)) deallocate(xssss_exact)
-    allocate(x_exact(3, fiber_nl), xs_exact(3, fiber_nl), xss_exact(3, fiber_nl), xssss_exact(3, fiber_nl))
+    allocate(x_exact(3, fiber_nl), xs_exact(3, fiber_nl), xss_exact(3, fiber_nl), xsss_exact(3, fiber_nl), &
+         xssss_exact(3, fiber_nl))
 
     if (allocated(fiber_xs)) deallocate(fiber_xs)
     if (allocated(fiber_xss)) deallocate(fiber_xss)
@@ -163,6 +208,7 @@ contains
     smin = -0.5_mytype * fiber_length
     invL = 1._mytype / fiber_length
     invL2 = invL * invL
+    invL3 = invL2 * invL
     invL4 = invL2 * invL2
 
     do l = 1, fiber_nl
@@ -172,6 +218,7 @@ contains
       g = q**4 - 4._mytype*q**5 + 6._mytype*q**6 - 4._mytype*q**7 + q**8
       g1 = 4._mytype*q**3 - 20._mytype*q**4 + 36._mytype*q**5 - 28._mytype*q**6 + 8._mytype*q**7
       g2 = 12._mytype*q**2 - 80._mytype*q**3 + 180._mytype*q**4 - 168._mytype*q**5 + 56._mytype*q**6
+      g3 = 24._mytype*q - 240._mytype*q**2 + 720._mytype*q**3 - 840._mytype*q**4 + 336._mytype*q**5
       g4 = 24._mytype - 480._mytype*q + 2160._mytype*q**2 - 3360._mytype*q**3 + 1680._mytype*q**4
 
       x_exact(1,l) = a1 * g
@@ -185,6 +232,10 @@ contains
       xss_exact(1,l) = a1 * g2 * invL2
       xss_exact(2,l) = a2 * g2 * invL2
       xss_exact(3,l) = a3 * g2 * invL2
+
+      xsss_exact(1,l) = a1 * g3 * invL3
+      xsss_exact(2,l) = a2 * g3 * invL3
+      xsss_exact(3,l) = a3 * g3 * invL3
 
       xssss_exact(1,l) = a1 * g4 * invL4
       xssss_exact(2,l) = a2 * g4 * invL4
@@ -203,12 +254,19 @@ contains
     bc_moment_right_max = maxval(abs(bc_moment_right))
     bc_shear_left_max = maxval(abs(bc_shear_left))
     bc_shear_right_max = maxval(abs(bc_shear_right))
+    call estimate_boundary_d2_independent(fiber_x, d2_left_indep, d2_right_indep)
+    call estimate_boundary_d3_independent(fiber_x, d3_left_indep, d3_right_indep)
+    bc_d2_left_indep_err_max = maxval(abs(d2_left_indep - xss_exact(:,1)))
+    bc_d2_right_indep_err_max = maxval(abs(d2_right_indep - xss_exact(:,fiber_nl)))
+    bc_d3_left_indep_err_max = maxval(abs(d3_left_indep - xsss_exact(:,1)))
+    bc_d3_right_indep_err_max = maxval(abs(d3_right_indep - xsss_exact(:,fiber_nl)))
 
     call write_fiber_flex_operator_points(x_exact, fiber_xs, xs_exact, fiber_xss, xss_exact, fiber_xssss, xssss_exact)
     call write_fiber_flex_operator_summary(fiber_flex_operator_case, err_xs_max, err_xss_max, err_xssss_max, &
-         bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max)
+         bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, &
+         bc_d2_left_indep_err_max, bc_d2_right_indep_err_max, bc_d3_left_indep_err_max, bc_d3_right_indep_err_max)
 
-    deallocate(x_exact, xs_exact, xss_exact, xssss_exact)
+    deallocate(x_exact, xs_exact, xss_exact, xsss_exact, xssss_exact)
 
   end subroutine run_flexible_operator_test
 
