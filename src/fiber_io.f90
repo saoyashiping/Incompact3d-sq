@@ -30,6 +30,20 @@ contains
 
   end function periodic_delta_local
 
+  pure real(mytype) function wrap_periodic_local(coord, period_length)
+
+    real(mytype), intent(in) :: coord, period_length
+    real(mytype) :: wrapped
+
+    wrap_periodic_local = coord
+    if (period_length > 0._mytype) then
+      wrapped = modulo(coord, period_length)
+      if (wrapped < 0._mytype) wrapped = wrapped + period_length
+      wrap_periodic_local = wrapped
+    endif
+
+  end function wrap_periodic_local
+
   subroutine write_fiber_points(filename)
 
     character(len=*), intent(in), optional :: filename
@@ -493,8 +507,9 @@ contains
     if (present(filename)) output_file = filename
 
     open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
-    write(ifile,'(A)') '# Flexible fiber init points (Step 3.1 data layer only)'
-    write(ifile,'(A)') '# l s_ref x y z x_old y_old z_old x_nm1 y_nm1 z_nm1'
+    write(ifile,'(A)') '# Flexible fiber init points (raw internal coordinates; Step 3.1 data layer only)'
+    write(ifile,'(A)') '# internal centerline coordinates may remain unwrapped across periodic x/z directions'
+    write(ifile,'(A)') '# l s_ref x_raw y_raw z_raw x_old_raw y_old_raw z_old_raw x_nm1_raw y_nm1_raw z_nm1_raw'
     do l = 1, fiber_nl
       write(ifile,'(I8,1X,10(ES24.16,1X))') l, fiber_s_ref(l), &
            fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
@@ -504,6 +519,51 @@ contains
     close(ifile)
 
   end subroutine write_fiber_flex_init_points
+
+  subroutine write_fiber_flex_init_points_wrapped(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_s_ref)) then
+      write(*,*) 'Error: fiber_s_ref is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_old)) then
+      write(*,*) 'Error: fiber_x_old is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_nm1)) then
+      write(*,*) 'Error: fiber_x_nm1 is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+
+    output_file = 'fiber_flex_init_points_wrapped.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init points (wrapped output view; internal storage remains unwrapped)'
+    write(ifile,'(A)') '# l s_ref x_wrapped y_wrapped z_wrapped x_old_wrapped y_old_wrapped z_old_wrapped ' // &
+         'x_nm1_wrapped y_nm1_wrapped z_nm1_wrapped'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,10(ES24.16,1X))') l, fiber_s_ref(l), &
+           wrap_periodic_local(fiber_x(1,l), xlx), fiber_x(2,l), wrap_periodic_local(fiber_x(3,l), zlz), &
+           wrap_periodic_local(fiber_x_old(1,l), xlx), fiber_x_old(2,l), wrap_periodic_local(fiber_x_old(3,l), zlz), &
+           wrap_periodic_local(fiber_x_nm1(1,l), xlx), fiber_x_nm1(2,l), wrap_periodic_local(fiber_x_nm1(3,l), zlz)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_points_wrapped
 
   subroutine write_fiber_flex_init_summary(filename)
 
@@ -546,6 +606,9 @@ contains
     write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
     write(ifile,'(A,3(ES24.16,1X))') 'fiber_center ', fiber_center(1), fiber_center(2), fiber_center(3)
     write(ifile,'(A,3(ES24.16,1X))') 'fiber_direction ', fiber_direction(1), fiber_direction(2), fiber_direction(3)
+    write(ifile,'(A)') 'fiber_geometry_storage_semantics continuous_unwrapped_internal'
+    write(ifile,'(A)') 'fiber_geometry_output_semantics raw_points_plus_wrapped_points'
+    write(ifile,'(A)') 'fiber_geometry_diagnostics_semantics minimum_image_periodic'
     write(ifile,'(A,I8)') 'fiber_tension_half_size ', fiber_nl - 1
     write(ifile,'(A)') 'fiber_tension_storage_semantics half_grid_primary_nodal_legacy'
     write(ifile,'(A,ES24.16)') 'end_to_end_length ', end_to_end_length

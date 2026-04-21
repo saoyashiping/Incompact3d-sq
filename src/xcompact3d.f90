@@ -280,7 +280,7 @@ subroutine init_xcompact3d()
   use fiber_rigid_free, only : init_rigid_free_state
   use fiber_io, only : write_fiber_points, write_fiber_interp, &
        write_fiber_spread_lagrangian, write_fiber_spread_summary, &
-       write_fiber_flex_init_points, write_fiber_flex_init_summary
+       write_fiber_flex_init_points, write_fiber_flex_init_points_wrapped, write_fiber_flex_init_summary
   use fiber_interp, only : run_fiber_interp_operator_test
   use fiber_spread, only : run_fiber_spread_conservation_test
 
@@ -441,6 +441,7 @@ subroutine init_xcompact3d()
      if (fiber_flexible_active) then
         call init_flexible_fiber_state()
         call write_fiber_flex_init_points()
+        call write_fiber_flex_init_points_wrapped()
         call write_fiber_flex_init_summary()
      endif
      if (fiber_flexible_active .and. fiber_flex_operator_test_active) then
