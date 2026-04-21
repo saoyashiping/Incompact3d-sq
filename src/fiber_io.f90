@@ -776,13 +776,20 @@ contains
     write(ifile,'(A,ES24.16)') 'fiber_flex_bending_dt ', dt_b
     write(ifile,'(A,ES24.16)') 'fiber_bending_gamma ', gamma_b
     write(ifile,'(A,I8)') 'fiber_flex_bending_nsteps ', nsteps
+    write(ifile,'(A)') 'solver_role_semantics bending_only_intermediate_kernel'
+    write(ifile,'(A,L1)') 'includes_structural_inertia ', .false.
+    write(ifile,'(A,L1)') 'includes_tension_constraint ', .false.
+    write(ifile,'(A,L1)') 'includes_fluid_structure_coupling ', .false.
+    write(ifile,'(A,L1)') 'not_final_structure_solver ', .true.
     write(ifile,'(A,ES24.16)') 'initial_bending_energy ', e_init
     write(ifile,'(A,ES24.16)') 'final_bending_energy ', e_final
     write(ifile,'(A,L1)') 'energy_monotone_decay ', energy_monotone
     write(ifile,'(A,ES24.16)') 'max_update_last_step ', max_update_last_step
     if (case_id == 1) then
+      write(ifile,'(A)') 'case_validation_semantics straight_preservation_under_bending_only_kernel'
       write(ifile,'(A,ES24.16)') 'straight_preservation_error_max ', straight_preservation_error_max
     else if (case_id == 2) then
+      write(ifile,'(A)') 'case_validation_semantics free_end_curved_relaxation_under_bending_only_kernel'
       write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
     endif
     close(ifile)

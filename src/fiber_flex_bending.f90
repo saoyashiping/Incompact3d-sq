@@ -4,6 +4,15 @@
 
 module fiber_flex_bending
 
+  ! Step 3.3 scope definition:
+  ! This module is a bending-only implicit intermediate layer used to
+  ! verify the free-end bending operator and the numerically stiff bending term
+  ! in isolation.
+  !
+  ! It does not include structural inertia, tension/inextensibility constraints,
+  ! or fluid-structure coupling terms, and therefore is not the final
+  ! structural time-integration solver.
+
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
@@ -94,6 +103,9 @@ contains
   end subroutine solve_linear_system_dense
 
   subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b)
+    ! Bending-only backward-Euler kernel:
+    ! advances the isolated implicit bending operator and is not a full
+    ! constrained structural dynamics step.
     real(mytype), intent(in) :: x_old(3, fiber_nl), dt_b, gamma_b
     real(mytype), intent(out) :: x_new(3, fiber_nl)
     real(mytype) :: amat(fiber_nl, fiber_nl)
@@ -106,6 +118,8 @@ contains
   end subroutine advance_bending_backward_euler
 
   subroutine compute_bending_energy(x_in, gamma_b, ebend)
+    ! Bending-only diagnostic energy used in Step 3.3 verification.
+    ! This excludes tension contribution and full structural-energy terms.
     real(mytype), intent(in) :: x_in(3, fiber_nl), gamma_b
     real(mytype), intent(out) :: ebend
     real(mytype) :: d2(3, fiber_nl), norm2(fiber_nl)
@@ -144,6 +158,9 @@ contains
   end subroutine initialize_bending_test_shape
 
   subroutine run_flexible_bending_test()
+    ! Step 3.3 intermediate-kernel verification driver.
+    ! This validates bending-only implicit relaxation behavior and should
+    ! not be interpreted as complete structural dynamics validation.
     real(mytype), allocatable :: xold(:,:), xnew(:,:), xinit(:,:), energy(:), maxupd(:)
     real(mytype) :: e0, ecur, tnow, max_update, straight_err, final_disp
     logical :: energy_monotone

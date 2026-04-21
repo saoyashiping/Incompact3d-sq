@@ -452,6 +452,7 @@ subroutine init_xcompact3d()
      endif
      if (fiber_flexible_active .and. fiber_flex_bending_test_active) then
         call run_flexible_bending_test()
+        if (nrank == 0) write(*,*) "Note: this is a bending-only intermediate kernel test, not the final constrained structural solver."
         if (nrank == 0) write(*,*) "Flexible bending test complete. Exiting before solver initialization."
         call MPI_FINALIZE(ierr)
         stop
