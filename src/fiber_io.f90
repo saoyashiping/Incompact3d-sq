@@ -783,10 +783,13 @@ contains
     write(ifile,'(A)') 'solver_role_semantics bending_only_intermediate_kernel'
     write(ifile,'(A)') 'linear_solver_semantics operator_based_primary_dense_reference_available'
     if (linear_solver_type == 1) then
-      write(ifile,'(A)') 'linear_solver_type cg_primary'
+      write(ifile,'(A)') 'linear_solver_type iterative_primary'
+      write(ifile,'(A)') 'linear_solver_method bicgstab'
     else
       write(ifile,'(A)') 'linear_solver_type dense_reference'
+      write(ifile,'(A)') 'linear_solver_method dense_gaussian_elimination'
     endif
+    write(ifile,'(A)') 'iterative_parameter_semantics cg_named_controls_used_for_primary_iterative_path'
     write(ifile,'(A,ES24.16)') 'cg_tol ', cg_tol
     write(ifile,'(A,I8)') 'cg_maxit ', cg_maxit
     write(ifile,'(A,I8)') 'max_linear_iterations_used ', max_linear_iterations_used

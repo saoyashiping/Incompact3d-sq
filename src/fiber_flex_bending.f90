@@ -115,48 +115,76 @@ contains
     av_out = v_in + dt_b * gamma_b * d4v
   end subroutine apply_bending_backward_euler_operator_scalar
 
-  subroutine solve_bending_scalar_cg(rhs, x, dt_b, gamma_b, tol, maxit, it_used, final_residual, converged)
+  subroutine solve_bending_scalar_bicgstab(rhs, x, dt_b, gamma_b, tol, maxit, it_used, final_residual, converged)
     ! Primary operator-based linear solver for Step 3.3.
-    ! Dense solver is retained separately as reference/fallback.
+    ! Uses BiCGSTAB for robustness on the bending operator while dense
+    ! solver is retained separately as reference/fallback.
     real(mytype), intent(in) :: rhs(fiber_nl), dt_b, gamma_b, tol
     integer, intent(in) :: maxit
     real(mytype), intent(out) :: x(fiber_nl), final_residual
     integer, intent(out) :: it_used
     logical, intent(out) :: converged
-    real(mytype) :: r(fiber_nl), p(fiber_nl), ap(fiber_nl)
-    real(mytype) :: rr, rr_new, denom, alpha, beta, rhs_norm, target
+    real(mytype) :: r(fiber_nl), rhat(fiber_nl), p(fiber_nl), v(fiber_nl), s(fiber_nl), t(fiber_nl)
+    real(mytype) :: rho, rho_old, alpha, omega, beta
+    real(mytype) :: rhs_norm, target, tt, eps_break
     integer :: k
 
     x = 0._mytype
     r = rhs
-    p = r
-    rr = dot_product(r, r)
+    rhat = r
+    p = 0._mytype
+    v = 0._mytype
+    rho_old = 1._mytype
+    alpha = 1._mytype
+    omega = 1._mytype
     rhs_norm = sqrt(max(dot_product(rhs, rhs), 0._mytype))
     target = max(tol, tol * rhs_norm)
-    final_residual = sqrt(max(rr, 0._mytype))
+    final_residual = sqrt(max(dot_product(r, r), 0._mytype))
     it_used = 0
     converged = (final_residual <= target)
     if (converged) return
 
+    eps_break = 1.0e-30_mytype
     do k = 1, maxit
-      call apply_bending_backward_euler_operator_scalar(p, ap, dt_b, gamma_b)
-      denom = dot_product(p, ap)
-      if (denom <= 0._mytype) exit
-      alpha = rr / denom
-      x = x + alpha * p
-      r = r - alpha * ap
-      rr_new = dot_product(r, r)
-      final_residual = sqrt(max(rr_new, 0._mytype))
+      rho = dot_product(rhat, r)
+      if (abs(rho) <= eps_break) exit
+
+      if (k == 1) then
+        p = r
+      else
+        if (abs(omega) <= eps_break) exit
+        beta = (rho / rho_old) * (alpha / omega)
+        p = r + beta * (p - omega * v)
+      endif
+
+      call apply_bending_backward_euler_operator_scalar(p, v, dt_b, gamma_b)
+      if (abs(dot_product(rhat, v)) <= eps_break) exit
+      alpha = rho / dot_product(rhat, v)
+      s = r - alpha * v
+
+      final_residual = sqrt(max(dot_product(s, s), 0._mytype))
       it_used = k
+      if (final_residual <= target) then
+        x = x + alpha * p
+        converged = .true.
+        return
+      endif
+
+      call apply_bending_backward_euler_operator_scalar(s, t, dt_b, gamma_b)
+      tt = dot_product(t, t)
+      if (tt <= eps_break) exit
+      omega = dot_product(t, s) / tt
+      x = x + alpha * p + omega * s
+      r = s - omega * t
+      final_residual = sqrt(max(dot_product(r, r), 0._mytype))
       if (final_residual <= target) then
         converged = .true.
         return
       endif
-      beta = rr_new / rr
-      p = r + beta * p
-      rr = rr_new
+      if (abs(omega) <= eps_break) exit
+      rho_old = rho
     enddo
-  end subroutine solve_bending_scalar_cg
+  end subroutine solve_bending_scalar_bicgstab
 
   subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b, max_linear_iterations, max_linear_residual)
     ! Bending-only backward-Euler kernel:
@@ -175,13 +203,15 @@ contains
     max_linear_iterations = 0
     max_linear_residual = 0._mytype
     if (fiber_flex_bending_linear_solver == 1) then
+      ! Primary iterative path (BiCGSTAB); tolerance/maxit reuse legacy
+      ! parameter names fiber_flex_bending_cg_tol/cg_maxit for compatibility.
       do c = 1, 3
-        call solve_bending_scalar_cg(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_cg_tol, &
+        call solve_bending_scalar_bicgstab(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_cg_tol, &
              fiber_flex_bending_cg_maxit, it_used, final_residual, converged)
         max_linear_iterations = max(max_linear_iterations, it_used)
         max_linear_residual = max(max_linear_residual, final_residual)
         if (.not.converged) then
-          if (nrank == 0) write(*,*) 'Error: CG bending solve did not converge in Step 3.3 primary path.'
+          if (nrank == 0) write(*,*) 'Error: BiCGSTAB bending solve did not converge in Step 3.3 primary path.'
           stop
         endif
       enddo
