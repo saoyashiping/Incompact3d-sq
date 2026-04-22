@@ -116,11 +116,44 @@ contains
     av_out = v_in + dt_b * gamma_b * d4v
   end subroutine apply_bending_backward_euler_operator_scalar
 
+  subroutine build_bending_operator_diagonal(diagA, dt_b, gamma_b)
+    ! Build Jacobi diagonal directly from operator action to stay
+    ! consistent with the validated matrix-free A*v implementation.
+    real(mytype), intent(out) :: diagA(fiber_nl)
+    real(mytype), intent(in) :: dt_b, gamma_b
+    real(mytype) :: ej(fiber_nl), aej(fiber_nl)
+    integer :: j
+
+    do j = 1, fiber_nl
+      ej = 0._mytype
+      ej(j) = 1._mytype
+      call apply_bending_backward_euler_operator_scalar(ej, aej, dt_b, gamma_b)
+      diagA(j) = aej(j)
+    enddo
+  end subroutine build_bending_operator_diagonal
+
+  subroutine apply_jacobi_preconditioner(r_in, z_out, diagA)
+    ! Simple diagonal (Jacobi) preconditioner: z = M^{-1} r.
+    real(mytype), intent(in) :: r_in(fiber_nl), diagA(fiber_nl)
+    real(mytype), intent(out) :: z_out(fiber_nl)
+    real(mytype), parameter :: diag_eps = 1.0e-30_mytype
+    integer :: i
+
+    do i = 1, fiber_nl
+      if (abs(diagA(i)) <= diag_eps) then
+        if (nrank == 0) write(*,*) 'Error: Jacobi preconditioner has near-zero diagonal in Step 3.3 at i=', i
+        stop
+      endif
+      z_out(i) = r_in(i) / diagA(i)
+    enddo
+  end subroutine apply_jacobi_preconditioner
+
   subroutine solve_bending_scalar_bicgstab(rhs, x, dt_b, gamma_b, tol, maxit, it_used, final_residual, converged, &
        breakdown_detected, restart_count, failure_mode)
     ! Primary operator-based linear solver for Step 3.3.
-    ! Uses BiCGSTAB for robustness on the bending operator while dense
-    ! solver is retained separately as reference/fallback.
+    ! Uses a simple Jacobi-preconditioned BiCGSTAB primary path for
+    ! robustness on the bending operator while dense solver is retained
+    ! separately as reference/fallback.
     real(mytype), intent(in) :: rhs(fiber_nl), dt_b, gamma_b, tol
     integer, intent(in) :: maxit
     real(mytype), intent(inout) :: x(fiber_nl)
@@ -128,6 +161,7 @@ contains
     integer, intent(out) :: it_used, restart_count, failure_mode
     logical, intent(out) :: converged, breakdown_detected
     real(mytype) :: r(fiber_nl), rhat(fiber_nl), p(fiber_nl), v(fiber_nl), s(fiber_nl), t(fiber_nl)
+    real(mytype) :: z(fiber_nl), phat(fiber_nl), shat(fiber_nl), diagA(fiber_nl)
     real(mytype) :: rho, rho_old, alpha, omega, beta
     real(mytype) :: rhs_norm, target, tt, eps_break, old_residual
     real(mytype) :: ax(fiber_nl), one_minus_eps, best_residual
@@ -153,9 +187,11 @@ contains
     one_minus_eps = 0.999_mytype
     max_restarts = 2
     stagnation_count = 0
+    call build_bending_operator_diagonal(diagA, dt_b, gamma_b)
 
     do
-      rhat = r
+      call apply_jacobi_preconditioner(r, z, diagA)
+      rhat = z
       p = 0._mytype
       v = 0._mytype
       rho_old = 1._mytype
@@ -163,7 +199,7 @@ contains
       omega = 1._mytype
 
       do k = 1, maxit
-        rho = dot_product(rhat, r)
+        rho = dot_product(rhat, z)
         if (abs(rho) <= eps_break) then
           breakdown_detected = .true.
           failure_mode = 2
@@ -177,7 +213,7 @@ contains
         endif
 
         if (it_used == 0 .or. k == 1) then
-          p = r
+          p = z
         else
           if (abs(omega) <= eps_break) then
             breakdown_detected = .true.
@@ -191,10 +227,11 @@ contains
             exit
           endif
           beta = (rho / rho_old) * (alpha / omega)
-          p = r + beta * (p - omega * v)
+          p = z + beta * (p - omega * v)
         endif
 
-        call apply_bending_backward_euler_operator_scalar(p, v, dt_b, gamma_b)
+        call apply_jacobi_preconditioner(p, phat, diagA)
+        call apply_bending_backward_euler_operator_scalar(phat, v, dt_b, gamma_b)
         if (abs(dot_product(rhat, v)) <= eps_break) then
           breakdown_detected = .true.
           failure_mode = 3
@@ -207,26 +244,28 @@ contains
           exit
         endif
         alpha = rho / dot_product(rhat, v)
-        s = r - alpha * v
+        s = z - alpha * v
 
         old_residual = final_residual
-        final_residual = sqrt(max(dot_product(s, s), 0._mytype))
         it_used = it_used + 1
+        x = x + alpha * phat
+        call apply_bending_backward_euler_operator_scalar(x, ax, dt_b, gamma_b)
+        r = rhs - ax
+        final_residual = sqrt(max(dot_product(r, r), 0._mytype))
         if (final_residual <= target) then
-          x = x + alpha * p
           x_best = x
           converged = .true.
           return
         endif
 
-        call apply_bending_backward_euler_operator_scalar(s, t, dt_b, gamma_b)
+        call apply_jacobi_preconditioner(s, shat, diagA)
+        call apply_bending_backward_euler_operator_scalar(shat, t, dt_b, gamma_b)
         tt = dot_product(t, t)
         if (tt <= eps_break) then
           breakdown_detected = .true.
           failure_mode = 4
-          final_residual = sqrt(max(dot_product(s, s), 0._mytype))
+          final_residual = sqrt(max(dot_product(r, r), 0._mytype))
           if (final_residual <= target) then
-            x = x + alpha * p
             x_best = x
             converged = .true.
             return
@@ -237,17 +276,18 @@ contains
         if (abs(omega) <= eps_break) then
           breakdown_detected = .true.
           failure_mode = 4
-          final_residual = sqrt(max(dot_product(s, s), 0._mytype))
+          final_residual = sqrt(max(dot_product(r, r), 0._mytype))
           if (final_residual <= target) then
-            x = x + alpha * p
             x_best = x
             converged = .true.
             return
           endif
           exit
         endif
-        x = x + alpha * p + omega * s
-        r = s - omega * t
+        x = x + omega * shat
+        call apply_bending_backward_euler_operator_scalar(x, ax, dt_b, gamma_b)
+        r = rhs - ax
+        call apply_jacobi_preconditioner(r, z, diagA)
         final_residual = sqrt(max(dot_product(r, r), 0._mytype))
         if (final_residual < best_residual) then
           best_residual = final_residual

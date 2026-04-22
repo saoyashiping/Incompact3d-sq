@@ -798,7 +798,8 @@ contains
     endif
     write(ifile,'(A)') 'iterative_parameter_semantics cg_named_controls_used_for_primary_iterative_path'
     write(ifile,'(A)') 'iterative_parameter_names_status iter_tol_iter_maxit_primary_cg_names_legacy_aliases'
-    write(ifile,'(A)') 'iterative_preconditioner_type none'
+    write(ifile,'(A)') 'iterative_preconditioner_type jacobi'
+    write(ifile,'(A)') 'preconditioner_semantics diagonal_from_operator_action'
     write(ifile,'(A,ES24.16)') 'cg_tol ', cg_tol
     write(ifile,'(A,I8)') 'cg_maxit ', cg_maxit
     write(ifile,'(A,I8)') 'max_linear_iterations_used ', max_linear_iterations_used
