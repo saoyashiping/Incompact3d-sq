@@ -741,10 +741,11 @@ contains
   end subroutine write_fiber_flex_bending_final_points
 
   subroutine write_fiber_flex_bending_series(step, time, bending_energy, max_update_norm, linear_iterations, &
-       linear_final_residual, overwrite)
+       linear_final_residual, linear_restarts, linear_breakdown_detected, overwrite)
     integer, intent(in) :: step
     real(mytype), intent(in) :: time, bending_energy, max_update_norm, linear_final_residual
-    integer, intent(in) :: linear_iterations
+    integer, intent(in) :: linear_iterations, linear_restarts
+    logical, intent(in) :: linear_breakdown_detected
     logical, intent(in) :: overwrite
     integer :: ifile
 
@@ -752,22 +753,25 @@ contains
     if (.not.fiber_flex_bending_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_bending_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time bending_energy max_update_norm linear_iterations linear_final_residual'
+      write(ifile,'(A)') 'step time bending_energy max_update_norm linear_iterations linear_final_residual linear_restarts ' // &
+           'linear_breakdown_detected'
     else
       open(newunit=ifile, file='fiber_flex_bending_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,3(ES24.16,1X),I10,1X,ES24.16)') step, time, bending_energy, max_update_norm, &
-         linear_iterations, linear_final_residual
+    write(ifile,'(I10,1X,3(ES24.16,1X),I10,1X,ES24.16,1X,I10,1X,L1)') step, time, bending_energy, max_update_norm, &
+         linear_iterations, linear_final_residual, linear_restarts, linear_breakdown_detected
     close(ifile)
   end subroutine write_fiber_flex_bending_series
 
   subroutine write_fiber_flex_bending_summary(case_id, dt_b, gamma_b, nsteps, e_init, e_final, energy_monotone, &
        max_update_last_step, straight_preservation_error_max, final_displacement_norm, linear_solver_type, cg_tol, &
-       cg_maxit, max_linear_iterations_used, max_final_linear_residual)
+       cg_maxit, max_linear_iterations_used, max_final_linear_residual, max_linear_restarts_used, &
+       linear_breakdown_detected_any)
     integer, intent(in) :: case_id, nsteps, linear_solver_type, cg_maxit, max_linear_iterations_used
     real(mytype), intent(in) :: dt_b, gamma_b, e_init, e_final, max_update_last_step, cg_tol, max_final_linear_residual
     real(mytype), intent(in) :: straight_preservation_error_max, final_displacement_norm
-    logical, intent(in) :: energy_monotone
+    integer, intent(in) :: max_linear_restarts_used
+    logical, intent(in) :: energy_monotone, linear_breakdown_detected_any
     integer :: ifile
 
     if (nrank /= 0) return
@@ -794,6 +798,8 @@ contains
     write(ifile,'(A,I8)') 'cg_maxit ', cg_maxit
     write(ifile,'(A,I8)') 'max_linear_iterations_used ', max_linear_iterations_used
     write(ifile,'(A,ES24.16)') 'max_final_linear_residual ', max_final_linear_residual
+    write(ifile,'(A,I8)') 'max_linear_restarts_used ', max_linear_restarts_used
+    write(ifile,'(A,L1)') 'linear_breakdown_detected_any ', linear_breakdown_detected_any
     write(ifile,'(A,L1)') 'dense_solver_available_as_reference ', .true.
     write(ifile,'(A,L1)') 'includes_structural_inertia ', .false.
     write(ifile,'(A,L1)') 'includes_tension_constraint ', .false.
