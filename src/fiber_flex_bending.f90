@@ -116,7 +116,7 @@ contains
   end subroutine apply_bending_backward_euler_operator_scalar
 
   subroutine solve_bending_scalar_bicgstab(rhs, x, dt_b, gamma_b, tol, maxit, it_used, final_residual, converged, &
-       breakdown_detected, restart_count)
+       breakdown_detected, restart_count, failure_mode)
     ! Primary operator-based linear solver for Step 3.3.
     ! Uses BiCGSTAB for robustness on the bending operator while dense
     ! solver is retained separately as reference/fallback.
@@ -124,12 +124,13 @@ contains
     integer, intent(in) :: maxit
     real(mytype), intent(inout) :: x(fiber_nl)
     real(mytype), intent(out) :: final_residual
-    integer, intent(out) :: it_used, restart_count
+    integer, intent(out) :: it_used, restart_count, failure_mode
     logical, intent(out) :: converged, breakdown_detected
     real(mytype) :: r(fiber_nl), rhat(fiber_nl), p(fiber_nl), v(fiber_nl), s(fiber_nl), t(fiber_nl)
     real(mytype) :: rho, rho_old, alpha, omega, beta
     real(mytype) :: rhs_norm, target, tt, eps_break, old_residual
-    real(mytype) :: ax(fiber_nl), one_minus_eps
+    real(mytype) :: ax(fiber_nl), one_minus_eps, best_residual
+    real(mytype) :: x_best(fiber_nl)
     integer :: k, max_restarts, stagnation_count
 
     ! Warm start: keep incoming x as initial guess rather than forcing x=0.
@@ -141,6 +142,9 @@ contains
     it_used = 0
     restart_count = 0
     breakdown_detected = .false.
+    failure_mode = 0
+    x_best = x
+    best_residual = final_residual
     converged = (final_residual <= target)
     if (converged) return
 
@@ -161,6 +165,13 @@ contains
         rho = dot_product(rhat, r)
         if (abs(rho) <= eps_break) then
           breakdown_detected = .true.
+          failure_mode = 2
+          final_residual = sqrt(max(dot_product(r, r), 0._mytype))
+          if (final_residual <= target) then
+            converged = .true.
+            x = x_best
+            return
+          endif
           exit
         endif
 
@@ -169,6 +180,13 @@ contains
         else
           if (abs(omega) <= eps_break) then
             breakdown_detected = .true.
+            failure_mode = 4
+            final_residual = sqrt(max(dot_product(r, r), 0._mytype))
+            if (final_residual <= target) then
+              converged = .true.
+              x = x_best
+              return
+            endif
             exit
           endif
           beta = (rho / rho_old) * (alpha / omega)
@@ -178,6 +196,13 @@ contains
         call apply_bending_backward_euler_operator_scalar(p, v, dt_b, gamma_b)
         if (abs(dot_product(rhat, v)) <= eps_break) then
           breakdown_detected = .true.
+          failure_mode = 3
+          final_residual = sqrt(max(dot_product(r, r), 0._mytype))
+          if (final_residual <= target) then
+            converged = .true.
+            x = x_best
+            return
+          endif
           exit
         endif
         alpha = rho / dot_product(rhat, v)
@@ -188,6 +213,7 @@ contains
         it_used = it_used + 1
         if (final_residual <= target) then
           x = x + alpha * p
+          x_best = x
           converged = .true.
           return
         endif
@@ -196,16 +222,36 @@ contains
         tt = dot_product(t, t)
         if (tt <= eps_break) then
           breakdown_detected = .true.
+          failure_mode = 4
+          final_residual = sqrt(max(dot_product(s, s), 0._mytype))
+          if (final_residual <= target) then
+            x = x + alpha * p
+            x_best = x
+            converged = .true.
+            return
+          endif
           exit
         endif
         omega = dot_product(t, s) / tt
         if (abs(omega) <= eps_break) then
           breakdown_detected = .true.
+          failure_mode = 4
+          final_residual = sqrt(max(dot_product(s, s), 0._mytype))
+          if (final_residual <= target) then
+            x = x + alpha * p
+            x_best = x
+            converged = .true.
+            return
+          endif
           exit
         endif
         x = x + alpha * p + omega * s
         r = s - omega * t
         final_residual = sqrt(max(dot_product(r, r), 0._mytype))
+        if (final_residual < best_residual) then
+          best_residual = final_residual
+          x_best = x
+        endif
         if (final_residual <= target) then
           converged = .true.
           return
@@ -216,7 +262,10 @@ contains
         else
           stagnation_count = 0
         endif
-        if (stagnation_count >= 8) exit
+        if (stagnation_count >= 8) then
+          failure_mode = 5
+          exit
+        endif
         if (it_used >= maxit) exit
         rho_old = rho
       enddo
@@ -230,6 +279,7 @@ contains
 
       ! Limited restart from current best iterate for robustness.
       restart_count = restart_count + 1
+      x = x_best
       call apply_bending_backward_euler_operator_scalar(x, ax, dt_b, gamma_b)
       r = rhs - ax
       final_residual = sqrt(max(dot_product(r, r), 0._mytype))
@@ -239,10 +289,11 @@ contains
       endif
       stagnation_count = 0
     enddo
+    if (failure_mode == 0) failure_mode = 1
   end subroutine solve_bending_scalar_bicgstab
 
   subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b, max_linear_iterations, max_linear_residual, &
-       max_linear_restarts, linear_breakdown_detected)
+       max_linear_restarts, linear_breakdown_detected, linear_failure_mode)
     ! Bending-only backward-Euler kernel:
     ! advances the isolated implicit bending operator and is not a full
     ! constrained structural dynamics step.
@@ -251,16 +302,19 @@ contains
     integer, intent(out) :: max_linear_iterations
     real(mytype), intent(out) :: max_linear_residual
     integer, intent(out) :: max_linear_restarts
+    integer, intent(out) :: linear_failure_mode
     logical, intent(out) :: linear_breakdown_detected
     real(mytype) :: amat(fiber_nl, fiber_nl)
-    integer :: it_used, restart_count
+    integer :: it_used, restart_count, failure_mode
     real(mytype) :: final_residual
     logical :: converged, breakdown_detected
     integer :: c
+    character(len=64) :: failure_mode_label
 
     max_linear_iterations = 0
     max_linear_residual = 0._mytype
     max_linear_restarts = 0
+    linear_failure_mode = 0
     linear_breakdown_detected = .false.
     if (fiber_flex_bending_linear_solver == 1) then
       ! Primary iterative path (BiCGSTAB); tolerance/maxit reuse legacy
@@ -268,17 +322,23 @@ contains
       do c = 1, 3
         x_new(c,:) = x_old(c,:)
         call solve_bending_scalar_bicgstab(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_cg_tol, &
-             fiber_flex_bending_cg_maxit, it_used, final_residual, converged, breakdown_detected, restart_count)
+             fiber_flex_bending_cg_maxit, it_used, final_residual, converged, breakdown_detected, restart_count, failure_mode)
         max_linear_iterations = max(max_linear_iterations, it_used)
         max_linear_residual = max(max_linear_residual, final_residual)
         max_linear_restarts = max(max_linear_restarts, restart_count)
+        linear_failure_mode = max(linear_failure_mode, failure_mode)
         linear_breakdown_detected = linear_breakdown_detected .or. breakdown_detected
         if (.not.converged) then
-          if (breakdown_detected) then
-            if (nrank == 0) write(*,*) 'Error: BiCGSTAB primary path encountered unrecoverable breakdown before convergence in Step 3.3.'
-          else
-            if (nrank == 0) write(*,*) 'Error: BiCGSTAB primary path failed after max iterations/restarts in Step 3.3.'
-          endif
+          select case (failure_mode)
+          case (1); failure_mode_label = 'maxit'
+          case (2); failure_mode_label = 'breakdown_rho'
+          case (3); failure_mode_label = 'breakdown_alpha_den'
+          case (4); failure_mode_label = 'breakdown_omega'
+          case (5); failure_mode_label = 'stagnation'
+          case default; failure_mode_label = 'unknown'
+          end select
+          if (nrank == 0) write(*,*) 'Error: BiCGSTAB primary path failed after restart limit due to ', &
+               trim(failure_mode_label), ' in Step 3.3.'
           stop
         endif
       enddo
@@ -291,6 +351,7 @@ contains
       max_linear_iterations = fiber_nl
       max_linear_residual = 0._mytype
       max_linear_restarts = 0
+      linear_failure_mode = 0
       linear_breakdown_detected = .false.
     endif
   end subroutine advance_bending_backward_euler
@@ -344,6 +405,7 @@ contains
     logical :: energy_monotone
     integer :: step, outint, linear_iters_step, max_linear_iterations_used
     integer :: linear_restarts_step, max_linear_restarts_used
+    integer :: linear_failure_mode_step, final_linear_failure_mode
     real(mytype) :: linear_residual_step, max_final_linear_residual
     logical :: linear_breakdown_step, linear_breakdown_detected_any
 
@@ -364,14 +426,15 @@ contains
     maxupd(0) = 0._mytype
     max_linear_iterations_used = 0
     max_linear_restarts_used = 0
+    final_linear_failure_mode = 0
     max_final_linear_residual = 0._mytype
     linear_breakdown_detected_any = .false.
 
     outint = max(1, fiber_flex_bending_output_interval)
-    call write_fiber_flex_bending_series(0, 0._mytype, energy(0), maxupd(0), 0, 0._mytype, 0, .false., .true.)
+    call write_fiber_flex_bending_series(0, 0._mytype, energy(0), maxupd(0), 0, 0._mytype, 0, .false., 0, .true.)
     do step = 1, fiber_flex_bending_nsteps
       call advance_bending_backward_euler(xold, xnew, fiber_flex_bending_dt, fiber_bending_gamma, &
-           linear_iters_step, linear_residual_step, linear_restarts_step, linear_breakdown_step)
+           linear_iters_step, linear_residual_step, linear_restarts_step, linear_breakdown_step, linear_failure_mode_step)
       max_update = maxval(abs(xnew - xold))
       call compute_bending_energy(xnew, fiber_bending_gamma, ecur)
       energy(step) = ecur
@@ -379,11 +442,12 @@ contains
       max_linear_iterations_used = max(max_linear_iterations_used, linear_iters_step)
       max_linear_restarts_used = max(max_linear_restarts_used, linear_restarts_step)
       max_final_linear_residual = max(max_final_linear_residual, linear_residual_step)
+      final_linear_failure_mode = linear_failure_mode_step
       linear_breakdown_detected_any = linear_breakdown_detected_any .or. linear_breakdown_step
       tnow = real(step, mytype) * fiber_flex_bending_dt
       if (mod(step, outint) == 0 .or. step == fiber_flex_bending_nsteps) then
         call write_fiber_flex_bending_series(step, tnow, ecur, max_update, linear_iters_step, linear_residual_step, &
-             linear_restarts_step, linear_breakdown_step, .false.)
+             linear_restarts_step, linear_breakdown_step, linear_failure_mode_step, .false.)
       endif
       xold = xnew
     enddo
@@ -407,7 +471,7 @@ contains
          fiber_flex_bending_nsteps, energy(0), energy(fiber_flex_bending_nsteps), energy_monotone, &
          maxupd(fiber_flex_bending_nsteps), straight_err, final_disp, fiber_flex_bending_linear_solver, &
          fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, max_linear_iterations_used, max_final_linear_residual, &
-         max_linear_restarts_used, linear_breakdown_detected_any)
+         max_linear_restarts_used, linear_breakdown_detected_any, final_linear_failure_mode)
 
     deallocate(xold, xnew, xinit, energy, maxupd)
   end subroutine run_flexible_bending_test
