@@ -18,7 +18,8 @@ module fiber_flex_bending
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
        fiber_s_ref, fiber_x, fiber_flex_bending_test_active, fiber_flex_bending_case, fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma, &
-       fiber_flex_bending_linear_solver, fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit
+       fiber_flex_bending_linear_solver, fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, &
+       fiber_flex_bending_iter_tol_effective, fiber_flex_bending_iter_maxit_effective
   use fiber_flex_ops, only : apply_free_end_d2_scalar, apply_free_end_d4_scalar, apply_free_end_bending_operator_scalar
   use fiber_io, only : write_fiber_flex_bending_initial_points, write_fiber_flex_bending_final_points, &
        write_fiber_flex_bending_series, write_fiber_flex_bending_summary
@@ -317,12 +318,11 @@ contains
     linear_failure_mode = 0
     linear_breakdown_detected = .false.
     if (fiber_flex_bending_linear_solver == 1) then
-      ! Primary iterative path (BiCGSTAB); tolerance/maxit reuse legacy
-      ! parameter names fiber_flex_bending_cg_tol/cg_maxit for compatibility.
+      ! Primary iterative path (BiCGSTAB); use merged effective iterative controls.
       do c = 1, 3
         x_new(c,:) = x_old(c,:)
-        call solve_bending_scalar_bicgstab(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_cg_tol, &
-             fiber_flex_bending_cg_maxit, it_used, final_residual, converged, breakdown_detected, restart_count, failure_mode)
+        call solve_bending_scalar_bicgstab(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_iter_tol_effective, &
+             fiber_flex_bending_iter_maxit_effective, it_used, final_residual, converged, breakdown_detected, restart_count, failure_mode)
         max_linear_iterations = max(max_linear_iterations, it_used)
         max_linear_residual = max(max_linear_residual, final_residual)
         max_linear_restarts = max(max_linear_restarts, restart_count)
@@ -470,7 +470,8 @@ contains
     call write_fiber_flex_bending_summary(fiber_flex_bending_case, fiber_flex_bending_dt, fiber_bending_gamma, &
          fiber_flex_bending_nsteps, energy(0), energy(fiber_flex_bending_nsteps), energy_monotone, &
          maxupd(fiber_flex_bending_nsteps), straight_err, final_disp, fiber_flex_bending_linear_solver, &
-         fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, max_linear_iterations_used, max_final_linear_residual, &
+         fiber_flex_bending_iter_tol_effective, fiber_flex_bending_iter_maxit_effective, &
+         max_linear_iterations_used, max_final_linear_residual, &
          max_linear_restarts_used, linear_breakdown_detected_any, final_linear_failure_mode)
 
     deallocate(xold, xnew, xinit, energy, maxupd)

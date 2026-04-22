@@ -611,6 +611,7 @@ contains
     write(ifile,'(A)') 'fiber_geometry_diagnostics_semantics minimum_image_periodic'
     write(ifile,'(A,I8)') 'fiber_tension_half_size ', fiber_nl - 1
     write(ifile,'(A)') 'fiber_tension_storage_semantics half_grid_primary_nodal_legacy'
+    write(ifile,'(A)') 'fiber_nodal_tension_storage_status deprecated_legacy_not_primary'
     write(ifile,'(A,ES24.16)') 'end_to_end_length ', end_to_end_length
     write(ifile,'(A,ES24.16)') 'spacing_error_max ', spacing_error_max
     write(ifile,'(A,L1)') 'fiber_flex_initialized ', fiber_flex_initialized
@@ -688,6 +689,7 @@ contains
     write(ifile,'(A,ES24.16)') 'err_xssss_max ', err_xssss_max
     write(ifile,'(A)') 'operator_layer_semantics geometric_plus_bending_force_verification'
     write(ifile,'(A)') 'bending_force_semantics Fb_equals_minus_gamma_times_Xssss_for_constant_gamma'
+    write(ifile,'(A)') 'bending_force_verification_scope constant_gamma_uniform_flexibility_only'
     write(ifile,'(A,ES24.16)') 'gamma_test_for_fb ', gamma_test_for_fb
     write(ifile,'(A,ES24.16)') 'err_fb_max ', err_fb_max
     write(ifile,'(A)') 'boundary_closure_residual_semantics ghost_closure_consistency_only'
@@ -795,6 +797,8 @@ contains
       write(ifile,'(A)') 'linear_solver_method dense_gaussian_elimination'
     endif
     write(ifile,'(A)') 'iterative_parameter_semantics cg_named_controls_used_for_primary_iterative_path'
+    write(ifile,'(A)') 'iterative_parameter_names_status iter_tol_iter_maxit_primary_cg_names_legacy_aliases'
+    write(ifile,'(A)') 'iterative_preconditioner_type none'
     write(ifile,'(A,ES24.16)') 'cg_tol ', cg_tol
     write(ifile,'(A,I8)') 'cg_maxit ', cg_maxit
     write(ifile,'(A,I8)') 'max_linear_iterations_used ', max_linear_iterations_used

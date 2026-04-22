@@ -42,6 +42,8 @@ subroutine parameter(input_i3d)
        fiber_flex_bending_test_active, fiber_flex_bending_case, fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma, &
        fiber_flex_bending_linear_solver, fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, &
+       fiber_flex_bending_iter_tol, fiber_flex_bending_iter_maxit, &
+       fiber_flex_bending_iter_tol_effective, fiber_flex_bending_iter_maxit_effective, &
        fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
@@ -121,6 +123,7 @@ subroutine parameter(input_i3d)
        fiber_flex_bending_test_active,fiber_flex_bending_case,fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval,fiber_flex_bending_dt,fiber_bending_gamma, &
        fiber_flex_bending_linear_solver,fiber_flex_bending_cg_tol,fiber_flex_bending_cg_maxit, &
+       fiber_flex_bending_iter_tol,fiber_flex_bending_iter_maxit, &
        fiber_flex_constraint_test_active,fiber_flex_constraint_case,fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval,fiber_flex_constraint_dt,fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
@@ -414,6 +417,24 @@ subroutine parameter(input_i3d)
      if (fiber_flex_bending_cg_maxit < 1) then
         if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_cg_maxit must be >= 1.'
         stop
+     endif
+     if (fiber_flex_bending_iter_tol /= -1._mytype .and. fiber_flex_bending_iter_tol <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_iter_tol must be > 0 when explicitly set.'
+        stop
+     endif
+     if (fiber_flex_bending_iter_maxit /= 0 .and. fiber_flex_bending_iter_maxit < 1) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_iter_maxit must be >= 1 when explicitly set.'
+        stop
+     endif
+     if (fiber_flex_bending_iter_tol > 0._mytype) then
+        fiber_flex_bending_iter_tol_effective = fiber_flex_bending_iter_tol
+     else
+        fiber_flex_bending_iter_tol_effective = fiber_flex_bending_cg_tol
+     endif
+     if (fiber_flex_bending_iter_maxit >= 1) then
+        fiber_flex_bending_iter_maxit_effective = fiber_flex_bending_iter_maxit
+     else
+        fiber_flex_bending_iter_maxit_effective = fiber_flex_bending_cg_maxit
      endif
   endif
 
