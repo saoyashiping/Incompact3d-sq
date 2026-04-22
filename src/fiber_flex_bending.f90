@@ -17,8 +17,9 @@ module fiber_flex_bending
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
        fiber_s_ref, fiber_x, fiber_flex_bending_test_active, fiber_flex_bending_case, fiber_flex_bending_nsteps, &
-       fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma
-  use fiber_flex_ops, only : apply_free_end_d2_scalar, apply_free_end_bending_operator_scalar
+       fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma, &
+       fiber_flex_bending_linear_solver, fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit
+  use fiber_flex_ops, only : apply_free_end_d2_scalar, apply_free_end_d4_scalar, apply_free_end_bending_operator_scalar
   use fiber_io, only : write_fiber_flex_bending_initial_points, write_fiber_flex_bending_final_points, &
        write_fiber_flex_bending_series, write_fiber_flex_bending_summary
 
@@ -102,19 +103,97 @@ contains
     enddo
   end subroutine solve_linear_system_dense
 
-  subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b)
+  subroutine apply_bending_backward_euler_operator_scalar(v_in, av_out, dt_b, gamma_b)
+    ! Operator action for Step 3.3 bending-only backward Euler:
+    !   A v = (I + dt_b * gamma_b * D4) v
+    ! This is the matrix-free primary path and reuses the validated D4 operator.
+    real(mytype), intent(in) :: v_in(fiber_nl), dt_b, gamma_b
+    real(mytype), intent(out) :: av_out(fiber_nl)
+    real(mytype) :: d4v(fiber_nl)
+
+    call apply_free_end_d4_scalar(v_in, d4v)
+    av_out = v_in + dt_b * gamma_b * d4v
+  end subroutine apply_bending_backward_euler_operator_scalar
+
+  subroutine solve_bending_scalar_cg(rhs, x, dt_b, gamma_b, tol, maxit, it_used, final_residual, converged)
+    ! Primary operator-based linear solver for Step 3.3.
+    ! Dense solver is retained separately as reference/fallback.
+    real(mytype), intent(in) :: rhs(fiber_nl), dt_b, gamma_b, tol
+    integer, intent(in) :: maxit
+    real(mytype), intent(out) :: x(fiber_nl), final_residual
+    integer, intent(out) :: it_used
+    logical, intent(out) :: converged
+    real(mytype) :: r(fiber_nl), p(fiber_nl), ap(fiber_nl)
+    real(mytype) :: rr, rr_new, denom, alpha, beta, rhs_norm, target
+    integer :: k
+
+    x = 0._mytype
+    r = rhs
+    p = r
+    rr = dot_product(r, r)
+    rhs_norm = sqrt(max(dot_product(rhs, rhs), 0._mytype))
+    target = max(tol, tol * rhs_norm)
+    final_residual = sqrt(max(rr, 0._mytype))
+    it_used = 0
+    converged = (final_residual <= target)
+    if (converged) return
+
+    do k = 1, maxit
+      call apply_bending_backward_euler_operator_scalar(p, ap, dt_b, gamma_b)
+      denom = dot_product(p, ap)
+      if (denom <= 0._mytype) exit
+      alpha = rr / denom
+      x = x + alpha * p
+      r = r - alpha * ap
+      rr_new = dot_product(r, r)
+      final_residual = sqrt(max(rr_new, 0._mytype))
+      it_used = k
+      if (final_residual <= target) then
+        converged = .true.
+        return
+      endif
+      beta = rr_new / rr
+      p = r + beta * p
+      rr = rr_new
+    enddo
+  end subroutine solve_bending_scalar_cg
+
+  subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b, max_linear_iterations, max_linear_residual)
     ! Bending-only backward-Euler kernel:
     ! advances the isolated implicit bending operator and is not a full
     ! constrained structural dynamics step.
     real(mytype), intent(in) :: x_old(3, fiber_nl), dt_b, gamma_b
     real(mytype), intent(out) :: x_new(3, fiber_nl)
+    integer, intent(out) :: max_linear_iterations
+    real(mytype), intent(out) :: max_linear_residual
     real(mytype) :: amat(fiber_nl, fiber_nl)
+    integer :: it_used
+    real(mytype) :: final_residual
+    logical :: converged
     integer :: c
 
-    call build_bending_backward_euler_matrix(dt_b, gamma_b, amat)
-    do c = 1, 3
-      call solve_linear_system_dense(amat, x_old(c,:), x_new(c,:))
-    enddo
+    max_linear_iterations = 0
+    max_linear_residual = 0._mytype
+    if (fiber_flex_bending_linear_solver == 1) then
+      do c = 1, 3
+        call solve_bending_scalar_cg(x_old(c,:), x_new(c,:), dt_b, gamma_b, fiber_flex_bending_cg_tol, &
+             fiber_flex_bending_cg_maxit, it_used, final_residual, converged)
+        max_linear_iterations = max(max_linear_iterations, it_used)
+        max_linear_residual = max(max_linear_residual, final_residual)
+        if (.not.converged) then
+          if (nrank == 0) write(*,*) 'Error: CG bending solve did not converge in Step 3.3 primary path.'
+          stop
+        endif
+      enddo
+    else
+      ! Dense route retained as reference/fallback implementation.
+      call build_bending_backward_euler_matrix(dt_b, gamma_b, amat)
+      do c = 1, 3
+        call solve_linear_system_dense(amat, x_old(c,:), x_new(c,:))
+      enddo
+      max_linear_iterations = fiber_nl
+      max_linear_residual = 0._mytype
+    endif
   end subroutine advance_bending_backward_euler
 
   subroutine compute_bending_energy(x_in, gamma_b, ebend)
@@ -164,7 +243,8 @@ contains
     real(mytype), allocatable :: xold(:,:), xnew(:,:), xinit(:,:), energy(:), maxupd(:)
     real(mytype) :: e0, ecur, tnow, max_update, straight_err, final_disp
     logical :: energy_monotone
-    integer :: step, outint
+    integer :: step, outint, linear_iters_step, max_linear_iterations_used
+    real(mytype) :: linear_residual_step, max_final_linear_residual
 
     if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
          .not.fiber_flex_bending_test_active) then
@@ -181,18 +261,23 @@ contains
     call compute_bending_energy(xold, fiber_bending_gamma, e0)
     energy(0) = e0
     maxupd(0) = 0._mytype
+    max_linear_iterations_used = 0
+    max_final_linear_residual = 0._mytype
 
     outint = max(1, fiber_flex_bending_output_interval)
-    call write_fiber_flex_bending_series(0, 0._mytype, energy(0), maxupd(0), .true.)
+    call write_fiber_flex_bending_series(0, 0._mytype, energy(0), maxupd(0), 0, 0._mytype, .true.)
     do step = 1, fiber_flex_bending_nsteps
-      call advance_bending_backward_euler(xold, xnew, fiber_flex_bending_dt, fiber_bending_gamma)
+      call advance_bending_backward_euler(xold, xnew, fiber_flex_bending_dt, fiber_bending_gamma, &
+           linear_iters_step, linear_residual_step)
       max_update = maxval(abs(xnew - xold))
       call compute_bending_energy(xnew, fiber_bending_gamma, ecur)
       energy(step) = ecur
       maxupd(step) = max_update
+      max_linear_iterations_used = max(max_linear_iterations_used, linear_iters_step)
+      max_final_linear_residual = max(max_final_linear_residual, linear_residual_step)
       tnow = real(step, mytype) * fiber_flex_bending_dt
       if (mod(step, outint) == 0 .or. step == fiber_flex_bending_nsteps) then
-        call write_fiber_flex_bending_series(step, tnow, ecur, max_update, .false.)
+        call write_fiber_flex_bending_series(step, tnow, ecur, max_update, linear_iters_step, linear_residual_step, .false.)
       endif
       xold = xnew
     enddo
@@ -214,7 +299,8 @@ contains
 
     call write_fiber_flex_bending_summary(fiber_flex_bending_case, fiber_flex_bending_dt, fiber_bending_gamma, &
          fiber_flex_bending_nsteps, energy(0), energy(fiber_flex_bending_nsteps), energy_monotone, &
-         maxupd(fiber_flex_bending_nsteps), straight_err, final_disp)
+         maxupd(fiber_flex_bending_nsteps), straight_err, final_disp, fiber_flex_bending_linear_solver, &
+         fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, max_linear_iterations_used, max_final_linear_residual)
 
     deallocate(xold, xnew, xinit, energy, maxupd)
   end subroutine run_flexible_bending_test

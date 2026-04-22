@@ -41,6 +41,7 @@ subroutine parameter(input_i3d)
        fiber_flex_operator_test_active, fiber_flex_operator_case, &
        fiber_flex_bending_test_active, fiber_flex_bending_case, fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval, fiber_flex_bending_dt, fiber_bending_gamma, &
+       fiber_flex_bending_linear_solver, fiber_flex_bending_cg_tol, fiber_flex_bending_cg_maxit, &
        fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
@@ -119,6 +120,7 @@ subroutine parameter(input_i3d)
        fiber_flex_operator_test_active,fiber_flex_operator_case, &
        fiber_flex_bending_test_active,fiber_flex_bending_case,fiber_flex_bending_nsteps, &
        fiber_flex_bending_output_interval,fiber_flex_bending_dt,fiber_bending_gamma, &
+       fiber_flex_bending_linear_solver,fiber_flex_bending_cg_tol,fiber_flex_bending_cg_maxit, &
        fiber_flex_constraint_test_active,fiber_flex_constraint_case,fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval,fiber_flex_constraint_dt,fiber_flex_constraint_force_amp, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
@@ -399,6 +401,18 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_bending_gamma <= 0._mytype) then
         if (nrank == 0) write(*,*) 'Error: fiber_bending_gamma must be > 0.'
+        stop
+     endif
+     if (fiber_flex_bending_linear_solver /= 1 .and. fiber_flex_bending_linear_solver /= 2) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_linear_solver must be 1 (CG primary) or 2 (dense reference).'
+        stop
+     endif
+     if (fiber_flex_bending_cg_tol <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_cg_tol must be > 0.'
+        stop
+     endif
+     if (fiber_flex_bending_cg_maxit < 1) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_bending_cg_maxit must be >= 1.'
         stop
      endif
   endif

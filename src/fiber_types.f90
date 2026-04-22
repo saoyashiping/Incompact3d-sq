@@ -86,6 +86,9 @@ module fiber_types
   integer :: fiber_flex_bending_output_interval
   real(mytype) :: fiber_flex_bending_dt
   real(mytype) :: fiber_bending_gamma
+  integer :: fiber_flex_bending_linear_solver
+  real(mytype) :: fiber_flex_bending_cg_tol
+  integer :: fiber_flex_bending_cg_maxit
   integer :: fiber_flex_constraint_case
   integer :: fiber_flex_constraint_nsteps
   integer :: fiber_flex_constraint_output_interval
@@ -202,6 +205,9 @@ contains
     fiber_flex_bending_output_interval = 1
     fiber_flex_bending_dt = 1.0e-3_mytype
     fiber_bending_gamma = 1._mytype
+    fiber_flex_bending_linear_solver = 1
+    fiber_flex_bending_cg_tol = 1.0e-12_mytype
+    fiber_flex_bending_cg_maxit = 500
     fiber_flex_constraint_case = 1
     fiber_flex_constraint_nsteps = 50
     fiber_flex_constraint_output_interval = 1
