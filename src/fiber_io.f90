@@ -773,6 +773,7 @@ contains
     integer, intent(in) :: max_linear_restarts_used, final_linear_failure_mode
     logical, intent(in) :: energy_monotone, linear_breakdown_detected_any
     integer :: ifile
+    character(len=32) :: linear_failure_mode_label
 
     if (nrank /= 0) return
     if (.not.fiber_flex_bending_test_active) return
@@ -801,6 +802,16 @@ contains
     write(ifile,'(A,I8)') 'max_linear_restarts_used ', max_linear_restarts_used
     write(ifile,'(A,L1)') 'linear_breakdown_detected_any ', linear_breakdown_detected_any
     write(ifile,'(A,I8)') 'final_linear_failure_mode ', final_linear_failure_mode
+    select case (final_linear_failure_mode)
+    case (0); linear_failure_mode_label = 'none'
+    case (1); linear_failure_mode_label = 'maxit'
+    case (2); linear_failure_mode_label = 'breakdown_rho'
+    case (3); linear_failure_mode_label = 'breakdown_alpha_den'
+    case (4); linear_failure_mode_label = 'breakdown_omega'
+    case (5); linear_failure_mode_label = 'stagnation'
+    case default; linear_failure_mode_label = 'unknown'
+    end select
+    write(ifile,'(A,1X,A)') 'final_linear_failure_mode_label', trim(linear_failure_mode_label)
     write(ifile,'(A,L1)') 'dense_solver_available_as_reference ', .true.
     write(ifile,'(A,L1)') 'includes_structural_inertia ', .false.
     write(ifile,'(A,L1)') 'includes_tension_constraint ', .false.
