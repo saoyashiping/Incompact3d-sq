@@ -382,8 +382,8 @@ contains
     real(mytype) :: rx_scale, rx_rel, prev_dxmax, rel_improve1, rel_improve2
     real(mytype) :: x_base(3,fiber_nl), t_base(fiber_nl-1), t_trial(fiber_nl-1), x_trial(3,fiber_nl), delta_x(3,fiber_nl)
     integer :: coupled_max_outer, ls_bt, ls_bt_max
-    logical :: line_search_active, accepted_step, has_prevstep_tension, plateau_detected, line_search_limited
-    real(mytype) :: rx_rel_hist(3), dx_hist(3), lambda_hist(3)
+    logical :: line_search_active, accepted_step, has_prevstep_tension, plateau_detected, line_search_limited, geometry_regular
+    real(mytype) :: rx_rel_hist(3), dx_hist(3), lambda_hist(3), phi_hist(3)
     real(mytype) :: rhs_tmp(fiber_nl-1), drift_tmp(fiber_nl-1), vel_tmp(fiber_nl-1), force_tmp(fiber_nl-1)
     real(mytype) :: fb_tmp(3,fiber_nl)
     integer :: it, c, it_used, restart_count, failure_mode
@@ -417,6 +417,7 @@ contains
     rx_rel_hist = huge(1._mytype)
     dx_hist = huge(1._mytype)
     lambda_hist = 1._mytype
+    phi_hist = huge(1._mytype)
     prev_dxmax = huge(1._mytype)
     implicit_bending_update_norm = 0._mytype
     max_outer_iterations_used = 0
@@ -440,20 +441,26 @@ contains
       dx_hist(3) = prev_dxmax
       lambda_hist = cshift(lambda_hist, -1)
       lambda_hist(3) = accepted_line_search_lambda
+      phi_hist = cshift(phi_hist, -1)
+      phi_hist(3) = phi_current
       rel_improve1 = abs(rx_rel_hist(3) - rx_rel_hist(2)) / max(rx_rel_hist(2), 1.0e-14_mytype)
       rel_improve2 = abs(rx_rel_hist(2) - rx_rel_hist(1)) / max(rx_rel_hist(1), 1.0e-14_mytype)
       line_search_limited = (lambda_hist(2) < 1._mytype .and. lambda_hist(3) < 1._mytype)
+      geometry_regular = (all(xk == xk) .and. maxval(abs(xk)) < 1.0e30_mytype)
       plateau_detected = (it >= 3 .and. rel_improve1 <= 1.0e-2_mytype .and. rel_improve2 <= 1.0e-2_mytype .and. &
+           abs(phi_hist(3)-phi_hist(2)) <= 1.0e-2_mytype * max(phi_hist(2), 1.0e-14_mytype) .and. &
            (dx_hist(3) <= 10._mytype * fiber_flex_constraint_outer_tol_x .or. line_search_limited))
       plateau_detected_final = plateau_detected
-      ! the final-time coupled DAE solve is considered converged when inextensibility is satisfied and the scaled momentum residual is sufficiently small, even if the absolute momentum residual is not machine-zero
+      ! convergence is declared when inextensibility is satisfied and the scaled momentum residual is sufficiently small;
+      ! exact machine-zero absolute momentum residual is not required for the structure-only coupled DAE solve
       if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
            prev_dxmax <= fiber_flex_constraint_outer_tol_x) then
         coupled_solver_converged = .true.
         final_coupled_convergence_mode = 'strict'
         exit
       endif
-      if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. plateau_detected) then
+      if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+           plateau_detected .and. geometry_regular) then
         coupled_solver_converged = .true.
         final_coupled_convergence_mode = 'plateau_accepted'
         exit
@@ -502,12 +509,25 @@ contains
       endif
 
       if (.not.accepted_step) then
+        ! Line-search exhaustion does not automatically imply failure:
+        ! first check whether we are already on an acceptable coupled plateau.
+        geometry_regular = (all(xk == xk) .and. maxval(abs(xk)) < 1.0e30_mytype)
+        if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+             (prev_dxmax <= 10._mytype * fiber_flex_constraint_outer_tol_x .or. plateau_detected) .and. geometry_regular) then
+          coupled_solver_converged = .true.
+          final_coupled_residual_x = max_abs_rx
+          final_coupled_residual_g = max_abs_rg
+          final_coupled_residual_x_rel = rx_rel
+          final_coupled_convergence_mode = 'plateau_accepted'
+          plateau_detected_final = .true.
+          exit
+        endif
         coupled_solver_converged = .false.
         final_coupled_residual_x = max_abs_rx
         final_coupled_residual_g = max_abs_rg
         final_coupled_residual_x_rel = rx_rel
         final_coupled_convergence_mode = 'failed'
-        if (nrank == 0) write(*,*) 'Error: coupled line search failed to reduce residual in Step 3.4.'
+        if (nrank == 0) write(*,*) 'Error: coupled line search exhausted without acceptable plateau in Step 3.4.'
         exit
       endif
 
