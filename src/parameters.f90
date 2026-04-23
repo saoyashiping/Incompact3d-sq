@@ -47,6 +47,7 @@ subroutine parameter(input_i3d)
        fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        fiber_flex_constraint_outer_maxit, fiber_flex_constraint_outer_tol_x, fiber_flex_constraint_outer_tol_g, &
+       fiber_flex_constraint_outer_tol_rx_rel, &
        fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
        fiber_flex_constraint_line_search_max_backtracks, fiber_flex_constraint_tension_warm_start_active, &
        fiber_structure_rho_tilde, &
@@ -131,6 +132,7 @@ subroutine parameter(input_i3d)
        fiber_flex_constraint_test_active,fiber_flex_constraint_case,fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval,fiber_flex_constraint_dt,fiber_flex_constraint_force_amp, &
        fiber_flex_constraint_outer_maxit,fiber_flex_constraint_outer_tol_x,fiber_flex_constraint_outer_tol_g, &
+       fiber_flex_constraint_outer_tol_rx_rel, &
        fiber_flex_constraint_line_search_active,fiber_flex_constraint_line_search_beta, &
        fiber_flex_constraint_line_search_max_backtracks,fiber_flex_constraint_tension_warm_start_active, &
        fiber_structure_rho_tilde, &
@@ -483,6 +485,10 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_flex_constraint_outer_tol_g <= 0._mytype) then
         if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_outer_tol_g must be > 0.'
+        stop
+     endif
+     if (fiber_flex_constraint_outer_tol_rx_rel <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_outer_tol_rx_rel must be > 0.'
         stop
      endif
      if (fiber_flex_constraint_line_search_beta <= 0._mytype .or. fiber_flex_constraint_line_search_beta >= 1._mytype) then

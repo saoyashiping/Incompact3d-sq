@@ -10,7 +10,8 @@ module fiber_flex_constraint
        fiber_s_ref, fiber_x, fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        fiber_structure_rho_tilde, fiber_flex_constraint_outer_maxit, fiber_flex_constraint_outer_tol_x, &
-       fiber_flex_constraint_outer_tol_g, fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
+       fiber_flex_constraint_outer_tol_g, fiber_flex_constraint_outer_tol_rx_rel, &
+       fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
        fiber_flex_constraint_line_search_max_backtracks, fiber_flex_constraint_tension_warm_start_active, &
        fiber_tension_half_prevstep
   use fiber_types, only : fiber_bending_gamma
@@ -335,11 +336,33 @@ contains
     enddo
   end subroutine build_coupled_structure_residual
 
+  subroutine compute_scaled_momentum_residual_reference(x_trial, t_half_trial, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
+    real(mytype), intent(in) :: x_trial(3,fiber_nl), t_half_trial(fiber_nl-1), xn(3,fiber_nl), xnm1(3,fiber_nl)
+    real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
+    real(mytype), intent(out) :: rx_scale
+    real(mytype) :: ftension(3,fiber_nl), fb_trial(3,fiber_nl), inertia_ref(3,fiber_nl)
+    real(mytype) :: inertia_ref_max, ftension_max, fb_max, fext_max
+    integer :: c
+
+    inertia_ref = (rho_tilde/(dt_c*dt_c)) * (2._mytype * xn - xnm1)
+    inertia_ref_max = maxval(abs(inertia_ref))
+    call compute_tension_term_huang_style(t_half_trial, x_trial, ftension)
+    ftension_max = maxval(abs(ftension))
+    do c = 1, 3
+      call apply_free_end_bending_operator_scalar(x_trial(c,:), fb_trial(c,:), gamma_b)
+    enddo
+    fb_max = maxval(abs(fb_trial))
+    fext_max = maxval(abs(fext_in))
+    ! this is a scaled momentum residual used for coupled outer-iteration convergence assessment
+    rx_scale = max(1._mytype, max(inertia_ref_max, max(ftension_max, max(fb_max, fext_max))))
+  end subroutine compute_scaled_momentum_residual_reference
+
   subroutine solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_in, dt_c, rho_tilde, gamma_b, &
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
        max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
        max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
-       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda)
+       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
+       final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected_final)
     ! Final-time coupled structure-only constrained implicit solve (Step 3.4):
     ! solves X^{n+1} and T^{n+1/2} consistently at the same time layer.
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
@@ -350,12 +373,17 @@ contains
     logical, intent(out) :: coupled_solver_converged
     real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
     real(mytype), intent(out) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
+    real(mytype), intent(out) :: final_coupled_residual_x_rel
+    character(len=*), intent(out) :: final_coupled_convergence_mode
+    logical, intent(out) :: plateau_detected_final
     real(mytype) :: xk(3,fiber_nl), xnew(3,fiber_nl), rx(3,fiber_nl), rg(fiber_nl-1), rhs_corr(fiber_nl-1)
     real(mytype) :: amat_corr(fiber_nl-1,fiber_nl-1), delta_t(fiber_nl-1), ftension(3,fiber_nl), rhs_eff(3,fiber_nl)
     real(mytype) :: alpha, dxmax, dtmax, lambda_ls, phi_current, phi_trial, max_abs_rx, max_abs_rg
+    real(mytype) :: rx_scale, rx_rel, prev_dxmax, rel_improve1, rel_improve2
     real(mytype) :: x_base(3,fiber_nl), t_base(fiber_nl-1), t_trial(fiber_nl-1), x_trial(3,fiber_nl), delta_x(3,fiber_nl)
     integer :: coupled_max_outer, ls_bt, ls_bt_max
-    logical :: line_search_active, accepted_step, has_prevstep_tension
+    logical :: line_search_active, accepted_step, has_prevstep_tension, plateau_detected, line_search_limited
+    real(mytype) :: rx_rel_hist(3), dx_hist(3), lambda_hist(3)
     real(mytype) :: rhs_tmp(fiber_nl-1), drift_tmp(fiber_nl-1), vel_tmp(fiber_nl-1), force_tmp(fiber_nl-1)
     real(mytype) :: fb_tmp(3,fiber_nl)
     integer :: it, c, it_used, restart_count, failure_mode
@@ -383,6 +411,13 @@ contains
     max_abs_delta_x_during_outer = 0._mytype
     max_abs_delta_t_during_outer = 0._mytype
     accepted_line_search_lambda = 0._mytype
+    final_coupled_residual_x_rel = huge(1._mytype)
+    final_coupled_convergence_mode = 'failed'
+    plateau_detected_final = .false.
+    rx_rel_hist = huge(1._mytype)
+    dx_hist = huge(1._mytype)
+    lambda_hist = 1._mytype
+    prev_dxmax = huge(1._mytype)
     implicit_bending_update_norm = 0._mytype
     max_outer_iterations_used = 0
 
@@ -393,13 +428,34 @@ contains
       max_abs_rx = final_coupled_residual_x
       max_abs_rg = final_coupled_residual_g
       phi_current = max(max_abs_rx, max_abs_rg)
+      call compute_scaled_momentum_residual_reference(xk, t_half, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
+      rx_rel = max_abs_rx / rx_scale
+      final_coupled_residual_x_rel = rx_rel
       max_abs_momentum_residual_during_outer = max(max_abs_momentum_residual_during_outer, max_abs_rx)
       max_abs_constraint_residual_during_outer = max(max_abs_constraint_residual_during_outer, max_abs_rg)
       max_outer_iterations_used = it
-      ! convergence requires both sufficiently small inextensibility residual and sufficiently small state/momentum update
-      if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. &
-           (max_abs_delta_x_during_outer <= fiber_flex_constraint_outer_tol_x .or. max_abs_rx <= fiber_flex_constraint_outer_tol_x)) then
+      rx_rel_hist = cshift(rx_rel_hist, -1)
+      rx_rel_hist(3) = rx_rel
+      dx_hist = cshift(dx_hist, -1)
+      dx_hist(3) = prev_dxmax
+      lambda_hist = cshift(lambda_hist, -1)
+      lambda_hist(3) = accepted_line_search_lambda
+      rel_improve1 = abs(rx_rel_hist(3) - rx_rel_hist(2)) / max(rx_rel_hist(2), 1.0e-14_mytype)
+      rel_improve2 = abs(rx_rel_hist(2) - rx_rel_hist(1)) / max(rx_rel_hist(1), 1.0e-14_mytype)
+      line_search_limited = (lambda_hist(2) < 1._mytype .and. lambda_hist(3) < 1._mytype)
+      plateau_detected = (it >= 3 .and. rel_improve1 <= 1.0e-2_mytype .and. rel_improve2 <= 1.0e-2_mytype .and. &
+           (dx_hist(3) <= 10._mytype * fiber_flex_constraint_outer_tol_x .or. line_search_limited))
+      plateau_detected_final = plateau_detected
+      ! the final-time coupled DAE solve is considered converged when inextensibility is satisfied and the scaled momentum residual is sufficiently small, even if the absolute momentum residual is not machine-zero
+      if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+           prev_dxmax <= fiber_flex_constraint_outer_tol_x) then
         coupled_solver_converged = .true.
+        final_coupled_convergence_mode = 'strict'
+        exit
+      endif
+      if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. plateau_detected) then
+        coupled_solver_converged = .true.
+        final_coupled_convergence_mode = 'plateau_accepted'
         exit
       endif
 
@@ -449,6 +505,8 @@ contains
         coupled_solver_converged = .false.
         final_coupled_residual_x = max_abs_rx
         final_coupled_residual_g = max_abs_rg
+        final_coupled_residual_x_rel = rx_rel
+        final_coupled_convergence_mode = 'failed'
         if (nrank == 0) write(*,*) 'Error: coupled line search failed to reduce residual in Step 3.4.'
         exit
       endif
@@ -460,6 +518,7 @@ contains
       dtmax = maxval(abs(lambda_ls * delta_t))
       max_abs_delta_x_during_outer = max(max_abs_delta_x_during_outer, dxmax)
       max_abs_delta_t_during_outer = max(max_abs_delta_t_during_outer, dtmax)
+      prev_dxmax = dxmax
       implicit_bending_update_norm = max(implicit_bending_update_norm, dxmax)
     enddo
 
@@ -482,7 +541,8 @@ contains
        post_bending_correction_norm, post_bending_max_inext_err_after_correction, max_outer_iterations_used, &
        final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
        max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
-       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda)
+       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
+       final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_n(3,fiber_nl), dt_c
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
     real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
@@ -492,6 +552,9 @@ contains
     logical, intent(out) :: coupled_solver_converged
     real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
     real(mytype), intent(out) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
+    real(mytype), intent(out) :: final_coupled_residual_x_rel
+    character(len=*), intent(out) :: final_coupled_convergence_mode
+    logical, intent(out) :: plateau_detected
 
     ! Default path now uses final-time coupled solve.
     ! Deprecated 3.4 predictor-corrector / post-correction reference path is intentionally isolated.
@@ -499,7 +562,8 @@ contains
          fiber_bending_gamma, max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
          max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
          max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
-         max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda)
+         max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
+         final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
     post_bending_correction_norm = 0._mytype
     post_bending_max_inext_err_after_correction = 0._mytype
   end subroutine advance_constrained_structure_step
@@ -547,12 +611,15 @@ contains
     real(mytype) :: post_bending_correction_norm_step, post_bending_correction_norm_global
     real(mytype) :: post_bending_max_inext_err_after_correction_step, post_bending_max_inext_err_after_correction_global
     real(mytype) :: final_coupled_residual_x_step, final_coupled_residual_g_step
+    real(mytype) :: final_coupled_residual_x_rel_step, final_coupled_residual_x_rel_global
     real(mytype) :: max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step
     real(mytype) :: max_abs_constraint_residual_during_outer_global, max_abs_momentum_residual_during_outer_global
     real(mytype) :: max_abs_delta_x_during_outer_step, max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step
     real(mytype) :: max_abs_delta_x_during_outer_global, max_abs_delta_t_during_outer_global
     real(mytype) :: accepted_line_search_lambda_global
+    logical :: plateau_detected_step, plateau_detected_global
     real(mytype) :: final_coupled_residual_x_global, final_coupled_residual_g_global
+    character(len=32) :: final_coupled_convergence_mode_step, final_coupled_convergence_mode_global
     integer :: max_outer_iterations_used_step, max_outer_iterations_used_global
     logical :: coupled_solver_converged_step, coupled_solver_converged_all
     real(mytype) :: case_metric
@@ -586,12 +653,15 @@ contains
     accepted_line_search_lambda_global = 0._mytype
     final_coupled_residual_x_global = 0._mytype
     final_coupled_residual_g_global = 0._mytype
+    final_coupled_residual_x_rel_global = 0._mytype
+    plateau_detected_global = .false.
+    final_coupled_convergence_mode_global = 'strict'
     max_outer_iterations_used_global = 0
     coupled_solver_converged_all = .true.
     outint = max(1, fiber_flex_constraint_output_interval)
     call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
          0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
-         0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
+         0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, .false., .true.)
 
     do step = 1, fiber_flex_constraint_nsteps
       fext = 0._mytype
@@ -608,7 +678,8 @@ contains
            post_bending_correction_norm_step, post_bending_max_inext_err_after_correction_step, &
            max_outer_iterations_used_step, final_coupled_residual_x_step, final_coupled_residual_g_step, &
            coupled_solver_converged_step, max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step, &
-           max_abs_delta_x_during_outer_step, max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step)
+           max_abs_delta_x_during_outer_step, max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step, &
+           final_coupled_residual_x_rel_step, final_coupled_convergence_mode_step, plateau_detected_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       max_abs_tension = maxval(abs(t_half))
       max_seg_global = max(max_seg_global, max_seg_err)
@@ -630,6 +701,12 @@ contains
       accepted_line_search_lambda_global = max(accepted_line_search_lambda_global, accepted_line_search_lambda_step)
       final_coupled_residual_x_global = max(final_coupled_residual_x_global, final_coupled_residual_x_step)
       final_coupled_residual_g_global = max(final_coupled_residual_g_global, final_coupled_residual_g_step)
+      final_coupled_residual_x_rel_global = max(final_coupled_residual_x_rel_global, final_coupled_residual_x_rel_step)
+      plateau_detected_global = plateau_detected_global .or. plateau_detected_step
+      if (final_coupled_convergence_mode_step == 'failed') final_coupled_convergence_mode_global = 'failed'
+      if (final_coupled_convergence_mode_step == 'plateau_accepted' .and. final_coupled_convergence_mode_global /= 'failed') then
+        final_coupled_convergence_mode_global = 'plateau_accepted'
+      endif
       max_outer_iterations_used_global = max(max_outer_iterations_used_global, max_outer_iterations_used_step)
       coupled_solver_converged_all = coupled_solver_converged_all .and. coupled_solver_converged_step
 
@@ -640,7 +717,8 @@ contains
              implicit_bending_update_norm_step, post_bending_correction_norm_step, &
              post_bending_max_inext_err_after_correction_step, max_outer_iterations_used_step, &
              final_coupled_residual_x_step, final_coupled_residual_g_step, max_abs_delta_x_during_outer_step, &
-             max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step, .false.)
+             max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step, final_coupled_residual_x_rel_step, &
+             plateau_detected_step, .false.)
       endif
 
       xnm1 = xn
@@ -667,7 +745,8 @@ contains
          post_bending_max_inext_err_after_correction_global, 1.0_mytype, max_outer_iterations_used_global, &
          final_coupled_residual_x_global, final_coupled_residual_g_global, coupled_solver_converged_all, &
          max_abs_constraint_residual_during_outer_global, max_abs_momentum_residual_during_outer_global, &
-         max_abs_delta_x_during_outer_global, max_abs_delta_t_during_outer_global, accepted_line_search_lambda_global)
+         max_abs_delta_x_during_outer_global, max_abs_delta_t_during_outer_global, accepted_line_search_lambda_global, &
+         final_coupled_residual_x_rel_global, final_coupled_convergence_mode_global, plateau_detected_global)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_constraint_test

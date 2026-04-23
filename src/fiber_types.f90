@@ -101,6 +101,7 @@ module fiber_types
   integer :: fiber_flex_constraint_outer_maxit
   real(mytype) :: fiber_flex_constraint_outer_tol_x
   real(mytype) :: fiber_flex_constraint_outer_tol_g
+  real(mytype) :: fiber_flex_constraint_outer_tol_rx_rel
   logical :: fiber_flex_constraint_line_search_active
   real(mytype) :: fiber_flex_constraint_line_search_beta
   integer :: fiber_flex_constraint_line_search_max_backtracks
@@ -230,9 +231,10 @@ contains
     fiber_flex_constraint_output_interval = 1
     fiber_flex_constraint_dt = 1.0e-3_mytype
     fiber_flex_constraint_force_amp = 1.0e-3_mytype
-    fiber_flex_constraint_outer_maxit = 12
+    fiber_flex_constraint_outer_maxit = 20
     fiber_flex_constraint_outer_tol_x = 1.0e-10_mytype
     fiber_flex_constraint_outer_tol_g = 1.0e-10_mytype
+    fiber_flex_constraint_outer_tol_rx_rel = 1.0e-6_mytype
     fiber_flex_constraint_line_search_active = .true.
     fiber_flex_constraint_line_search_beta = 0.5_mytype
     fiber_flex_constraint_line_search_max_backtracks = 6
