@@ -12,7 +12,8 @@ module fiber_io
        fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
        rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
        fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
-       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active, &
+       fiber_structure_rho_tilde
 
   implicit none
 
@@ -877,27 +878,31 @@ contains
     close(ifile)
   end subroutine write_fiber_flex_constraint_tension_last
 
-  subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, overwrite)
+  subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, &
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, overwrite)
     integer, intent(in) :: step
     real(mytype), intent(in) :: time, max_seg_err, max_inext_err, max_abs_tension
+    real(mytype), intent(in) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term
     logical, intent(in) :: overwrite
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension'
+      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term'
     else
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,4(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension
+    write(ifile,'(I10,1X,7(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension, &
+         max_abs_drift_term, max_abs_vel_term, max_abs_force_term
     close(ifile)
   end subroutine write_fiber_flex_constraint_series
 
   subroutine write_fiber_flex_constraint_summary(case_id, dt_c, nsteps, max_seg_err_global, max_inext_err_global, &
-       max_abs_tension_global, case_metric)
+       max_abs_tension_global, case_metric, max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global)
     integer, intent(in) :: case_id, nsteps
     real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
+    real(mytype), intent(in) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
@@ -907,9 +912,17 @@ contains
     write(ifile,'(A,I8)') 'fiber_flex_constraint_case ', case_id
     write(ifile,'(A,ES24.16)') 'fiber_flex_constraint_dt ', dt_c
     write(ifile,'(A,I8)') 'fiber_flex_constraint_nsteps ', nsteps
+    write(ifile,'(A,L1)') 'structure_inertia_included ', .true.
+    write(ifile,'(A,ES24.16)') 'fiber_structure_rho_tilde ', fiber_structure_rho_tilde
+    write(ifile,'(A,L1)') 'prediction_step_active ', .true.
+    write(ifile,'(A,L1)') 'constraint_drift_control_active ', .true.
+    write(ifile,'(A)') 'tension_storage_semantics half_grid_internal_unknowns_zero_end_bc'
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
     write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
     write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
+    write(ifile,'(A,ES24.16)') 'max_abs_drift_term_global ', max_abs_drift_term_global
+    write(ifile,'(A,ES24.16)') 'max_abs_vel_term_global ', max_abs_vel_term_global
+    write(ifile,'(A,ES24.16)') 'max_abs_force_term_global ', max_abs_force_term_global
     if (case_id == 1) then
       write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
     else if (case_id == 2) then

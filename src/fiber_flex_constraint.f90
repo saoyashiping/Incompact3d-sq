@@ -8,7 +8,8 @@ module fiber_flex_constraint
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
        fiber_s_ref, fiber_x, fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
-       fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp
+       fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
+       fiber_structure_rho_tilde
   use fiber_types, only : fiber_bending_gamma
   use fiber_flex_ops, only : apply_free_end_bending_operator_scalar, apply_free_end_d2_scalar
   use fiber_io, only : write_fiber_flex_constraint_initial_points, write_fiber_flex_constraint_final_points, &
@@ -23,6 +24,8 @@ contains
   ! for standalone constraint+tension layer only (no fluid coupling).
 
   subroutine lag_ds_center_node_to_half(x_node, xs_half)
+    ! D_s^0 on node-centered X_i to half-grid (i+1/2):
+    !   (D_s^0 X)_{i+1/2} = (X_{i+1} - X_i)/ds.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: xs_half(3,fiber_nl-1)
     integer :: i
@@ -32,6 +35,8 @@ contains
   end subroutine lag_ds_center_node_to_half
 
   subroutine lag_ds_plus_node(x_node, x_plus)
+    ! D_s^+ on node-centered field, represented on half-grid:
+    !   (D_s^+ X)_{i+1/2} = (X_{i+1} - X_i)/ds.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: x_plus(3,fiber_nl-1)
     integer :: i
@@ -41,6 +46,9 @@ contains
   end subroutine lag_ds_plus_node
 
   subroutine lag_ds_minus_node(x_node, x_minus)
+    ! D_s^- with half-grid representation for this 1D staggered layout.
+    ! For uniform spacing and half-grid storage, this uses the same
+    ! nearest-neighbor difference stencil as D_s^+.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: x_minus(3,fiber_nl-1)
     integer :: i
@@ -50,7 +58,7 @@ contains
   end subroutine lag_ds_minus_node
 
   subroutine lag_dss_node_free_end(x_node, xss_node)
-    ! Free-end nodal second-derivative helper (Dss) for the centerline.
+    ! D_s^+ D_s^- on nodes under free-end closure.
     ! This uses the validated Step 3.2 D2 operator and is semantically
     ! separate from bending-force operators.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
@@ -84,22 +92,29 @@ contains
   end subroutine compute_constraint_error
 
   subroutine compute_tension_term_huang_style(t_half, x_ref, ftension)
+    ! Huang-style tension force term:
+    !   d_s ( T d_s X )
+    ! with T stored at half-grid internal unknowns and explicit zero-end BC:
+    !   T_{1/2} = 0, T_{N+1/2} = 0.
     real(mytype), intent(in) :: t_half(fiber_nl-1), x_ref(3,fiber_nl)
     real(mytype), intent(out) :: ftension(3,fiber_nl)
     real(mytype) :: xs_half(3,fiber_nl-1), flux(3,fiber_nl-1)
+    real(mytype) :: t_left, t_right
     integer :: i
 
     call lag_ds_center_node_to_half(x_ref, xs_half)
+    t_left = 0._mytype
+    t_right = 0._mytype
     do i = 1, fiber_nl-1
       flux(:,i) = t_half(i) * xs_half(:,i)
     enddo
 
     ftension = 0._mytype
-    ftension(:,1) = flux(:,1) / fiber_ds
+    ftension(:,1) = (flux(:,1) - t_left * xs_half(:,1)) / fiber_ds
     do i = 2, fiber_nl-1
       ftension(:,i) = (flux(:,i) - flux(:,i-1)) / fiber_ds
     enddo
-    ftension(:,fiber_nl) = -flux(:,fiber_nl-1) / fiber_ds
+    ftension(:,fiber_nl) = (t_right * xs_half(:,fiber_nl-1) - flux(:,fiber_nl-1)) / fiber_ds
   end subroutine compute_tension_term_huang_style
 
   subroutine apply_tension_poisson_operator(t_half_unknown, x_ref, lhs_t)
@@ -157,27 +172,37 @@ contains
     real(mytype), intent(in) :: xn(3,fiber_nl), xnm1(3,fiber_nl), x_ref(3,fiber_nl)
     real(mytype), intent(in) :: fb_ref(3,fiber_nl), fext_ref(3,fiber_nl), dt_c
     real(mytype), intent(out) :: rhs_t(fiber_nl-1), drift_term(fiber_nl-1), vel_term(fiber_nl-1), force_term(fiber_nl-1)
-    real(mytype) :: un(3,fiber_nl), xs_half(3,fiber_nl-1), dun(3,fiber_nl-1), drift, velterm, forceterm
-    real(mytype) :: kappa_drift
+    real(mytype) :: un(3,fiber_nl), xs_half(3,fiber_nl-1), dun(3,fiber_nl-1), dforce(3,fiber_nl-1)
+    real(mytype) :: drift, velterm, forceterm, kappa_drift, inv_rho
     integer :: i
 
     call compute_centerline_velocity(xn, xnm1, dt_c, un)
     call lag_ds_center_node_to_half(x_ref, xs_half)
     call lag_ds_center_node_to_half(un, dun)
 
+    ! Drift control follows Huang-style differentiated inextensibility:
+    !   |D_s X|^2 - 1 -> damped through a dt-scaled penalty-like term.
     kappa_drift = 2._mytype / (dt_c * dt_c)
+    inv_rho = 1._mytype / fiber_structure_rho_tilde
     do i = 1, fiber_nl-1
+      dforce(:,i) = (fb_ref(:,i+1) + fext_ref(:,i+1) - fb_ref(:,i) - fext_ref(:,i)) / fiber_ds
       drift = dot_product(xs_half(:,i), xs_half(:,i)) - 1._mytype
       velterm = dot_product(dun(:,i), dun(:,i))
-      forceterm = 2._mytype * dot_product(xs_half(:,i), (fb_ref(:,i+1)+fext_ref(:,i+1)-fb_ref(:,i)-fext_ref(:,i))/fiber_ds)
+      ! Force contribution uses the validated bending-force semantics
+      ! plus optional external structural forcing (still no fluid coupling).
+      forceterm = 2._mytype * dot_product(xs_half(:,i), dforce(:,i))
+      ! Velocity term is the discrete |D_s u|^2 contribution from
+      ! the differentiated inextensibility condition.
       drift_term(i) = -kappa_drift * drift
-      vel_term(i) = -velterm
-      force_term(i) = -forceterm
+      vel_term(i) = -velterm * inv_rho
+      force_term(i) = -forceterm * inv_rho
       rhs_t(i) = drift_term(i) + vel_term(i) + force_term(i)
     enddo
   end subroutine build_tension_rhs_huang_style
 
   subroutine assemble_tension_matrix_huang_style(x_ref, amat)
+    ! Internal unknowns are T_{i+1/2}, i=1..N-1, with explicit end BC:
+    ! T_{1/2}=0 and T_{N+1/2}=0 (not part of unknown vector).
     real(mytype), intent(in) :: x_ref(3,fiber_nl)
     real(mytype), intent(out) :: amat(fiber_nl-1,fiber_nl-1)
     real(mytype) :: evec(fiber_nl-1), col(fiber_nl-1)
@@ -207,13 +232,15 @@ contains
     max_abs_force_term = maxval(abs(force_term))
   end subroutine solve_constraint_tension_huang_style
 
-  subroutine advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c)
+  subroutine advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, &
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_n(3,fiber_nl), dt_c
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
+    real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term
     real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl)
-    real(mytype) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term
     integer :: c
 
+    ! Prediction step retained: X_ref = 2 X^n - X^{n-1}.
     x_ref = 2._mytype * xn - xnm1
     do c = 1, 3
       call apply_free_end_bending_operator_scalar(x_ref(c,:), fb_ref(c,:), fiber_bending_gamma)
@@ -222,7 +249,10 @@ contains
          max_abs_drift_term, max_abs_vel_term, max_abs_force_term)
     call compute_tension_term_huang_style(t_half, x_ref, ftension)
 
-    xnp1 = 2._mytype * xn - xnm1 + dt_c * dt_c * (ftension + fb_ref + fext_n)
+    ! Structural inertia term is explicit here to align with
+    ! rho_tilde * X_tt = d_s(T d_s X) + F_b + F_ext in standalone Step 3.4.
+    ! This remains a structure-only layer (no fluid-structure coupling).
+    xnp1 = 2._mytype * xn - xnm1 + (dt_c * dt_c / fiber_structure_rho_tilde) * (ftension + fb_ref + fext_n)
   end subroutine advance_constrained_structure_step
 
   subroutine initialize_constraint_test_state(case_id, xnm1, xn)
@@ -240,6 +270,8 @@ contains
       xn = fiber_x
       xnm1 = xn - fiber_flex_constraint_dt * spread(vel0, 2, fiber_nl)
     case (3)
+      ! Constraint capability test: small-amplitude free-end-consistent shape,
+      ! zero initial velocity (xnm1 = xn), no rigid-body-style forcing.
       smin = -0.5_mytype * fiber_length
       amp = 0.05_mytype * fiber_length
       do l = 1, fiber_nl
@@ -260,6 +292,8 @@ contains
     real(mytype), allocatable :: xnm1(:,:), xn(:,:), xnp1(:,:), xinit(:,:), fext(:,:), t_half(:)
     real(mytype) :: max_seg_err, max_inext_err, max_abs_tension
     real(mytype) :: max_seg_global, max_inext_global, max_t_global, tnow
+    real(mytype) :: max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step
+    real(mytype) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
     real(mytype) :: case_metric
     integer :: step, outint, i
 
@@ -277,28 +311,38 @@ contains
     max_seg_global = 0._mytype
     max_inext_global = 0._mytype
     max_t_global = 0._mytype
+    max_abs_drift_term_global = 0._mytype
+    max_abs_vel_term_global = 0._mytype
+    max_abs_force_term_global = 0._mytype
     outint = max(1, fiber_flex_constraint_output_interval)
-    call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
+    call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
+         0._mytype, 0._mytype, 0._mytype, .true.)
 
     do step = 1, fiber_flex_constraint_nsteps
       fext = 0._mytype
       if (fiber_flex_constraint_case == 3) then
+        ! Keep forcing zero or very small and spatially localized so case 3
+        ! emphasizes constrained structural response rather than rigid forcing.
         do i = 1, fiber_nl
-          fext(2,i) = fiber_flex_constraint_force_amp * sin(2._mytype * acos(-1._mytype) * real(step,mytype) / &
-               real(max(1,fiber_flex_constraint_nsteps),mytype))
+          fext(2,i) = 0.1_mytype * fiber_flex_constraint_force_amp * exp(-((real(i-1,mytype)/real(max(1,fiber_nl-1),mytype) - 0.5_mytype)**2) / 0.02_mytype)
         enddo
       endif
 
-      call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_constraint_dt)
+      call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_constraint_dt, &
+           max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       max_abs_tension = maxval(abs(t_half))
       max_seg_global = max(max_seg_global, max_seg_err)
       max_inext_global = max(max_inext_global, max_inext_err)
       max_t_global = max(max_t_global, max_abs_tension)
+      max_abs_drift_term_global = max(max_abs_drift_term_global, max_abs_drift_term_step)
+      max_abs_vel_term_global = max(max_abs_vel_term_global, max_abs_vel_term_step)
+      max_abs_force_term_global = max(max_abs_force_term_global, max_abs_force_term_step)
 
       tnow = real(step,mytype) * fiber_flex_constraint_dt
       if (mod(step,outint) == 0 .or. step == fiber_flex_constraint_nsteps) then
-        call write_fiber_flex_constraint_series(step, tnow, max_seg_err, max_inext_err, max_abs_tension, .false.)
+        call write_fiber_flex_constraint_series(step, tnow, max_seg_err, max_inext_err, max_abs_tension, &
+             max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, .false.)
       endif
 
       xnm1 = xn
@@ -319,7 +363,8 @@ contains
     end select
 
     call write_fiber_flex_constraint_summary(fiber_flex_constraint_case, fiber_flex_constraint_dt, &
-         fiber_flex_constraint_nsteps, max_seg_global, max_inext_global, max_t_global, case_metric)
+         fiber_flex_constraint_nsteps, max_seg_global, max_inext_global, max_t_global, case_metric, &
+         max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_constraint_test

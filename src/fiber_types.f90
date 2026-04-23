@@ -98,6 +98,7 @@ module fiber_types
   integer :: fiber_flex_constraint_output_interval
   real(mytype) :: fiber_flex_constraint_dt
   real(mytype) :: fiber_flex_constraint_force_amp
+  real(mytype) :: fiber_structure_rho_tilde
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
   real(mytype), dimension(3) :: fiber_uc
@@ -221,6 +222,7 @@ contains
     fiber_flex_constraint_output_interval = 1
     fiber_flex_constraint_dt = 1.0e-3_mytype
     fiber_flex_constraint_force_amp = 1.0e-3_mytype
+    fiber_structure_rho_tilde = 1.0_mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
     fiber_uc = 0._mytype

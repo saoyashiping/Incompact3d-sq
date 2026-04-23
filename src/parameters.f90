@@ -46,6 +46,7 @@ subroutine parameter(input_i3d)
        fiber_flex_bending_iter_tol_effective, fiber_flex_bending_iter_maxit_effective, &
        fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
+       fiber_structure_rho_tilde, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
        rigid_kinematics_mode, rigid_kinematics_shear_rate, rigid_kinematics_poiseuille_umax, &
@@ -126,6 +127,7 @@ subroutine parameter(input_i3d)
        fiber_flex_bending_iter_tol,fiber_flex_bending_iter_maxit, &
        fiber_flex_constraint_test_active,fiber_flex_constraint_case,fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval,fiber_flex_constraint_dt,fiber_flex_constraint_force_amp, &
+       fiber_structure_rho_tilde, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
        rigid_kinematics_mode,rigid_kinematics_shear_rate,rigid_kinematics_poiseuille_umax, &
@@ -459,6 +461,10 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_flex_constraint_dt <= 0._mytype) then
         if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_dt must be > 0.'
+        stop
+     endif
+     if (fiber_structure_rho_tilde <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_structure_rho_tilde must be > 0.'
         stop
      endif
   endif
