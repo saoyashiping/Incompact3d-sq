@@ -23,38 +23,66 @@ contains
   ! Huang-style staggered-Lagrangian semantics (node X_i, half-node T_{i+1/2})
   ! for standalone constraint+tension layer only (no fluid coupling).
 
+  subroutine lag_diff_node_to_half_centered(x_node, x_half)
+    ! Node -> half centered difference:
+    !   x_half(i+1/2) = (x_node(i+1) - x_node(i)) / ds.
+    real(mytype), intent(in) :: x_node(3,fiber_nl)
+    real(mytype), intent(out) :: x_half(3,fiber_nl-1)
+    integer :: i
+    do i = 1, fiber_nl-1
+      x_half(:,i) = (x_node(:,i+1) - x_node(:,i)) / fiber_ds
+    enddo
+  end subroutine lag_diff_node_to_half_centered
+
+  subroutine lag_diff_half_to_node_forward(q_half, dq_node)
+    ! Half -> node forward difference:
+    !   dq_node(i) = (q_half(i+1/2) - q_half(i-1/2)) / ds
+    ! with explicit free-end closure q_half(1/2)=q_half(N+1/2)=0.
+    real(mytype), intent(in) :: q_half(3,fiber_nl-1)
+    real(mytype), intent(out) :: dq_node(3,fiber_nl)
+    integer :: i
+    dq_node = 0._mytype
+    dq_node(:,1) = q_half(:,1) / fiber_ds
+    do i = 2, fiber_nl-1
+      dq_node(:,i) = (q_half(:,i) - q_half(:,i-1)) / fiber_ds
+    enddo
+    dq_node(:,fiber_nl) = -q_half(:,fiber_nl-1) / fiber_ds
+  end subroutine lag_diff_half_to_node_forward
+
+  subroutine lag_diff_half_to_node_backward(q_half, dq_node)
+    ! Half -> node backward difference:
+    !   dq_node(i) = (q_half(i+1/2) - q_half(i-1/2)) / ds
+    ! same discrete node result under this uniform 1D staggered grid,
+    ! but kept as a distinct helper to keep D_s^+/D_s^- roles explicit.
+    real(mytype), intent(in) :: q_half(3,fiber_nl-1)
+    real(mytype), intent(out) :: dq_node(3,fiber_nl)
+    call lag_diff_half_to_node_forward(q_half, dq_node)
+  end subroutine lag_diff_half_to_node_backward
+
   subroutine lag_ds_center_node_to_half(x_node, xs_half)
     ! D_s^0 on node-centered X_i to half-grid (i+1/2):
     !   (D_s^0 X)_{i+1/2} = (X_{i+1} - X_i)/ds.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: xs_half(3,fiber_nl-1)
-    integer :: i
-    do i = 1, fiber_nl-1
-      xs_half(:,i) = (x_node(:,i+1) - x_node(:,i)) / fiber_ds
-    enddo
+    call lag_diff_node_to_half_centered(x_node, xs_half)
   end subroutine lag_ds_center_node_to_half
 
   subroutine lag_ds_plus_node(x_node, x_plus)
-    ! D_s^+ on node-centered field, represented on half-grid:
+    ! Huang-style D_s^+ on node-centered field, represented on half-grid:
     !   (D_s^+ X)_{i+1/2} = (X_{i+1} - X_i)/ds.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: x_plus(3,fiber_nl-1)
-    integer :: i
-    do i = 1, fiber_nl-1
-      x_plus(:,i) = (x_node(:,i+1) - x_node(:,i)) / fiber_ds
-    enddo
+    call lag_diff_node_to_half_centered(x_node, x_plus)
   end subroutine lag_ds_plus_node
 
   subroutine lag_ds_minus_node(x_node, x_minus)
-    ! D_s^- with half-grid representation for this 1D staggered layout.
-    ! For uniform spacing and half-grid storage, this uses the same
-    ! nearest-neighbor difference stencil as D_s^+.
+    ! Huang-style D_s^- expressed on half-grid.
+    ! Under this uniform single-fiber staggered layout, it shares the same
+    ! nearest-neighbor node->half stencil as D_s^+, but is kept separate
+    ! to preserve explicit operator semantics and reviewability.
     real(mytype), intent(in) :: x_node(3,fiber_nl)
     real(mytype), intent(out) :: x_minus(3,fiber_nl-1)
-    integer :: i
-    do i = 1, fiber_nl-1
-      x_minus(:,i) = (x_node(:,i+1) - x_node(:,i)) / fiber_ds
-    enddo
+    call lag_diff_node_to_half_centered(x_node, x_minus)
   end subroutine lag_ds_minus_node
 
   subroutine lag_dss_node_free_end(x_node, xss_node)
@@ -98,23 +126,14 @@ contains
     !   T_{1/2} = 0, T_{N+1/2} = 0.
     real(mytype), intent(in) :: t_half(fiber_nl-1), x_ref(3,fiber_nl)
     real(mytype), intent(out) :: ftension(3,fiber_nl)
-    real(mytype) :: xs_half(3,fiber_nl-1), flux(3,fiber_nl-1)
-    real(mytype) :: t_left, t_right
+    real(mytype) :: xs_half(3,fiber_nl-1), flux_half(3,fiber_nl-1)
     integer :: i
 
     call lag_ds_center_node_to_half(x_ref, xs_half)
-    t_left = 0._mytype
-    t_right = 0._mytype
     do i = 1, fiber_nl-1
-      flux(:,i) = t_half(i) * xs_half(:,i)
+      flux_half(:,i) = t_half(i) * xs_half(:,i)
     enddo
-
-    ftension = 0._mytype
-    ftension(:,1) = (flux(:,1) - t_left * xs_half(:,1)) / fiber_ds
-    do i = 2, fiber_nl-1
-      ftension(:,i) = (flux(:,i) - flux(:,i-1)) / fiber_ds
-    enddo
-    ftension(:,fiber_nl) = (t_right * xs_half(:,fiber_nl-1) - flux(:,fiber_nl-1)) / fiber_ds
+    call lag_diff_half_to_node_forward(flux_half, ftension)
   end subroutine compute_tension_term_huang_style
 
   subroutine apply_tension_poisson_operator(t_half_unknown, x_ref, lhs_t)
@@ -172,27 +191,29 @@ contains
     real(mytype), intent(in) :: xn(3,fiber_nl), xnm1(3,fiber_nl), x_ref(3,fiber_nl)
     real(mytype), intent(in) :: fb_ref(3,fiber_nl), fext_ref(3,fiber_nl), dt_c
     real(mytype), intent(out) :: rhs_t(fiber_nl-1), drift_term(fiber_nl-1), vel_term(fiber_nl-1), force_term(fiber_nl-1)
-    real(mytype) :: un(3,fiber_nl), xs_half(3,fiber_nl-1), dun(3,fiber_nl-1), dforce(3,fiber_nl-1)
+    real(mytype) :: un(3,fiber_nl), xs_plus(3,fiber_nl-1), u_s_half(3,fiber_nl-1), dforce(3,fiber_nl-1)
     real(mytype) :: drift, velterm, forceterm, kappa_drift, inv_rho
     integer :: i
 
     call compute_centerline_velocity(xn, xnm1, dt_c, un)
-    call lag_ds_center_node_to_half(x_ref, xs_half)
-    call lag_ds_center_node_to_half(un, dun)
+    call lag_ds_plus_node(x_ref, xs_plus)
+    call lag_ds_minus_node(un, u_s_half)
 
     ! Drift control follows Huang-style differentiated inextensibility:
-    !   |D_s X|^2 - 1 -> damped through a dt-scaled penalty-like term.
+    !   |D_s X_ref|^2 - 1 -> damped through a dt-scaled correction term.
+    ! This is a practical discrete realization of Huang (2007)-style
+    ! constraint-time-differentiation drift suppression.
     kappa_drift = 2._mytype / (dt_c * dt_c)
     inv_rho = 1._mytype / fiber_structure_rho_tilde
     do i = 1, fiber_nl-1
+      ! Force term uses bending force evaluated at X_ref = 2X^n - X^{n-1},
+      ! plus structural external force only (no fluid-structure forcing here).
       dforce(:,i) = (fb_ref(:,i+1) + fext_ref(:,i+1) - fb_ref(:,i) - fext_ref(:,i)) / fiber_ds
-      drift = dot_product(xs_half(:,i), xs_half(:,i)) - 1._mytype
-      velterm = dot_product(dun(:,i), dun(:,i))
-      ! Force contribution uses the validated bending-force semantics
-      ! plus optional external structural forcing (still no fluid coupling).
-      forceterm = 2._mytype * dot_product(xs_half(:,i), dforce(:,i))
-      ! Velocity term is the discrete |D_s u|^2 contribution from
-      ! the differentiated inextensibility condition.
+      drift = dot_product(xs_plus(:,i), xs_plus(:,i)) - 1._mytype
+      ! Velocity term corresponds to discrete D_s U · D_s U, not an empirical add-on.
+      velterm = dot_product(u_s_half(:,i), u_s_half(:,i))
+      ! Force contribution is 2 D_s X_ref · D_s(F_b(X_ref)+F_ext).
+      forceterm = 2._mytype * dot_product(xs_plus(:,i), dforce(:,i))
       drift_term(i) = -kappa_drift * drift
       vel_term(i) = -velterm * inv_rho
       force_term(i) = -forceterm * inv_rho
