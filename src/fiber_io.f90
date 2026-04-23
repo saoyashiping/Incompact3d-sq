@@ -13,7 +13,9 @@ module fiber_io
        rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
        fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
        fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active, &
-       fiber_structure_rho_tilde
+       fiber_structure_rho_tilde, fiber_flex_constraint_outer_maxit, fiber_flex_constraint_outer_tol_x, &
+       fiber_flex_constraint_outer_tol_g, fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
+       fiber_flex_constraint_line_search_max_backtracks, fiber_flex_constraint_tension_warm_start_active
 
   implicit none
 
@@ -880,24 +882,28 @@ contains
 
   subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, &
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
-       post_bending_correction_norm, post_bending_max_inext_err_after_correction, overwrite)
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction, outer_iter, max_abs_rx, max_abs_rg, &
+       max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda, overwrite)
     integer, intent(in) :: step
     real(mytype), intent(in) :: time, max_seg_err, max_inext_err, max_abs_tension
     real(mytype), intent(in) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
     real(mytype), intent(in) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
+    integer, intent(in) :: outer_iter
+    real(mytype), intent(in) :: max_abs_rx, max_abs_rg, max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda
     logical, intent(in) :: overwrite
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term implicit_bending_update_norm post_bending_correction_norm post_bending_max_inext_err_after_correction'
+      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term implicit_bending_update_norm post_bending_correction_norm post_bending_max_inext_err_after_correction outer_iter max_abs_rx max_abs_rg max_abs_delta_x max_abs_delta_t accepted_line_search_lambda'
     else
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,10(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension, &
+    write(ifile,'(I10,1X,10(ES24.16,1X),I10,1X,5(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension, &
          max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
-         post_bending_correction_norm, post_bending_max_inext_err_after_correction
+         post_bending_correction_norm, post_bending_max_inext_err_after_correction, outer_iter, &
+         max_abs_rx, max_abs_rg, max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda
     close(ifile)
   end subroutine write_fiber_flex_constraint_series
 
@@ -906,7 +912,8 @@ contains
        implicit_bending_update_norm_global, post_bending_correction_norm_global, &
        post_bending_max_inext_err_after_correction_global, post_bending_correction_scale, max_outer_iterations_used, &
        final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
-       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer)
+       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
+       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda)
     integer, intent(in) :: case_id, nsteps
     real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
     real(mytype), intent(in) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
@@ -917,6 +924,7 @@ contains
     real(mytype), intent(in) :: final_coupled_residual_x, final_coupled_residual_g
     logical, intent(in) :: coupled_solver_converged
     real(mytype), intent(in) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
+    real(mytype), intent(in) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
@@ -940,6 +948,13 @@ contains
     write(ifile,'(A,L1)') 'coupled_final_time_constraint_solve_active ', .true.
     write(ifile,'(A)') 'coupled_solver_semantics structure_only_coupled_final_time_X_and_T_solve'
     write(ifile,'(A,L1)') 'deprecated_predictor_corrector_path_available ', .true.
+    write(ifile,'(A,I8)') 'coupled_outer_maxit ', fiber_flex_constraint_outer_maxit
+    write(ifile,'(A,ES24.16)') 'coupled_outer_tol_x ', fiber_flex_constraint_outer_tol_x
+    write(ifile,'(A,ES24.16)') 'coupled_outer_tol_g ', fiber_flex_constraint_outer_tol_g
+    write(ifile,'(A,L1)') 'coupled_line_search_active ', fiber_flex_constraint_line_search_active
+    write(ifile,'(A,ES24.16)') 'coupled_line_search_beta ', fiber_flex_constraint_line_search_beta
+    write(ifile,'(A,I8)') 'coupled_line_search_max_backtracks ', fiber_flex_constraint_line_search_max_backtracks
+    write(ifile,'(A,L1)') 'coupled_tension_warm_start_active ', fiber_flex_constraint_tension_warm_start_active
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
     write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
     write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
@@ -955,6 +970,9 @@ contains
     write(ifile,'(A,L1)') 'coupled_solver_converged ', coupled_solver_converged
     write(ifile,'(A,ES24.16)') 'max_abs_constraint_residual_during_outer ', max_abs_constraint_residual_during_outer
     write(ifile,'(A,ES24.16)') 'max_abs_momentum_residual_during_outer ', max_abs_momentum_residual_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_delta_x_during_outer ', max_abs_delta_x_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_delta_t_during_outer ', max_abs_delta_t_during_outer
+    write(ifile,'(A,ES24.16)') 'accepted_line_search_lambda ', accepted_line_search_lambda
     if (case_id == 1) then
       write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
     else if (case_id == 2) then
