@@ -313,35 +313,123 @@ contains
     call compute_constraint_error(x_corr, max_seg_after, post_bending_max_inext_err_after_correction)
   end subroutine apply_post_bending_constraint_correction
 
+  subroutine build_coupled_structure_residual(x_trial, t_half_trial, xn, xnm1, rx, rg, fext_in, dt_c, rho_tilde, gamma_b)
+    ! Coupled final-time residual for Step 3.4 structure-only solve:
+    ! unknowns are node X and half-grid internal tension T (zero-end BC).
+    real(mytype), intent(in) :: x_trial(3,fiber_nl), t_half_trial(fiber_nl-1), xn(3,fiber_nl), xnm1(3,fiber_nl)
+    real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
+    real(mytype), intent(out) :: rx(3,fiber_nl), rg(fiber_nl-1)
+    real(mytype) :: ftension(3,fiber_nl), fb_trial(3,fiber_nl), xs_half(3,fiber_nl-1)
+    integer :: c, i
+
+    call compute_tension_term_huang_style(t_half_trial, x_trial, ftension)
+    do c = 1, 3
+      call apply_free_end_bending_operator_scalar(x_trial(c,:), fb_trial(c,:), gamma_b)
+    enddo
+    rx = (rho_tilde/(dt_c*dt_c)) * (x_trial - 2._mytype * xn + xnm1) - ftension - fb_trial - fext_in
+
+    call lag_ds_center_node_to_half(x_trial, xs_half)
+    do i = 1, fiber_nl-1
+      rg(i) = dot_product(xs_half(:,i), xs_half(:,i)) - 1._mytype
+    enddo
+  end subroutine build_coupled_structure_residual
+
+  subroutine solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_in, dt_c, rho_tilde, gamma_b, &
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+       max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer)
+    ! Final-time coupled structure-only constrained implicit solve (Step 3.4):
+    ! solves X^{n+1} and T^{n+1/2} consistently at the same time layer.
+    real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
+    real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
+    real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    integer, intent(out) :: max_outer_iterations_used
+    real(mytype), intent(out) :: final_coupled_residual_x, final_coupled_residual_g
+    logical, intent(out) :: coupled_solver_converged
+    real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
+    real(mytype), parameter :: coupled_tol_x = 1.0e-8_mytype, coupled_tol_g = 1.0e-8_mytype
+    integer, parameter :: coupled_max_outer = 8
+    real(mytype) :: xk(3,fiber_nl), xnew(3,fiber_nl), rx(3,fiber_nl), rg(fiber_nl-1), rhs_corr(fiber_nl-1)
+    real(mytype) :: amat_corr(fiber_nl-1,fiber_nl-1), delta_t(fiber_nl-1), ftension(3,fiber_nl), rhs_eff(3,fiber_nl)
+    real(mytype) :: alpha, dxmax
+    real(mytype) :: rhs_tmp(fiber_nl-1), drift_tmp(fiber_nl-1), vel_tmp(fiber_nl-1), force_tmp(fiber_nl-1)
+    real(mytype) :: fb_tmp(3,fiber_nl)
+    integer :: it, c, it_used, restart_count, failure_mode
+    logical :: converged, breakdown_detected
+
+    xk = 2._mytype * xn - xnm1
+    t_half = 0._mytype
+    alpha = dt_c * dt_c / rho_tilde
+    coupled_solver_converged = .false.
+    max_abs_constraint_residual_during_outer = 0._mytype
+    max_abs_momentum_residual_during_outer = 0._mytype
+    implicit_bending_update_norm = 0._mytype
+    max_outer_iterations_used = 0
+
+    do it = 1, coupled_max_outer
+      call build_coupled_structure_residual(xk, t_half, xn, xnm1, rx, rg, fext_in, dt_c, rho_tilde, gamma_b)
+      final_coupled_residual_x = maxval(abs(rx))
+      final_coupled_residual_g = maxval(abs(rg))
+      max_abs_momentum_residual_during_outer = max(max_abs_momentum_residual_during_outer, final_coupled_residual_x)
+      max_abs_constraint_residual_during_outer = max(max_abs_constraint_residual_during_outer, final_coupled_residual_g)
+      max_outer_iterations_used = it
+      if (final_coupled_residual_x <= coupled_tol_x .and. final_coupled_residual_g <= coupled_tol_g) then
+        coupled_solver_converged = .true.
+        exit
+      endif
+
+      rhs_corr = -2._mytype/(dt_c*dt_c) * rg
+      call assemble_tension_matrix_huang_style(xk, amat_corr)
+      call solve_dense_small(amat_corr, rhs_corr, delta_t, fiber_nl-1)
+      t_half = t_half + delta_t
+
+      call compute_tension_term_huang_style(t_half, xk, ftension)
+      rhs_eff = 2._mytype * xn - xnm1 + alpha * (ftension + fext_in)
+      do c = 1, 3
+        xnew(c,:) = xk(c,:)
+        call solve_free_end_implicit_bending_rhs_scalar(rhs_eff(c,:), xnew(c,:), alpha, gamma_b, it_used, dxmax, &
+             converged, breakdown_detected, restart_count, failure_mode)
+        if (.not.converged) then
+          if (nrank == 0) write(*,*) 'Error: coupled X-update implicit solve failed in Step 3.4.'
+          stop
+        endif
+      enddo
+      dxmax = maxval(abs(xnew - xk))
+      implicit_bending_update_norm = max(implicit_bending_update_norm, dxmax)
+      xk = xnew
+    enddo
+
+    xnp1 = xk
+    do c = 1, 3
+      call apply_free_end_bending_operator_scalar(xk(c,:), fb_tmp(c,:), gamma_b)
+    enddo
+    call build_tension_rhs_huang_style(xn, xnm1, xk, fb_tmp, fext_in, dt_c, rhs_tmp, drift_tmp, vel_tmp, force_tmp)
+    max_abs_drift_term = maxval(abs(drift_tmp))
+    max_abs_vel_term = maxval(abs(vel_tmp))
+    max_abs_force_term = maxval(abs(force_tmp))
+  end subroutine solve_coupled_constrained_structure_step
+
   subroutine advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, &
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
-       post_bending_correction_norm, post_bending_max_inext_err_after_correction)
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction, max_outer_iterations_used, &
+       final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_n(3,fiber_nl), dt_c
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
     real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
     real(mytype), intent(out) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
-    real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl), rhs_final(3,fiber_nl), x_prov(3,fiber_nl)
-    real(mytype), parameter :: post_bending_correction_scale = 1.0_mytype
-    integer :: c
+    integer, intent(out) :: max_outer_iterations_used
+    real(mytype), intent(out) :: final_coupled_residual_x, final_coupled_residual_g
+    logical, intent(out) :: coupled_solver_converged
+    real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
 
-    ! Step A: predictor configuration.
-    x_ref = 2._mytype * xn - xnm1
-    ! Step B: evaluate predicted bending force for tension RHS/diagnostics.
-    do c = 1, 3
-      call apply_free_end_bending_operator_scalar(x_ref(c,:), fb_ref(c,:), fiber_bending_gamma)
-    enddo
-    call solve_constraint_tension_huang_style(xn, xnm1, x_ref, fb_ref, fext_n, dt_c, t_half, &
-         max_abs_drift_term, max_abs_vel_term, max_abs_force_term)
-    call compute_tension_term_huang_style(t_half, x_ref, ftension)
-
-    ! Step C: final RHS excludes explicit bending push; bending is implicit in Step D.
-    rhs_final = x_ref + (dt_c * dt_c / fiber_structure_rho_tilde) * (ftension + fext_n)
-    ! Step D: semi-implicit constrained update with 3.3 kernel:
-    !   (I + (dt^2/rho_tilde) * gamma * D4) X^{n+1} = rhs_final
-    call solve_constrained_step_with_implicit_bending(rhs_final, x_prov, dt_c, fiber_structure_rho_tilde, &
-         fiber_bending_gamma, implicit_bending_update_norm)
-    call apply_post_bending_constraint_correction(x_prov, xnp1, dt_c, fiber_structure_rho_tilde, post_bending_correction_scale, &
-         post_bending_correction_norm, post_bending_max_inext_err_after_correction)
+    ! Default path now uses final-time coupled solve.
+    call solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, fiber_structure_rho_tilde, &
+         fiber_bending_gamma, max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+         max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+         max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer)
+    post_bending_correction_norm = 0._mytype
+    post_bending_max_inext_err_after_correction = 0._mytype
   end subroutine advance_constrained_structure_step
 
   subroutine initialize_constraint_test_state(case_id, xnm1, xn)
@@ -386,6 +474,12 @@ contains
     real(mytype) :: implicit_bending_update_norm_step, implicit_bending_update_norm_global
     real(mytype) :: post_bending_correction_norm_step, post_bending_correction_norm_global
     real(mytype) :: post_bending_max_inext_err_after_correction_step, post_bending_max_inext_err_after_correction_global
+    real(mytype) :: final_coupled_residual_x_step, final_coupled_residual_g_step
+    real(mytype) :: max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step
+    real(mytype) :: max_abs_constraint_residual_during_outer_global, max_abs_momentum_residual_during_outer_global
+    real(mytype) :: final_coupled_residual_x_global, final_coupled_residual_g_global
+    integer :: max_outer_iterations_used_step, max_outer_iterations_used_global
+    logical :: coupled_solver_converged_step, coupled_solver_converged_all
     real(mytype) :: case_metric
     integer :: step, outint, i
 
@@ -409,6 +503,12 @@ contains
     implicit_bending_update_norm_global = 0._mytype
     post_bending_correction_norm_global = 0._mytype
     post_bending_max_inext_err_after_correction_global = 0._mytype
+    max_abs_constraint_residual_during_outer_global = 0._mytype
+    max_abs_momentum_residual_during_outer_global = 0._mytype
+    final_coupled_residual_x_global = 0._mytype
+    final_coupled_residual_g_global = 0._mytype
+    max_outer_iterations_used_global = 0
+    coupled_solver_converged_all = .true.
     outint = max(1, fiber_flex_constraint_output_interval)
     call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
          0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
@@ -425,7 +525,9 @@ contains
 
       call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_constraint_dt, &
            max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, implicit_bending_update_norm_step, &
-           post_bending_correction_norm_step, post_bending_max_inext_err_after_correction_step)
+           post_bending_correction_norm_step, post_bending_max_inext_err_after_correction_step, &
+           max_outer_iterations_used_step, final_coupled_residual_x_step, final_coupled_residual_g_step, &
+           coupled_solver_converged_step, max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       max_abs_tension = maxval(abs(t_half))
       max_seg_global = max(max_seg_global, max_seg_err)
@@ -438,6 +540,14 @@ contains
       post_bending_correction_norm_global = max(post_bending_correction_norm_global, post_bending_correction_norm_step)
       post_bending_max_inext_err_after_correction_global = max(post_bending_max_inext_err_after_correction_global, &
            post_bending_max_inext_err_after_correction_step)
+      max_abs_constraint_residual_during_outer_global = max(max_abs_constraint_residual_during_outer_global, &
+           max_abs_constraint_residual_during_outer_step)
+      max_abs_momentum_residual_during_outer_global = max(max_abs_momentum_residual_during_outer_global, &
+           max_abs_momentum_residual_during_outer_step)
+      final_coupled_residual_x_global = max(final_coupled_residual_x_global, final_coupled_residual_x_step)
+      final_coupled_residual_g_global = max(final_coupled_residual_g_global, final_coupled_residual_g_step)
+      max_outer_iterations_used_global = max(max_outer_iterations_used_global, max_outer_iterations_used_step)
+      coupled_solver_converged_all = coupled_solver_converged_all .and. coupled_solver_converged_step
 
       tnow = real(step,mytype) * fiber_flex_constraint_dt
       if (mod(step,outint) == 0 .or. step == fiber_flex_constraint_nsteps) then
@@ -468,7 +578,9 @@ contains
          fiber_flex_constraint_nsteps, max_seg_global, max_inext_global, max_t_global, case_metric, &
          max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
          implicit_bending_update_norm_global, post_bending_correction_norm_global, &
-         post_bending_max_inext_err_after_correction_global, 1.0_mytype)
+         post_bending_max_inext_err_after_correction_global, 1.0_mytype, max_outer_iterations_used_global, &
+         final_coupled_residual_x_global, final_coupled_residual_g_global, coupled_solver_converged_all, &
+         max_abs_constraint_residual_during_outer_global, max_abs_momentum_residual_during_outer_global)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_constraint_test

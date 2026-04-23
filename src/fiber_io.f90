@@ -904,13 +904,19 @@ contains
   subroutine write_fiber_flex_constraint_summary(case_id, dt_c, nsteps, max_seg_err_global, max_inext_err_global, &
        max_abs_tension_global, case_metric, max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
        implicit_bending_update_norm_global, post_bending_correction_norm_global, &
-       post_bending_max_inext_err_after_correction_global, post_bending_correction_scale)
+       post_bending_max_inext_err_after_correction_global, post_bending_correction_scale, max_outer_iterations_used, &
+       final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer)
     integer, intent(in) :: case_id, nsteps
     real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
     real(mytype), intent(in) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
     real(mytype), intent(in) :: implicit_bending_update_norm_global
     real(mytype), intent(in) :: post_bending_correction_norm_global, post_bending_max_inext_err_after_correction_global
     real(mytype), intent(in) :: post_bending_correction_scale
+    integer, intent(in) :: max_outer_iterations_used
+    real(mytype), intent(in) :: final_coupled_residual_x, final_coupled_residual_g
+    logical, intent(in) :: coupled_solver_converged
+    real(mytype), intent(in) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
@@ -931,6 +937,9 @@ contains
     write(ifile,'(A,L1)') 'post_bending_constraint_correction_active ', .true.
     write(ifile,'(A)') 'post_bending_correction_semantics single_tension_based_constraint_projection_after_implicit_bending'
     write(ifile,'(A,ES24.16)') 'post_bending_correction_scale ', post_bending_correction_scale
+    write(ifile,'(A,L1)') 'coupled_final_time_constraint_solve_active ', .true.
+    write(ifile,'(A)') 'coupled_solver_semantics structure_only_coupled_final_time_X_and_T_solve'
+    write(ifile,'(A,L1)') 'deprecated_predictor_corrector_path_available ', .true.
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
     write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
     write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
@@ -940,6 +949,12 @@ contains
     write(ifile,'(A,ES24.16)') 'implicit_bending_update_norm_global ', implicit_bending_update_norm_global
     write(ifile,'(A,ES24.16)') 'max_post_bending_correction_norm_global ', post_bending_correction_norm_global
     write(ifile,'(A,ES24.16)') 'max_post_bending_max_inext_err_after_correction_global ', post_bending_max_inext_err_after_correction_global
+    write(ifile,'(A,I8)') 'max_outer_iterations_used ', max_outer_iterations_used
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_x ', final_coupled_residual_x
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_g ', final_coupled_residual_g
+    write(ifile,'(A,L1)') 'coupled_solver_converged ', coupled_solver_converged
+    write(ifile,'(A,ES24.16)') 'max_abs_constraint_residual_during_outer ', max_abs_constraint_residual_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_momentum_residual_during_outer ', max_abs_momentum_residual_during_outer
     if (case_id == 1) then
       write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
     else if (case_id == 2) then
