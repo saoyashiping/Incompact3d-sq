@@ -332,6 +332,33 @@ contains
     if (failure_mode == 0) failure_mode = 1
   end subroutine solve_bending_scalar_bicgstab
 
+  subroutine solve_free_end_implicit_bending_rhs_scalar(rhs, x, alpha, gamma_b, it_used, final_residual, converged, &
+       breakdown_detected, restart_count, failure_mode)
+    ! Generic free-end implicit bending solve:
+    !   (I + alpha * gamma_b * D4) x = rhs
+    ! Reuses the validated Step 3.3 operator/solver route.
+    real(mytype), intent(in) :: rhs(fiber_nl), alpha, gamma_b
+    real(mytype), intent(inout) :: x(fiber_nl)
+    real(mytype), intent(out) :: final_residual
+    integer, intent(out) :: it_used, restart_count, failure_mode
+    logical, intent(out) :: converged, breakdown_detected
+    real(mytype) :: amat(fiber_nl, fiber_nl)
+
+    if (fiber_flex_bending_linear_solver == 1) then
+      call solve_bending_scalar_bicgstab(rhs, x, alpha, gamma_b, fiber_flex_bending_iter_tol_effective, &
+           fiber_flex_bending_iter_maxit_effective, it_used, final_residual, converged, breakdown_detected, restart_count, failure_mode)
+    else
+      call build_bending_backward_euler_matrix(alpha, gamma_b, amat)
+      call solve_linear_system_dense(amat, rhs, x)
+      it_used = fiber_nl
+      final_residual = 0._mytype
+      converged = .true.
+      breakdown_detected = .false.
+      restart_count = 0
+      failure_mode = 0
+    endif
+  end subroutine solve_free_end_implicit_bending_rhs_scalar
+
   subroutine advance_bending_backward_euler(x_old, x_new, dt_b, gamma_b, max_linear_iterations, max_linear_residual, &
        max_linear_restarts, linear_breakdown_detected, linear_failure_mode)
     ! Bending-only backward-Euler kernel:

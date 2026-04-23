@@ -11,6 +11,7 @@ module fiber_flex_constraint
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        fiber_structure_rho_tilde
   use fiber_types, only : fiber_bending_gamma
+  use fiber_flex_bending, only : solve_free_end_implicit_bending_rhs_scalar
   use fiber_flex_ops, only : apply_free_end_bending_operator_scalar, apply_free_end_d2_scalar
   use fiber_io, only : write_fiber_flex_constraint_initial_points, write_fiber_flex_constraint_final_points, &
        write_fiber_flex_constraint_tension_last, write_fiber_flex_constraint_series, write_fiber_flex_constraint_summary
@@ -253,16 +254,39 @@ contains
     max_abs_force_term = maxval(abs(force_term))
   end subroutine solve_constraint_tension_huang_style
 
+  subroutine solve_constrained_step_with_implicit_bending(rhs_vec, x_out, dt_c, rho_tilde, gamma_b, implicit_update_norm)
+    ! Solve (I + alpha*gamma_b*D4) X^{n+1} = rhs with alpha = dt_c^2/rho_tilde
+    ! by reusing the validated Step 3.3 implicit bending kernel route.
+    real(mytype), intent(in) :: rhs_vec(3,fiber_nl), dt_c, rho_tilde, gamma_b
+    real(mytype), intent(out) :: x_out(3,fiber_nl), implicit_update_norm
+    real(mytype) :: alpha, final_residual
+    integer :: c, it_used, restart_count, failure_mode
+    logical :: converged, breakdown_detected
+
+    alpha = (dt_c * dt_c) / rho_tilde
+    do c = 1, 3
+      x_out(c,:) = rhs_vec(c,:)
+      call solve_free_end_implicit_bending_rhs_scalar(rhs_vec(c,:), x_out(c,:), alpha, gamma_b, it_used, final_residual, &
+           converged, breakdown_detected, restart_count, failure_mode)
+      if (.not.converged) then
+        if (nrank == 0) write(*,*) 'Error: implicit bending solve failed in Step 3.4.'
+        stop
+      endif
+    enddo
+    implicit_update_norm = sqrt(sum((x_out - rhs_vec)**2) / real(3*fiber_nl, mytype))
+  end subroutine solve_constrained_step_with_implicit_bending
+
   subroutine advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, &
-       max_abs_drift_term, max_abs_vel_term, max_abs_force_term)
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_n(3,fiber_nl), dt_c
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
-    real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term
-    real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl)
+    real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl), rhs_final(3,fiber_nl)
     integer :: c
 
-    ! Prediction step retained: X_ref = 2 X^n - X^{n-1}.
+    ! Step A: predictor configuration.
     x_ref = 2._mytype * xn - xnm1
+    ! Step B: evaluate predicted bending force for tension RHS/diagnostics.
     do c = 1, 3
       call apply_free_end_bending_operator_scalar(x_ref(c,:), fb_ref(c,:), fiber_bending_gamma)
     enddo
@@ -270,10 +294,12 @@ contains
          max_abs_drift_term, max_abs_vel_term, max_abs_force_term)
     call compute_tension_term_huang_style(t_half, x_ref, ftension)
 
-    ! Structural inertia term is explicit here to align with
-    ! rho_tilde * X_tt = d_s(T d_s X) + F_b + F_ext in standalone Step 3.4.
-    ! This remains a structure-only layer (no fluid-structure coupling).
-    xnp1 = 2._mytype * xn - xnm1 + (dt_c * dt_c / fiber_structure_rho_tilde) * (ftension + fb_ref + fext_n)
+    ! Step C: final RHS excludes explicit bending push; bending is implicit in Step D.
+    rhs_final = x_ref + (dt_c * dt_c / fiber_structure_rho_tilde) * (ftension + fext_n)
+    ! Step D: semi-implicit constrained update with 3.3 kernel:
+    !   (I + (dt^2/rho_tilde) * gamma * D4) X^{n+1} = rhs_final
+    call solve_constrained_step_with_implicit_bending(rhs_final, xnp1, dt_c, fiber_structure_rho_tilde, &
+         fiber_bending_gamma, implicit_bending_update_norm)
   end subroutine advance_constrained_structure_step
 
   subroutine initialize_constraint_test_state(case_id, xnm1, xn)
@@ -315,6 +341,7 @@ contains
     real(mytype) :: max_seg_global, max_inext_global, max_t_global, tnow
     real(mytype) :: max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step
     real(mytype) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
+    real(mytype) :: implicit_bending_update_norm_step, implicit_bending_update_norm_global
     real(mytype) :: case_metric
     integer :: step, outint, i
 
@@ -335,9 +362,10 @@ contains
     max_abs_drift_term_global = 0._mytype
     max_abs_vel_term_global = 0._mytype
     max_abs_force_term_global = 0._mytype
+    implicit_bending_update_norm_global = 0._mytype
     outint = max(1, fiber_flex_constraint_output_interval)
     call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
-         0._mytype, 0._mytype, 0._mytype, .true.)
+         0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
 
     do step = 1, fiber_flex_constraint_nsteps
       fext = 0._mytype
@@ -350,7 +378,7 @@ contains
       endif
 
       call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_constraint_dt, &
-           max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step)
+           max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, implicit_bending_update_norm_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       max_abs_tension = maxval(abs(t_half))
       max_seg_global = max(max_seg_global, max_seg_err)
@@ -359,11 +387,13 @@ contains
       max_abs_drift_term_global = max(max_abs_drift_term_global, max_abs_drift_term_step)
       max_abs_vel_term_global = max(max_abs_vel_term_global, max_abs_vel_term_step)
       max_abs_force_term_global = max(max_abs_force_term_global, max_abs_force_term_step)
+      implicit_bending_update_norm_global = max(implicit_bending_update_norm_global, implicit_bending_update_norm_step)
 
       tnow = real(step,mytype) * fiber_flex_constraint_dt
       if (mod(step,outint) == 0 .or. step == fiber_flex_constraint_nsteps) then
         call write_fiber_flex_constraint_series(step, tnow, max_seg_err, max_inext_err, max_abs_tension, &
-             max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, .false.)
+             max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, &
+             implicit_bending_update_norm_step, .false.)
       endif
 
       xnm1 = xn
@@ -385,7 +415,8 @@ contains
 
     call write_fiber_flex_constraint_summary(fiber_flex_constraint_case, fiber_flex_constraint_dt, &
          fiber_flex_constraint_nsteps, max_seg_global, max_inext_global, max_t_global, case_metric, &
-         max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global)
+         max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
+         implicit_bending_update_norm_global)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_constraint_test
