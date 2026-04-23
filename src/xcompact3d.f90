@@ -23,7 +23,8 @@ program xcompact3d
   use fiber_types, only : fiber_active, interp_solver_test_active, interp_solver_output_step, &
        rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, rigid_two_way_test_active, &
        rigid_kinematics_standalone, rigid_two_way_subiterations, fiber_flexible_active, &
-       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active, &
+       fiber_flex_structure_test_active
   use fiber_io, only : write_fiber_interp_solver
   use fiber_interp, only : run_fiber_interp_solver_readonly
   use fiber_coupling, only : run_rigid_coupling_step, rigid_two_way_prepare_forcing, rigid_two_way_finalize_update, &
@@ -269,13 +270,13 @@ subroutine init_xcompact3d()
   use fiber_types, only : fiber_active, interp_test_active, interp_solver_test_active, &
        spread_test_active, rigid_coupling_test_active, rigid_free_test_active, rigid_kinematics_test_active, &
        rigid_two_way_test_active, fiber_flexible_active, fiber_flex_operator_test_active, fiber_flex_bending_test_active, &
-       fiber_flex_constraint_test_active, &
+       fiber_flex_constraint_test_active, fiber_flex_structure_test_active, &
        rigid_kinematics_standalone
   use fiber_init, only : init_fiber
   use fiber_flex_init, only : init_flexible_fiber_state
   use fiber_flex_ops, only : run_flexible_operator_test
   use fiber_flex_bending, only : run_flexible_bending_test
-  use fiber_flex_constraint, only : run_flexible_constraint_test
+  use fiber_flex_constraint, only : run_flexible_constraint_test, run_flexible_structure_dynamics_test
   use fiber_rigid_motion, only : init_rigid_motion_reference
   use fiber_rigid_free, only : init_rigid_free_state
   use fiber_io, only : write_fiber_points, write_fiber_interp, &
@@ -460,6 +461,12 @@ subroutine init_xcompact3d()
      if (fiber_flexible_active .and. fiber_flex_constraint_test_active) then
         call run_flexible_constraint_test()
         if (nrank == 0) write(*,*) "Flexible constraint/tension test complete. Exiting before solver initialization."
+        call MPI_FINALIZE(ierr)
+        stop
+     endif
+     if (fiber_flexible_active .and. fiber_flex_structure_test_active) then
+        call run_flexible_structure_dynamics_test()
+        if (nrank == 0) write(*,*) "Flexible structure-only dynamics test complete. Exiting before solver initialization."
         call MPI_FINALIZE(ierr)
         stop
      endif

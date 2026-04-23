@@ -9,6 +9,10 @@ module fiber_flex_constraint
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
        fiber_s_ref, fiber_x, fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
+       fiber_flex_structure_test_active, fiber_flex_structure_case, fiber_flex_structure_nsteps, &
+       fiber_flex_structure_output_interval, fiber_flex_structure_dt, fiber_flex_structure_force_mode, &
+       fiber_flex_structure_force_amp, fiber_flex_structure_force_omega, fiber_flex_structure_force_direction, &
+       fiber_flex_structure_initial_shape_amp, &
        fiber_structure_rho_tilde, fiber_flex_constraint_outer_maxit, fiber_flex_constraint_outer_tol_x, &
        fiber_flex_constraint_outer_tol_g, fiber_flex_constraint_outer_tol_rx_rel, &
        fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
@@ -18,7 +22,8 @@ module fiber_flex_constraint
   use fiber_flex_bending, only : solve_free_end_implicit_bending_rhs_scalar
   use fiber_flex_ops, only : apply_free_end_bending_operator_scalar, apply_free_end_d2_scalar
   use fiber_io, only : write_fiber_flex_constraint_initial_points, write_fiber_flex_constraint_final_points, &
-       write_fiber_flex_constraint_tension_last, write_fiber_flex_constraint_series, write_fiber_flex_constraint_summary
+       write_fiber_flex_constraint_tension_last, write_fiber_flex_constraint_series, write_fiber_flex_constraint_summary, &
+       write_fiber_flex_structure_series, write_fiber_flex_structure_summary
 
   implicit none
 
@@ -360,6 +365,7 @@ contains
   subroutine solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_in, dt_c, rho_tilde, gamma_b, &
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
        max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       coupled_solver_converged_strict, coupled_solver_converged_effective, &
        max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
        max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
        final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected_final)
@@ -370,7 +376,7 @@ contains
     real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
     integer, intent(out) :: max_outer_iterations_used
     real(mytype), intent(out) :: final_coupled_residual_x, final_coupled_residual_g
-    logical, intent(out) :: coupled_solver_converged
+    logical, intent(out) :: coupled_solver_converged, coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
     real(mytype), intent(out) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
     real(mytype), intent(out) :: final_coupled_residual_x_rel
@@ -406,6 +412,8 @@ contains
     line_search_active = fiber_flex_constraint_line_search_active
     ls_bt_max = fiber_flex_constraint_line_search_max_backtracks
     coupled_solver_converged = .false.
+    coupled_solver_converged_strict = .false.
+    coupled_solver_converged_effective = .false.
     max_abs_constraint_residual_during_outer = 0._mytype
     max_abs_momentum_residual_during_outer = 0._mytype
     max_abs_delta_x_during_outer = 0._mytype
@@ -456,12 +464,16 @@ contains
       if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
            prev_dxmax <= fiber_flex_constraint_outer_tol_x) then
         coupled_solver_converged = .true.
+        coupled_solver_converged_strict = .true.
+        coupled_solver_converged_effective = .true.
         final_coupled_convergence_mode = 'strict'
         exit
       endif
       if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
            plateau_detected .and. geometry_regular) then
         coupled_solver_converged = .true.
+        coupled_solver_converged_strict = .false.
+        coupled_solver_converged_effective = .true.
         final_coupled_convergence_mode = 'plateau_accepted'
         exit
       endif
@@ -515,6 +527,8 @@ contains
         if (max_abs_rg <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
              (prev_dxmax <= 10._mytype * fiber_flex_constraint_outer_tol_x .or. plateau_detected) .and. geometry_regular) then
           coupled_solver_converged = .true.
+          coupled_solver_converged_strict = .false.
+          coupled_solver_converged_effective = .true.
           final_coupled_residual_x = max_abs_rx
           final_coupled_residual_g = max_abs_rg
           final_coupled_residual_x_rel = rx_rel
@@ -523,6 +537,8 @@ contains
           exit
         endif
         coupled_solver_converged = .false.
+        coupled_solver_converged_strict = .false.
+        coupled_solver_converged_effective = .false.
         final_coupled_residual_x = max_abs_rx
         final_coupled_residual_g = max_abs_rg
         final_coupled_residual_x_rel = rx_rel
@@ -542,6 +558,7 @@ contains
       implicit_bending_update_norm = max(implicit_bending_update_norm, dxmax)
     enddo
 
+    coupled_solver_converged = coupled_solver_converged_effective
     xnp1 = xk
     if (coupled_solver_converged) then
       if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
@@ -560,6 +577,7 @@ contains
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
        post_bending_correction_norm, post_bending_max_inext_err_after_correction, max_outer_iterations_used, &
        final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       coupled_solver_converged_strict, coupled_solver_converged_effective, &
        max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
        max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
        final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
@@ -569,7 +587,7 @@ contains
     real(mytype), intent(out) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
     integer, intent(out) :: max_outer_iterations_used
     real(mytype), intent(out) :: final_coupled_residual_x, final_coupled_residual_g
-    logical, intent(out) :: coupled_solver_converged
+    logical, intent(out) :: coupled_solver_converged, coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(out) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
     real(mytype), intent(out) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
     real(mytype), intent(out) :: final_coupled_residual_x_rel
@@ -581,6 +599,7 @@ contains
     call solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, fiber_structure_rho_tilde, &
          fiber_bending_gamma, max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
          max_outer_iterations_used, final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+         coupled_solver_converged_strict, coupled_solver_converged_effective, &
          max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
          max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
          final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
@@ -621,6 +640,169 @@ contains
     end select
   end subroutine initialize_constraint_test_state
 
+  subroutine compute_prescribed_structure_force(case_id, time_now, x_state, fext_out)
+    ! prescribed structure-only forcing, not from IBM
+    integer, intent(in) :: case_id
+    real(mytype), intent(in) :: time_now, x_state(3,fiber_nl)
+    real(mytype), intent(out) :: fext_out(3,fiber_nl)
+    real(mytype) :: dir(3), norm_dir, q, gshape, amp_now
+    integer :: l
+
+    fext_out = 0._mytype
+    dir = fiber_flex_structure_force_direction
+    norm_dir = sqrt(sum(dir**2))
+    if (norm_dir > 0._mytype) dir = dir / norm_dir
+    select case (fiber_flex_structure_force_mode)
+    case (0)
+      amp_now = 0._mytype
+    case (1)
+      amp_now = fiber_flex_structure_force_amp * sin(fiber_flex_structure_force_omega * time_now)
+    case (2)
+      amp_now = fiber_flex_structure_force_amp
+    case default
+      amp_now = 0._mytype
+    end select
+    do l = 1, fiber_nl
+      q = (fiber_s_ref(l) - fiber_s_ref(1)) / max(fiber_length, 1.0e-12_mytype)
+      gshape = q**4 * (1._mytype - q)**4
+      fext_out(:,l) = amp_now * gshape * dir
+    enddo
+  end subroutine compute_prescribed_structure_force
+
+  subroutine initialize_structure_dynamics_test_state(case_id, xnm1, xn)
+    integer, intent(in) :: case_id
+    real(mytype), intent(out) :: xnm1(3,fiber_nl), xn(3,fiber_nl)
+    real(mytype) :: q, gshape, amp0
+    integer :: l
+
+    xn = fiber_x
+    amp0 = fiber_flex_structure_initial_shape_amp
+    select case (case_id)
+    case (0)
+      do l = 1, fiber_nl
+        q = (fiber_s_ref(l) - fiber_s_ref(1)) / max(fiber_length, 1.0e-12_mytype)
+        gshape = q**4 * (1._mytype - q)**4
+        xn(2,l) = xn(2,l) + amp0 * gshape
+      enddo
+      xnm1 = xn
+    case (1)
+      xnm1 = xn
+    case (2)
+      do l = 1, fiber_nl
+        q = (fiber_s_ref(l) - fiber_s_ref(1)) / max(fiber_length, 1.0e-12_mytype)
+        gshape = q**4 * (1._mytype - q)**4
+        xn(2,l) = xn(2,l) + 1.5_mytype * amp0 * gshape
+      enddo
+      xnm1 = xn
+    case default
+      if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0,1,2.'
+      stop
+    end select
+  end subroutine initialize_structure_dynamics_test_state
+
+  subroutine compute_structure_dynamics_metrics(xnm1, xn, fext_now, dt_s, kinetic_energy, bending_energy, external_power, &
+       max_end_bc_d2_residual, max_end_bc_d3_residual)
+    real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_now(3,fiber_nl), dt_s
+    real(mytype), intent(out) :: kinetic_energy, bending_energy, external_power, max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype) :: u(3,fiber_nl), xss(3,fiber_nl), d3_left(3), d3_right(3)
+    integer :: c
+    u = (xn - xnm1) / dt_s
+    kinetic_energy = 0.5_mytype * fiber_structure_rho_tilde * fiber_ds * sum(u**2)
+    do c = 1, 3
+      call apply_free_end_d2_scalar(xn(c,:), xss(c,:))
+    enddo
+    bending_energy = 0.5_mytype * fiber_bending_gamma * fiber_ds * sum(xss**2)
+    external_power = fiber_ds * sum(fext_now * u)
+    max_end_bc_d2_residual = max(maxval(abs(xss(:,1))), maxval(abs(xss(:,fiber_nl))))
+    d3_left = (xss(:,2) - xss(:,1)) / fiber_ds
+    d3_right = (xss(:,fiber_nl) - xss(:,fiber_nl-1)) / fiber_ds
+    max_end_bc_d3_residual = max(maxval(abs(d3_left)), maxval(abs(d3_right)))
+  end subroutine compute_structure_dynamics_metrics
+
+  subroutine run_flexible_structure_dynamics_test()
+    real(mytype), allocatable :: xnm1(:,:), xn(:,:), xnp1(:,:), xinit(:,:), fext(:,:), t_half(:)
+    real(mytype) :: tnow, max_seg_err, max_inext_err, max_seg_err_global, max_inext_err_global
+    real(mytype) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    real(mytype) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
+    real(mytype) :: final_coupled_residual_x, final_coupled_residual_g, final_coupled_residual_x_rel
+    real(mytype) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
+    real(mytype) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
+    real(mytype) :: kinetic_energy, bending_energy, external_power
+    real(mytype) :: max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype) :: kinetic_energy_final, bending_energy_final, final_displacement_norm
+    real(mytype) :: max_end_bc_d2_residual_global, max_end_bc_d3_residual_global
+    integer :: step, outint, max_outer_iterations_used
+    logical :: coupled_solver_converged, coupled_solver_converged_strict, coupled_solver_converged_effective
+    logical :: coupled_solver_converged_strict_all, coupled_solver_converged_effective_all, plateau_detected
+    character(len=32) :: final_coupled_convergence_mode
+
+    if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
+         .not.fiber_flex_structure_test_active) then
+      if (nrank == 0) write(*,*) 'Error: invalid state for flexible structure dynamics test.'
+      stop
+    endif
+
+    allocate(xnm1(3,fiber_nl), xn(3,fiber_nl), xnp1(3,fiber_nl), xinit(3,fiber_nl), fext(3,fiber_nl), t_half(fiber_nl-1))
+    if (allocated(fiber_tension_half_prevstep)) fiber_tension_half_prevstep = 0._mytype
+    call initialize_structure_dynamics_test_state(fiber_flex_structure_case, xnm1, xn)
+    xinit = xn
+    outint = max(1, fiber_flex_structure_output_interval)
+    max_seg_err_global = 0._mytype
+    max_inext_err_global = 0._mytype
+    max_end_bc_d2_residual_global = 0._mytype
+    max_end_bc_d3_residual_global = 0._mytype
+    coupled_solver_converged_strict_all = .true.
+    coupled_solver_converged_effective_all = .true.
+    kinetic_energy_final = 0._mytype
+    bending_energy_final = 0._mytype
+    final_coupled_residual_x = 0._mytype
+    final_coupled_residual_g = 0._mytype
+    final_coupled_residual_x_rel = 0._mytype
+    final_coupled_convergence_mode = 'failed'
+
+    call write_fiber_flex_structure_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
+         0._mytype, 0._mytype, 0._mytype, 0, 0._mytype, .true.)
+
+    do step = 1, fiber_flex_structure_nsteps
+      tnow = real(step,mytype) * fiber_flex_structure_dt
+      call compute_prescribed_structure_force(fiber_flex_structure_case, tnow, xn, fext)
+      call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_structure_dt, &
+           max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+           post_bending_correction_norm, post_bending_max_inext_err_after_correction, max_outer_iterations_used, &
+           final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, coupled_solver_converged_strict, &
+           coupled_solver_converged_effective, max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
+           max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
+           final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
+      call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
+      call compute_structure_dynamics_metrics(xnm1, xn, fext, fiber_flex_structure_dt, kinetic_energy, bending_energy, external_power, &
+           max_end_bc_d2_residual, max_end_bc_d3_residual)
+      max_seg_err_global = max(max_seg_err_global, max_seg_err)
+      max_inext_err_global = max(max_inext_err_global, max_inext_err)
+      max_end_bc_d2_residual_global = max(max_end_bc_d2_residual_global, max_end_bc_d2_residual)
+      max_end_bc_d3_residual_global = max(max_end_bc_d3_residual_global, max_end_bc_d3_residual)
+      coupled_solver_converged_strict_all = coupled_solver_converged_strict_all .and. coupled_solver_converged_strict
+      coupled_solver_converged_effective_all = coupled_solver_converged_effective_all .and. coupled_solver_converged_effective
+      kinetic_energy_final = kinetic_energy
+      bending_energy_final = bending_energy
+      if (mod(step,outint) == 0 .or. step == fiber_flex_structure_nsteps) then
+        call write_fiber_flex_structure_series(step, tnow, kinetic_energy, bending_energy, external_power, max_seg_err, &
+             max_inext_err, max_abs_momentum_residual_during_outer, max_abs_constraint_residual_during_outer, &
+             final_coupled_residual_x_rel, max_outer_iterations_used, accepted_line_search_lambda, .false.)
+      endif
+      xnm1 = xn
+      xn = xnp1
+    enddo
+
+    final_displacement_norm = sqrt(sum((xn - xinit)**2) / real(3*fiber_nl,mytype))
+    call write_fiber_flex_structure_summary(fiber_flex_structure_case, fiber_flex_structure_dt, fiber_flex_structure_nsteps, &
+         coupled_solver_converged_strict_all, coupled_solver_converged_effective_all, final_coupled_convergence_mode, &
+         final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g, kinetic_energy_final, &
+         bending_energy_final, max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual_global, &
+         max_end_bc_d3_residual_global, final_displacement_norm)
+
+    deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
+  end subroutine run_flexible_structure_dynamics_test
+
   subroutine run_flexible_constraint_test()
     real(mytype), allocatable :: xnm1(:,:), xn(:,:), xnp1(:,:), xinit(:,:), fext(:,:), t_half(:)
     real(mytype) :: max_seg_err, max_inext_err, max_abs_tension
@@ -642,6 +824,7 @@ contains
     character(len=32) :: final_coupled_convergence_mode_step, final_coupled_convergence_mode_global
     integer :: max_outer_iterations_used_step, max_outer_iterations_used_global
     logical :: coupled_solver_converged_step, coupled_solver_converged_all
+    logical :: coupled_solver_converged_strict_step, coupled_solver_converged_effective_step
     real(mytype) :: case_metric
     integer :: step, outint, i
 
@@ -697,7 +880,8 @@ contains
            max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, implicit_bending_update_norm_step, &
            post_bending_correction_norm_step, post_bending_max_inext_err_after_correction_step, &
            max_outer_iterations_used_step, final_coupled_residual_x_step, final_coupled_residual_g_step, &
-           coupled_solver_converged_step, max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step, &
+           coupled_solver_converged_step, coupled_solver_converged_strict_step, coupled_solver_converged_effective_step, &
+           max_abs_constraint_residual_during_outer_step, max_abs_momentum_residual_during_outer_step, &
            max_abs_delta_x_during_outer_step, max_abs_delta_t_during_outer_step, accepted_line_search_lambda_step, &
            final_coupled_residual_x_rel_step, final_coupled_convergence_mode_step, plateau_detected_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)

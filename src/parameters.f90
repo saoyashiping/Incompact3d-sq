@@ -50,6 +50,10 @@ subroutine parameter(input_i3d)
        fiber_flex_constraint_outer_tol_rx_rel, &
        fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
        fiber_flex_constraint_line_search_max_backtracks, fiber_flex_constraint_tension_warm_start_active, &
+       fiber_flex_structure_test_active, fiber_flex_structure_case, fiber_flex_structure_nsteps, &
+       fiber_flex_structure_output_interval, fiber_flex_structure_dt, fiber_flex_structure_force_mode, &
+       fiber_flex_structure_force_amp, fiber_flex_structure_force_omega, fiber_flex_structure_force_direction, &
+       fiber_flex_structure_initial_shape_amp, &
        fiber_structure_rho_tilde, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
@@ -135,6 +139,10 @@ subroutine parameter(input_i3d)
        fiber_flex_constraint_outer_tol_rx_rel, &
        fiber_flex_constraint_line_search_active,fiber_flex_constraint_line_search_beta, &
        fiber_flex_constraint_line_search_max_backtracks,fiber_flex_constraint_tension_warm_start_active, &
+       fiber_flex_structure_test_active,fiber_flex_structure_case,fiber_flex_structure_nsteps, &
+       fiber_flex_structure_output_interval,fiber_flex_structure_dt,fiber_flex_structure_force_mode, &
+       fiber_flex_structure_force_amp,fiber_flex_structure_force_omega,fiber_flex_structure_force_direction, &
+       fiber_flex_structure_initial_shape_amp, &
        fiber_structure_rho_tilde, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
@@ -497,6 +505,44 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_flex_constraint_line_search_max_backtracks < 0) then
         if (nrank == 0) write(*,*) 'Error: fiber_flex_constraint_line_search_max_backtracks must be >= 0.'
+        stop
+     endif
+  endif
+
+  if (fiber_flex_structure_test_active) then
+     if (.not.fiber_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_test_active requires fiber_active = true.'
+        stop
+     endif
+     if (.not.fiber_flexible_active) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_test_active requires fiber_flexible_active = true.'
+        stop
+     endif
+     if (fiber_flex_structure_nsteps < 1) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_nsteps must be >= 1.'
+        stop
+     endif
+     if (fiber_flex_structure_dt <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_dt must be > 0.'
+        stop
+     endif
+     if (fiber_flex_structure_force_mode < 0 .or. fiber_flex_structure_force_mode > 2) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_force_mode must be 0, 1 or 2.'
+        stop
+     endif
+     if (sum(fiber_flex_structure_force_direction**2) <= 0._mytype) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_force_direction must be non-zero.'
+        stop
+     endif
+     if (fiber_flex_structure_case < 0 .or. fiber_flex_structure_case > 2) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0, 1 or 2.'
+        stop
+     endif
+     if (fiber_flex_structure_test_active .and. (fiber_flex_operator_test_active .or. fiber_flex_bending_test_active .or. &
+          fiber_flex_constraint_test_active .or. rigid_coupling_test_active .or. rigid_free_test_active .or. &
+          rigid_kinematics_test_active .or. rigid_two_way_test_active .or. interp_test_active .or. &
+          interp_solver_test_active .or. spread_test_active)) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_test_active cannot be combined with other fiber test modes.'
         stop
      endif
   endif

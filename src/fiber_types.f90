@@ -36,6 +36,7 @@ module fiber_types
   logical :: fiber_flex_operator_test_active
   logical :: fiber_flex_bending_test_active
   logical :: fiber_flex_constraint_test_active
+  logical :: fiber_flex_structure_test_active
   logical :: rigid_kinematics_one_way
   logical :: rigid_kinematics_standalone
   integer :: rigid_motion_case
@@ -106,6 +107,15 @@ module fiber_types
   real(mytype) :: fiber_flex_constraint_line_search_beta
   integer :: fiber_flex_constraint_line_search_max_backtracks
   logical :: fiber_flex_constraint_tension_warm_start_active
+  integer :: fiber_flex_structure_case
+  integer :: fiber_flex_structure_nsteps
+  integer :: fiber_flex_structure_output_interval
+  real(mytype) :: fiber_flex_structure_dt
+  integer :: fiber_flex_structure_force_mode
+  real(mytype) :: fiber_flex_structure_force_amp
+  real(mytype) :: fiber_flex_structure_force_omega
+  real(mytype), dimension(3) :: fiber_flex_structure_force_direction
+  real(mytype) :: fiber_flex_structure_initial_shape_amp
   real(mytype) :: fiber_structure_rho_tilde
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
@@ -169,6 +179,7 @@ contains
     fiber_flex_operator_test_active = .false.
     fiber_flex_bending_test_active = .false.
     fiber_flex_constraint_test_active = .false.
+    fiber_flex_structure_test_active = .false.
     rigid_kinematics_one_way = .true.
     rigid_kinematics_standalone = .false.
     rigid_motion_case = 1
@@ -239,6 +250,15 @@ contains
     fiber_flex_constraint_line_search_beta = 0.5_mytype
     fiber_flex_constraint_line_search_max_backtracks = 6
     fiber_flex_constraint_tension_warm_start_active = .true.
+    fiber_flex_structure_case = 0
+    fiber_flex_structure_nsteps = 100
+    fiber_flex_structure_output_interval = 1
+    fiber_flex_structure_dt = 1.0e-3_mytype
+    fiber_flex_structure_force_mode = 0
+    fiber_flex_structure_force_amp = 1.0e-3_mytype
+    fiber_flex_structure_force_omega = 1.0_mytype
+    fiber_flex_structure_force_direction = (/0._mytype, 1._mytype, 0._mytype/)
+    fiber_flex_structure_initial_shape_amp = 0.05_mytype * fiber_length
     fiber_structure_rho_tilde = 1.0_mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
