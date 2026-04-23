@@ -276,12 +276,52 @@ contains
     implicit_update_norm = sqrt(sum((x_out - rhs_vec)**2) / real(3*fiber_nl, mytype))
   end subroutine solve_constrained_step_with_implicit_bending
 
+  subroutine build_constraint_correction_rhs(x_prov, dt_c, rhs_corr)
+    ! Post-bending constraint correction RHS:
+    ! driven only by current inextensibility violation of provisional X.
+    ! This is separate from the main Huang-style time-advance RHS.
+    real(mytype), intent(in) :: x_prov(3,fiber_nl), dt_c
+    real(mytype), intent(out) :: rhs_corr(fiber_nl-1)
+    real(mytype) :: xs_half(3,fiber_nl-1), kappa_corr
+    integer :: i
+
+    call lag_ds_center_node_to_half(x_prov, xs_half)
+    kappa_corr = 2._mytype / (dt_c * dt_c)
+    do i = 1, fiber_nl-1
+      rhs_corr(i) = -kappa_corr * (dot_product(xs_half(:,i), xs_half(:,i)) - 1._mytype)
+    enddo
+  end subroutine build_constraint_correction_rhs
+
+  subroutine apply_post_bending_constraint_correction(x_prov, x_corr, dt_c, rho_tilde, correction_scale, &
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction)
+    ! This is a post-bending constraint correction used within the Step 3.4
+    ! structure-only solver. It is not a full monolithic constrained implicit
+    ! structure solve. The goal is to restore consistency between the
+    ! provisional implicit-bending configuration and inextensibility.
+    real(mytype), intent(in) :: x_prov(3,fiber_nl), dt_c, rho_tilde, correction_scale
+    real(mytype), intent(out) :: x_corr(3,fiber_nl), post_bending_correction_norm, post_bending_max_inext_err_after_correction
+    real(mytype) :: rhs_corr(fiber_nl-1), amat_corr(fiber_nl-1,fiber_nl-1), t_corr(fiber_nl-1)
+    real(mytype) :: f_corr(3,fiber_nl), max_seg_after
+
+    call build_constraint_correction_rhs(x_prov, dt_c, rhs_corr)
+    call assemble_tension_matrix_huang_style(x_prov, amat_corr)
+    call solve_dense_small(amat_corr, rhs_corr, t_corr, fiber_nl-1)
+    call compute_tension_term_huang_style(t_corr, x_prov, f_corr)
+
+    x_corr = x_prov + correction_scale * (dt_c * dt_c / rho_tilde) * f_corr
+    post_bending_correction_norm = sqrt(sum((x_corr - x_prov)**2) / real(3*fiber_nl, mytype))
+    call compute_constraint_error(x_corr, max_seg_after, post_bending_max_inext_err_after_correction)
+  end subroutine apply_post_bending_constraint_correction
+
   subroutine advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_n, dt_c, &
-       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm)
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_n(3,fiber_nl), dt_c
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
     real(mytype), intent(out) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
-    real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl), rhs_final(3,fiber_nl)
+    real(mytype), intent(out) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
+    real(mytype) :: x_ref(3,fiber_nl), fb_ref(3,fiber_nl), ftension(3,fiber_nl), rhs_final(3,fiber_nl), x_prov(3,fiber_nl)
+    real(mytype), parameter :: post_bending_correction_scale = 1.0_mytype
     integer :: c
 
     ! Step A: predictor configuration.
@@ -298,8 +338,10 @@ contains
     rhs_final = x_ref + (dt_c * dt_c / fiber_structure_rho_tilde) * (ftension + fext_n)
     ! Step D: semi-implicit constrained update with 3.3 kernel:
     !   (I + (dt^2/rho_tilde) * gamma * D4) X^{n+1} = rhs_final
-    call solve_constrained_step_with_implicit_bending(rhs_final, xnp1, dt_c, fiber_structure_rho_tilde, &
+    call solve_constrained_step_with_implicit_bending(rhs_final, x_prov, dt_c, fiber_structure_rho_tilde, &
          fiber_bending_gamma, implicit_bending_update_norm)
+    call apply_post_bending_constraint_correction(x_prov, xnp1, dt_c, fiber_structure_rho_tilde, post_bending_correction_scale, &
+         post_bending_correction_norm, post_bending_max_inext_err_after_correction)
   end subroutine advance_constrained_structure_step
 
   subroutine initialize_constraint_test_state(case_id, xnm1, xn)
@@ -342,6 +384,8 @@ contains
     real(mytype) :: max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step
     real(mytype) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
     real(mytype) :: implicit_bending_update_norm_step, implicit_bending_update_norm_global
+    real(mytype) :: post_bending_correction_norm_step, post_bending_correction_norm_global
+    real(mytype) :: post_bending_max_inext_err_after_correction_step, post_bending_max_inext_err_after_correction_global
     real(mytype) :: case_metric
     integer :: step, outint, i
 
@@ -363,9 +407,11 @@ contains
     max_abs_vel_term_global = 0._mytype
     max_abs_force_term_global = 0._mytype
     implicit_bending_update_norm_global = 0._mytype
+    post_bending_correction_norm_global = 0._mytype
+    post_bending_max_inext_err_after_correction_global = 0._mytype
     outint = max(1, fiber_flex_constraint_output_interval)
     call write_fiber_flex_constraint_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
-         0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
+         0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, .true.)
 
     do step = 1, fiber_flex_constraint_nsteps
       fext = 0._mytype
@@ -378,7 +424,8 @@ contains
       endif
 
       call advance_constrained_structure_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_constraint_dt, &
-           max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, implicit_bending_update_norm_step)
+           max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, implicit_bending_update_norm_step, &
+           post_bending_correction_norm_step, post_bending_max_inext_err_after_correction_step)
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       max_abs_tension = maxval(abs(t_half))
       max_seg_global = max(max_seg_global, max_seg_err)
@@ -388,12 +435,16 @@ contains
       max_abs_vel_term_global = max(max_abs_vel_term_global, max_abs_vel_term_step)
       max_abs_force_term_global = max(max_abs_force_term_global, max_abs_force_term_step)
       implicit_bending_update_norm_global = max(implicit_bending_update_norm_global, implicit_bending_update_norm_step)
+      post_bending_correction_norm_global = max(post_bending_correction_norm_global, post_bending_correction_norm_step)
+      post_bending_max_inext_err_after_correction_global = max(post_bending_max_inext_err_after_correction_global, &
+           post_bending_max_inext_err_after_correction_step)
 
       tnow = real(step,mytype) * fiber_flex_constraint_dt
       if (mod(step,outint) == 0 .or. step == fiber_flex_constraint_nsteps) then
         call write_fiber_flex_constraint_series(step, tnow, max_seg_err, max_inext_err, max_abs_tension, &
              max_abs_drift_term_step, max_abs_vel_term_step, max_abs_force_term_step, &
-             implicit_bending_update_norm_step, .false.)
+             implicit_bending_update_norm_step, post_bending_correction_norm_step, &
+             post_bending_max_inext_err_after_correction_step, .false.)
       endif
 
       xnm1 = xn
@@ -416,7 +467,8 @@ contains
     call write_fiber_flex_constraint_summary(fiber_flex_constraint_case, fiber_flex_constraint_dt, &
          fiber_flex_constraint_nsteps, max_seg_global, max_inext_global, max_t_global, case_metric, &
          max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
-         implicit_bending_update_norm_global)
+         implicit_bending_update_norm_global, post_bending_correction_norm_global, &
+         post_bending_max_inext_err_after_correction_global, 1.0_mytype)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_constraint_test

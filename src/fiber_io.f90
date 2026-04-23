@@ -879,32 +879,38 @@ contains
   end subroutine write_fiber_flex_constraint_tension_last
 
   subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, &
-       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, overwrite)
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction, overwrite)
     integer, intent(in) :: step
     real(mytype), intent(in) :: time, max_seg_err, max_inext_err, max_abs_tension
     real(mytype), intent(in) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    real(mytype), intent(in) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
     logical, intent(in) :: overwrite
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term implicit_bending_update_norm'
+      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term implicit_bending_update_norm post_bending_correction_norm post_bending_max_inext_err_after_correction'
     else
       open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,8(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension, &
-         max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    write(ifile,'(I10,1X,10(ES24.16,1X))') step, time, max_seg_err, max_inext_err, max_abs_tension, &
+         max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+         post_bending_correction_norm, post_bending_max_inext_err_after_correction
     close(ifile)
   end subroutine write_fiber_flex_constraint_series
 
   subroutine write_fiber_flex_constraint_summary(case_id, dt_c, nsteps, max_seg_err_global, max_inext_err_global, &
        max_abs_tension_global, case_metric, max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
-       implicit_bending_update_norm_global)
+       implicit_bending_update_norm_global, post_bending_correction_norm_global, &
+       post_bending_max_inext_err_after_correction_global, post_bending_correction_scale)
     integer, intent(in) :: case_id, nsteps
     real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
     real(mytype), intent(in) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
     real(mytype), intent(in) :: implicit_bending_update_norm_global
+    real(mytype), intent(in) :: post_bending_correction_norm_global, post_bending_max_inext_err_after_correction_global
+    real(mytype), intent(in) :: post_bending_correction_scale
     integer :: ifile
     if (nrank /= 0) return
     if (.not.fiber_flex_constraint_test_active) return
@@ -922,6 +928,9 @@ contains
     write(ifile,'(A,L1)') 'implicit_bending_included ', .true.
     write(ifile,'(A)') 'implicit_bending_semantics semi_implicit_3p3_kernel_in_final_position_update'
     write(ifile,'(A)') 'bending_update_scope implicit_in_position_update_explicit_in_tension_rhs'
+    write(ifile,'(A,L1)') 'post_bending_constraint_correction_active ', .true.
+    write(ifile,'(A)') 'post_bending_correction_semantics single_tension_based_constraint_projection_after_implicit_bending'
+    write(ifile,'(A,ES24.16)') 'post_bending_correction_scale ', post_bending_correction_scale
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
     write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
     write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
@@ -929,6 +938,8 @@ contains
     write(ifile,'(A,ES24.16)') 'max_abs_vel_term_global ', max_abs_vel_term_global
     write(ifile,'(A,ES24.16)') 'max_abs_force_term_global ', max_abs_force_term_global
     write(ifile,'(A,ES24.16)') 'implicit_bending_update_norm_global ', implicit_bending_update_norm_global
+    write(ifile,'(A,ES24.16)') 'max_post_bending_correction_norm_global ', post_bending_correction_norm_global
+    write(ifile,'(A,ES24.16)') 'max_post_bending_max_inext_err_after_correction_global ', post_bending_max_inext_err_after_correction_global
     if (case_id == 1) then
       write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
     else if (case_id == 2) then
