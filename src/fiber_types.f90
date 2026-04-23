@@ -98,6 +98,13 @@ module fiber_types
   integer :: fiber_flex_constraint_output_interval
   real(mytype) :: fiber_flex_constraint_dt
   real(mytype) :: fiber_flex_constraint_force_amp
+  integer :: fiber_flex_constraint_outer_maxit
+  real(mytype) :: fiber_flex_constraint_outer_tol_x
+  real(mytype) :: fiber_flex_constraint_outer_tol_g
+  logical :: fiber_flex_constraint_line_search_active
+  real(mytype) :: fiber_flex_constraint_line_search_beta
+  integer :: fiber_flex_constraint_line_search_max_backtracks
+  logical :: fiber_flex_constraint_tension_warm_start_active
   real(mytype) :: fiber_structure_rho_tilde
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
@@ -222,6 +229,13 @@ contains
     fiber_flex_constraint_output_interval = 1
     fiber_flex_constraint_dt = 1.0e-3_mytype
     fiber_flex_constraint_force_amp = 1.0e-3_mytype
+    fiber_flex_constraint_outer_maxit = 12
+    fiber_flex_constraint_outer_tol_x = 1.0e-10_mytype
+    fiber_flex_constraint_outer_tol_g = 1.0e-10_mytype
+    fiber_flex_constraint_line_search_active = .true.
+    fiber_flex_constraint_line_search_beta = 0.5_mytype
+    fiber_flex_constraint_line_search_max_backtracks = 6
+    fiber_flex_constraint_tension_warm_start_active = .true.
     fiber_structure_rho_tilde = 1.0_mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype
