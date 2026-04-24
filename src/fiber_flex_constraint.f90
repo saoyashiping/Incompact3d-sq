@@ -7,6 +7,7 @@ module fiber_flex_constraint
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
   use fiber_types, only : fiber_active, fiber_flexible_active, fiber_flex_initialized, fiber_nl, fiber_length, fiber_ds, &
+       fiber_center, fiber_direction, &
        fiber_s_ref, fiber_x, fiber_flex_constraint_test_active, fiber_flex_constraint_case, fiber_flex_constraint_nsteps, &
        fiber_flex_constraint_output_interval, fiber_flex_constraint_dt, fiber_flex_constraint_force_amp, &
        fiber_flex_structure_test_active, fiber_flex_structure_case, fiber_flex_structure_nsteps, &
