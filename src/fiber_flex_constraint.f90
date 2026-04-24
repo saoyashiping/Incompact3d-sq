@@ -616,16 +616,18 @@ contains
     enddo
   end subroutine compute_half_segment_constraint_residual
 
-  subroutine solve_position_given_tension_schur(xnm1, xn, x_geom, t_half, fext_in, dt_s, rho_tilde, gamma_b, x_new)
+  subroutine solve_position_given_tension_schur(xnm1, xn, x_geom, t_half, fext_in, dt_s, rho_tilde, gamma_b, x_new, solve_ok)
     ! implicit bending kernel absorbs the high-order stiffness and is reused from Step 3.3
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), x_geom(3,fiber_nl), t_half(fiber_nl-1)
     real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: x_new(3,fiber_nl)
+    logical, intent(out) :: solve_ok
     real(mytype) :: ftension(3,fiber_nl), rhs(3,fiber_nl), alpha, dxmax
     integer :: c, it_used, restart_count, failure_mode
     logical :: converged, breakdown_detected
 
     alpha = dt_s * dt_s / rho_tilde
+    solve_ok = .true.
     call compute_tension_term_huang_style(t_half, x_geom, ftension)
     rhs = 2._mytype * xn - xnm1 + alpha * (fext_in + ftension)
     do c = 1, 3
@@ -633,7 +635,8 @@ contains
       call solve_free_end_implicit_bending_rhs_scalar(rhs(c,:), x_new(c,:), alpha, gamma_b, it_used, dxmax, &
            converged, breakdown_detected, restart_count, failure_mode)
       if (.not.converged) then
-        x_new(c,:) = rhs(c,:)
+        solve_ok = .false.
+        return
       endif
     enddo
   end subroutine solve_position_given_tension_schur
@@ -658,7 +661,10 @@ contains
         delta_x(c,:) = 0._mytype
         call solve_free_end_implicit_bending_rhs_scalar(rhs_delta(c,:), delta_x(c,:), alpha, gamma_b, it_used, dxmax, &
              converged, breakdown_detected, restart_count, failure_mode)
-        if (.not.converged) delta_x(c,:) = rhs_delta(c,:)
+        if (.not.converged) then
+          smat = 0._mytype
+          return
+        endif
       enddo
       call lag_ds_center_node_to_half(delta_x, dsdx)
       do i = 1, fiber_nl-1
@@ -938,12 +944,12 @@ contains
     real(mytype), intent(out) :: schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda
     real(mytype), intent(out) :: schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot
     character(len=*), intent(out) :: schur_convergence_mode, schur_linear_solver_method, schur_linear_failure_mode
-    real(mytype) :: xk(3,fiber_nl), xtrial(3,fiber_nl), tk(fiber_nl-1), ttrial(fiber_nl-1), delta_t(fiber_nl-1)
+    real(mytype) :: xk(3,fiber_nl), xtrial(3,fiber_nl), xwork(3,fiber_nl), tk(fiber_nl-1), ttrial(fiber_nl-1), delta_t(fiber_nl-1)
     real(mytype) :: gk(fiber_nl-1), gtrial(fiber_nl-1), smat(fiber_nl-1,fiber_nl-1), lambda, phi, phi_trial
-    real(mytype) :: max_abs_g, max_seg_err, max_inext_err, max_abs_g_trial, rx_scale, alpha
+    real(mytype) :: max_abs_g, max_seg_err, max_inext_err, max_abs_g_trial, rx_scale, alpha, rx_rel_trial
     real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), beta_ls
     integer :: it, ibt, maxit, maxbt
-    logical :: accepted
+    logical :: accepted, solve_ok, geom_ok, finite_ok
 
     alpha = dt_s * dt_s / rho_tilde
     xk = 2._mytype * xn - xnm1 + alpha * fext_in
@@ -963,10 +969,22 @@ contains
     schur_iterations_used = 0
 
     do it = 1, maxit
-      call solve_position_given_tension_schur(xnm1, xn, xk, tk, fext_in, dt_s, rho_tilde, gamma_b, xk)
+      xwork = xk
+      call solve_position_given_tension_schur(xnm1, xn, xwork, tk, fext_in, dt_s, rho_tilde, gamma_b, xk, solve_ok)
+      if (.not.solve_ok) then
+        schur_convergence_mode = 'failed'
+        exit
+      endif
       call compute_half_segment_constraint_residual(xk, gk, max_abs_g, max_seg_err, max_inext_err)
+      call build_coupled_structure_residual(xk, tk, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+      call compute_momentum_residual_scale_final_time(xk, tk, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+      schur_final_momentum_residual = maxval(abs(rx))
+      schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
+      finite_ok = all(xk == xk) .and. all(tk == tk)
+      geom_ok = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
       schur_iterations_used = it
-      if (max_abs_g <= fiber_flex_constraint_outer_tol_g) then
+      if (max_abs_g <= fiber_flex_constraint_outer_tol_g .and. schur_final_rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+           finite_ok .and. geom_ok) then
         schur_solver_converged = .true.
         schur_convergence_mode = 'strict'
         exit
@@ -983,10 +1001,20 @@ contains
       accepted = .false.
       do ibt = 0, maxbt
         ttrial = tk + lambda * delta_t
-        call solve_position_given_tension_schur(xnm1, xn, xk, ttrial, fext_in, dt_s, rho_tilde, gamma_b, xtrial)
+        xwork = xk
+        call solve_position_given_tension_schur(xnm1, xn, xwork, ttrial, fext_in, dt_s, rho_tilde, gamma_b, xtrial, solve_ok)
+        if (.not.solve_ok) then
+          lambda = beta_ls * lambda
+          cycle
+        endif
         call compute_half_segment_constraint_residual(xtrial, gtrial, max_abs_g_trial, max_seg_err, max_inext_err)
-        phi_trial = max_abs_g_trial
-        if (phi_trial < phi) then
+        call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+        call compute_momentum_residual_scale_final_time(xtrial, ttrial, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+        rx_rel_trial = maxval(abs(rx)) / max(rx_scale, 1.0e-30_mytype)
+        finite_ok = all(xtrial == xtrial) .and. all(ttrial == ttrial) .and. all(rx == rx) .and. all(gtrial == gtrial)
+        geom_ok = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
+        phi_trial = max(max_abs_g_trial, rx_rel_trial)
+        if (phi_trial < max(phi, schur_final_rx_rel) .and. finite_ok .and. geom_ok) then
           accepted = .true.
           exit
         endif
@@ -1016,10 +1044,6 @@ contains
     schur_final_momentum_residual = maxval(abs(rx))
     schur_final_constraint_residual = maxval(abs(rg))
     schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
-    if (schur_solver_converged) then
-      if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
-      fiber_tension_half_prevstep = t_half
-    endif
   end subroutine solve_structure_dynamics_schur_step
 
   subroutine advance_structure_dynamics_with_retry(xnm1, xn, xnp1, t_half, fext_in, dt_macro, rho_tilde, gamma_b, &
@@ -1069,6 +1093,8 @@ contains
         step_success = .true.
         xnp1 = xcur
         nsub_used = nsub
+        if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
+        fiber_tension_half_prevstep = t_half
         return
       endif
       rejection_count = rejection_count + 1
