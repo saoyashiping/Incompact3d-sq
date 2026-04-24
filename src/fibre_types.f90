@@ -1,0 +1,41 @@
+module fibre_types
+
+  use decomp_2d_constants, only : mytype
+
+  implicit none
+  private
+
+  type, public :: fibre_t
+    integer :: nl = 0
+    real(mytype) :: length = 0._mytype
+    real(mytype) :: ds = 0._mytype
+    real(mytype) :: rho_tilde = 0._mytype
+    real(mytype) :: gamma = 0._mytype
+    real(mytype), allocatable :: x(:,:)
+    real(mytype), allocatable :: x_old(:,:)
+    real(mytype), allocatable :: v(:,:)
+    real(mytype), allocatable :: tension(:)
+  end type fibre_t
+
+  public :: fibre_allocate
+
+contains
+
+  subroutine fibre_allocate(fibre, nl)
+    type(fibre_t), intent(inout) :: fibre
+    integer, intent(in) :: nl
+
+    fibre%nl = nl
+
+    if (allocated(fibre%x)) deallocate(fibre%x)
+    if (allocated(fibre%x_old)) deallocate(fibre%x_old)
+    if (allocated(fibre%v)) deallocate(fibre%v)
+    if (allocated(fibre%tension)) deallocate(fibre%tension)
+
+    allocate(fibre%x(3, nl))
+    allocate(fibre%x_old(3, nl))
+    allocate(fibre%v(3, nl))
+    allocate(fibre%tension(nl))
+  end subroutine fibre_allocate
+
+end module fibre_types
