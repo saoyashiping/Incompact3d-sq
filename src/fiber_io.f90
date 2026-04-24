@@ -1028,7 +1028,7 @@ contains
        max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent, final_displacement_norm, &
        max_abs_fext_global, max_abs_fext_final, external_power_final, max_forced_predictor_norm_global, &
        max_newton_accepted_update_norm_global, initial_shape_projection_active, initial_max_seg_err, &
-       initial_max_inext_err, newton_iterations_used, &
+       initial_max_inext_err, initial_projection_semantics, newton_iterations_used, &
        newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
@@ -1041,6 +1041,7 @@ contains
     real(mytype), intent(in) :: max_forced_predictor_norm_global, max_newton_accepted_update_norm_global
     logical, intent(in) :: initial_shape_projection_active
     real(mytype), intent(in) :: initial_max_seg_err, initial_max_inext_err
+    character(len=*), intent(in) :: initial_projection_semantics
     integer, intent(in) :: newton_iterations_used
     real(mytype), intent(in) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
     character(len=*), intent(in) :: final_coupled_convergence_mode
@@ -1055,6 +1056,7 @@ contains
     write(ifile,'(A,ES24.16)') 'fiber_flex_structure_dt ', dt_s
     write(ifile,'(A,I8)') 'fiber_flex_structure_nsteps ', nsteps
     write(ifile,'(A,I8)') 'fiber_flex_structure_force_mode ', fiber_flex_structure_force_mode
+    write(ifile,'(A,L1)') 'newton_line_search_active ', fiber_flex_constraint_line_search_active
     write(ifile,'(A,L1)') 'coupled_solver_converged_strict ', coupled_solver_converged_strict
     write(ifile,'(A,L1)') 'coupled_solver_converged_effective ', coupled_solver_converged_effective
     write(ifile,'(A,A)') 'final_coupled_convergence_mode ', trim(final_coupled_convergence_mode)
@@ -1082,6 +1084,7 @@ contains
     write(ifile,'(A,L1)') 'initial_shape_projection_active ', initial_shape_projection_active
     write(ifile,'(A,ES24.16)') 'initial_max_seg_err ', initial_max_seg_err
     write(ifile,'(A,ES24.16)') 'initial_max_inext_err ', initial_max_inext_err
+    write(ifile,'(A,A)') 'initial_projection_semantics ', trim(initial_projection_semantics)
     write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
     write(ifile,'(A,L1)') 'grid_convergence_ready ', .true.
     write(ifile,'(A,L1)') 'dt_convergence_ready ', .true.

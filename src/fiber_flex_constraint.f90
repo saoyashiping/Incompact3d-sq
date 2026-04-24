@@ -561,21 +561,27 @@ contains
       call build_structure_newton_fd_jacobian(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jmat)
       call solve_dense_small(jmat, -r, du, 4*fiber_nl-1)
       du_inf = maxval(abs(du))
-      lambda = 1._mytype
-      accepted = .false.
-      do ibt = 0, maxbt
-        utrial = u + lambda * du
-        call build_structure_newton_scaled_residual_vector(utrial, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rtrial, &
-             rx_scale, rg_scale)
-        call unpack_structure_unknown(utrial, xtrial, ttrial)
-        call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
-        phi_trial = maxval(abs(rtrial))
-        if (phi_trial < phi) then
-          accepted = .true.
-          exit
-        endif
-        lambda = beta_ls * lambda
-      enddo
+      if (fiber_flex_constraint_line_search_active) then
+        lambda = 1._mytype
+        accepted = .false.
+        do ibt = 0, maxbt
+          utrial = u + lambda * du
+          call build_structure_newton_scaled_residual_vector(utrial, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rtrial, &
+               rx_scale, rg_scale)
+          call unpack_structure_unknown(utrial, xtrial, ttrial)
+          call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+          phi_trial = maxval(abs(rtrial))
+          if (phi_trial < phi) then
+            accepted = .true.
+            exit
+          endif
+          lambda = beta_ls * lambda
+        enddo
+      else
+        lambda = 1._mytype
+        utrial = u + du
+        accepted = .true.
+      endif
 
       phi_hist = cshift(phi_hist, -1); phi_hist(3) = phi
       du_hist = cshift(du_hist, -1); du_hist(3) = du_inf
@@ -958,9 +964,9 @@ contains
   end subroutine compute_prescribed_structure_force
 
   subroutine reparameterize_curve_to_uniform_arclength(x_in, x_out)
-    ! Reparameterize a curved initial shape to uniform arc-length nodes.
-    ! This projects the initial geometry close to the inextensible manifold
-    ! without changing the target fiber length.
+    ! Deprecated uniform-on-current-curve-length reparameterization.
+    ! Keeps equal spacing along the *current* curve length and does not
+    ! enforce projection to target fiber_length.
     real(mytype), intent(in) :: x_in(3,fiber_nl)
     real(mytype), intent(out) :: x_out(3,fiber_nl)
     real(mytype) :: seglen(fiber_nl-1), sacc(fiber_nl), starget, total_len, w
@@ -989,6 +995,75 @@ contains
     enddo
   end subroutine reparameterize_curve_to_uniform_arclength
 
+  subroutine build_local_frame_from_tangent(et, en)
+    real(mytype), intent(in) :: et(3)
+    real(mytype), intent(out) :: en(3)
+    real(mytype) :: eref(3), proj
+
+    eref = (/0._mytype, 1._mytype, 0._mytype/)
+    proj = dot_product(eref, et)
+    en = eref - proj * et
+    if (sqrt(sum(en**2)) < 1.0e-10_mytype) then
+      eref = (/0._mytype, 0._mytype, 1._mytype/)
+      proj = dot_product(eref, et)
+      en = eref - proj * et
+    endif
+    if (sqrt(sum(en**2)) < 1.0e-10_mytype) then
+      eref = (/1._mytype, 0._mytype, 0._mytype/)
+      proj = dot_product(eref, et)
+      en = eref - proj * et
+    endif
+    if (sqrt(sum(en**2)) < 1.0e-12_mytype) then
+      if (nrank == 0) write(*,*) 'Error: cannot build transverse basis for inextensible initial projection.'
+      stop
+    endif
+    en = en / sqrt(sum(en**2))
+  end subroutine build_local_frame_from_tangent
+
+  subroutine project_initial_curve_to_target_arclength(x_shape, x_out)
+    ! initial amplitude controls the tangent-angle perturbation used to build an inextensible initial curve
+    real(mytype), intent(in) :: x_shape(3,fiber_nl)
+    real(mytype), intent(out) :: x_out(3,fiber_nl)
+    real(mytype) :: et(3), en(3), delta(3,fiber_nl), yshape(fiber_nl), ys(fiber_nl), theta(fiber_nl)
+    real(mytype) :: ds_target, s_mid, center_now(3), shift(3)
+    integer :: i
+
+    et = fiber_direction
+    if (sqrt(sum(et**2)) <= 1.0e-12_mytype) then
+      if (nrank == 0) write(*,*) 'Error: fiber_direction norm is zero in initial inextensible projection.'
+      stop
+    endif
+    et = et / sqrt(sum(et**2))
+    call build_local_frame_from_tangent(et, en)
+
+    delta = x_shape - fiber_x
+    do i = 1, fiber_nl
+      yshape(i) = dot_product(delta(:,i), en)
+    enddo
+    ys(1) = (yshape(2) - yshape(1)) / fiber_ds
+    do i = 2, fiber_nl-1
+      ys(i) = (yshape(i+1) - yshape(i-1)) / (2._mytype * fiber_ds)
+    enddo
+    ys(fiber_nl) = (yshape(fiber_nl) - yshape(fiber_nl-1)) / fiber_ds
+    theta = atan(ys)
+
+    ds_target = fiber_length / real(max(1,fiber_nl-1), mytype)
+    x_out(:,1) = 0._mytype
+    do i = 1, fiber_nl-1
+      s_mid = 0.5_mytype * (theta(i) + theta(i+1))
+      x_out(:,i+1) = x_out(:,i) + ds_target * (cos(s_mid) * et + sin(s_mid) * en)
+    enddo
+    center_now = 0._mytype
+    do i = 1, fiber_nl
+      center_now = center_now + x_out(:,i)
+    enddo
+    center_now = center_now / real(fiber_nl, mytype)
+    shift = fiber_center - center_now
+    do i = 1, fiber_nl
+      x_out(:,i) = x_out(:,i) + shift
+    enddo
+  end subroutine project_initial_curve_to_target_arclength
+
   subroutine compute_free_end_boundary_residuals_independent(x_in, max_d2_independent, max_d3_independent)
     ! Independent one-sided physical-node boundary estimator for free-end d2/d3 residuals.
     ! Used for diagnostics only; does not alter solver operators.
@@ -1010,11 +1085,12 @@ contains
   end subroutine compute_free_end_boundary_residuals_independent
 
   subroutine initialize_structure_dynamics_test_state(case_id, xnm1, xn, initial_shape_projection_active, &
-       initial_max_seg_err, initial_max_inext_err)
+       initial_max_seg_err, initial_max_inext_err, initial_projection_semantics)
     integer, intent(in) :: case_id
     real(mytype), intent(out) :: xnm1(3,fiber_nl), xn(3,fiber_nl)
     logical, intent(out) :: initial_shape_projection_active
     real(mytype), intent(out) :: initial_max_seg_err, initial_max_inext_err
+    character(len=*), intent(out) :: initial_projection_semantics
     real(mytype) :: q, gshape, amp0
     real(mytype) :: xproj(3,fiber_nl)
     integer :: l
@@ -1022,6 +1098,7 @@ contains
     xn = fiber_x
     amp0 = fiber_flex_structure_initial_shape_amp
     initial_shape_projection_active = .false.
+    initial_projection_semantics = 'none'
     select case (case_id)
     case (0)
       do l = 1, fiber_nl
@@ -1029,9 +1106,10 @@ contains
         gshape = q**4 * (1._mytype - q)**4
         xn(2,l) = xn(2,l) + amp0 * gshape
       enddo
-      call reparameterize_curve_to_uniform_arclength(xn, xproj)
+      call project_initial_curve_to_target_arclength(xn, xproj)
       xn = xproj
       initial_shape_projection_active = .true.
+      initial_projection_semantics = 'target_length_tangent_angle_inextensible_projection'
       xnm1 = xn
     case (1)
       xnm1 = xn
@@ -1041,9 +1119,10 @@ contains
         gshape = q**4 * (1._mytype - q)**4
         xn(2,l) = xn(2,l) + 1.5_mytype * amp0 * gshape
       enddo
-      call reparameterize_curve_to_uniform_arclength(xn, xproj)
+      call project_initial_curve_to_target_arclength(xn, xproj)
       xn = xproj
       initial_shape_projection_active = .true.
+      initial_projection_semantics = 'target_length_tangent_angle_inextensible_projection'
       xnm1 = xn
     case (3)
       ! optional stronger harmonic-load validation case; keeps prescribed-force semantics
@@ -1103,6 +1182,7 @@ contains
     real(mytype) :: max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, rx_scale_step
     real(mytype) :: initial_max_seg_err, initial_max_inext_err
     logical :: initial_shape_projection_active
+    character(len=96) :: initial_projection_semantics
     integer :: step, outint, max_outer_iterations_used
     logical :: coupled_solver_converged, coupled_solver_converged_strict, coupled_solver_converged_effective
     logical :: plateau_detected
@@ -1119,7 +1199,7 @@ contains
     allocate(xnm1(3,fiber_nl), xn(3,fiber_nl), xnp1(3,fiber_nl), xinit(3,fiber_nl), fext(3,fiber_nl), t_half(fiber_nl-1))
     if (allocated(fiber_tension_half_prevstep)) fiber_tension_half_prevstep = 0._mytype
     call initialize_structure_dynamics_test_state(fiber_flex_structure_case, xnm1, xn, initial_shape_projection_active, &
-         initial_max_seg_err, initial_max_inext_err)
+         initial_max_seg_err, initial_max_inext_err, initial_projection_semantics)
     xinit = xn
     outint = max(1, fiber_flex_structure_output_interval)
     max_seg_err_global = 0._mytype
@@ -1207,7 +1287,8 @@ contains
          max_end_bc_d3_residual_global, max_end_bc_d2_residual_independent_global, max_end_bc_d3_residual_independent_global, &
          final_displacement_norm, max_abs_fext_global, max_abs_fext_final, external_power_final, &
          max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, initial_shape_projection_active, &
-         initial_max_seg_err, initial_max_inext_err, newton_iterations_used, newton_final_residual_norm, &
+         initial_max_seg_err, initial_max_inext_err, trim(initial_projection_semantics), &
+         newton_iterations_used, newton_final_residual_norm, &
          newton_final_update_norm, newton_accepted_lambda)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
