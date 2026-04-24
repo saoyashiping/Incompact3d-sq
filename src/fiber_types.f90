@@ -116,6 +116,8 @@ module fiber_types
   real(mytype) :: fiber_flex_structure_force_omega
   real(mytype), dimension(3) :: fiber_flex_structure_force_direction
   real(mytype) :: fiber_flex_structure_initial_shape_amp
+  logical :: fiber_flex_structure_adaptive_substep_active
+  integer :: fiber_flex_structure_max_substep_splits
   real(mytype) :: fiber_structure_rho_tilde
   real(mytype), dimension(3) :: rigid_translation_velocity
   real(mytype), dimension(3) :: fiber_xc
@@ -259,6 +261,8 @@ contains
     fiber_flex_structure_force_omega = 1.0_mytype
     fiber_flex_structure_force_direction = (/0._mytype, 1._mytype, 0._mytype/)
     fiber_flex_structure_initial_shape_amp = 0.05_mytype * fiber_length
+    fiber_flex_structure_adaptive_substep_active = .true.
+    fiber_flex_structure_max_substep_splits = 4
     fiber_structure_rho_tilde = 1.0_mytype
     rigid_translation_velocity = 0._mytype
     fiber_xc = 0._mytype

@@ -1037,7 +1037,8 @@ contains
        schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel, schur_accepted_lambda, &
        schur_convergence_mode, structure_adaptive_substepping_active, structure_step_rejection_count, &
        structure_substep_retry_count, structure_max_substeps_used, structure_min_substep_dt, structure_step_failed_any, &
-       max_schur_accepted_update_norm_global)
+       max_schur_accepted_update_norm_global, schur_position_solve_converged, position_solve_failure_mode, &
+       bending_kernel_failure_count, tension_prevstep_writeback_on_macro_success_only)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1064,6 +1065,9 @@ contains
     integer, intent(in) :: structure_max_substeps_used
     real(mytype), intent(in) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
     real(mytype), intent(in) :: schur_accepted_lambda, structure_min_substep_dt, max_schur_accepted_update_norm_global
+    logical, intent(in) :: schur_position_solve_converged, tension_prevstep_writeback_on_macro_success_only
+    character(len=*), intent(in) :: position_solve_failure_mode
+    integer, intent(in) :: bending_kernel_failure_count
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1113,6 +1117,9 @@ contains
     write(ifile,'(A,ES24.16)') 'schur_final_rx_rel ', schur_final_rx_rel
     write(ifile,'(A,ES24.16)') 'schur_accepted_lambda ', schur_accepted_lambda
     write(ifile,'(A,A)') 'schur_convergence_mode ', trim(schur_convergence_mode)
+    write(ifile,'(A,L1)') 'schur_position_solve_converged ', schur_position_solve_converged
+    write(ifile,'(A,A)') 'position_solve_failure_mode ', trim(position_solve_failure_mode)
+    write(ifile,'(A,I8)') 'bending_kernel_failure_count ', bending_kernel_failure_count
     write(ifile,'(A,L1)') 'structure_adaptive_substepping_active ', structure_adaptive_substepping_active
     write(ifile,'(A,I8)') 'structure_step_rejection_count ', structure_step_rejection_count
     write(ifile,'(A,I8)') 'structure_substep_retry_count ', structure_substep_retry_count
@@ -1120,6 +1127,7 @@ contains
     write(ifile,'(A,ES24.16)') 'structure_min_substep_dt ', structure_min_substep_dt
     write(ifile,'(A,L1)') 'structure_step_failed_any ', structure_step_failed_any
     write(ifile,'(A,ES24.16)') 'max_schur_accepted_update_norm_global ', max_schur_accepted_update_norm_global
+    write(ifile,'(A,L1)') 'tension_prevstep_writeback_on_macro_success_only ', tension_prevstep_writeback_on_macro_success_only
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
     write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global

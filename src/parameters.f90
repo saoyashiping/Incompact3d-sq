@@ -53,7 +53,8 @@ subroutine parameter(input_i3d)
        fiber_flex_structure_test_active, fiber_flex_structure_case, fiber_flex_structure_nsteps, &
        fiber_flex_structure_output_interval, fiber_flex_structure_dt, fiber_flex_structure_force_mode, &
        fiber_flex_structure_force_amp, fiber_flex_structure_force_omega, fiber_flex_structure_force_direction, &
-       fiber_flex_structure_initial_shape_amp, &
+       fiber_flex_structure_initial_shape_amp, fiber_flex_structure_adaptive_substep_active, &
+       fiber_flex_structure_max_substep_splits, &
        fiber_structure_rho_tilde, &
        rigid_kinematics_one_way, rigid_kinematics_standalone, &
        rigid_motion_case, rigid_free_case, &
@@ -142,7 +143,8 @@ subroutine parameter(input_i3d)
        fiber_flex_structure_test_active,fiber_flex_structure_case,fiber_flex_structure_nsteps, &
        fiber_flex_structure_output_interval,fiber_flex_structure_dt,fiber_flex_structure_force_mode, &
        fiber_flex_structure_force_amp,fiber_flex_structure_force_omega,fiber_flex_structure_force_direction, &
-       fiber_flex_structure_initial_shape_amp, &
+       fiber_flex_structure_initial_shape_amp,fiber_flex_structure_adaptive_substep_active, &
+       fiber_flex_structure_max_substep_splits, &
        fiber_structure_rho_tilde, &
        rigid_kinematics_one_way,rigid_kinematics_standalone, &
        rigid_motion_case,rigid_free_case, &
@@ -536,6 +538,10 @@ subroutine parameter(input_i3d)
      endif
      if (fiber_flex_structure_case < 0 .or. fiber_flex_structure_case > 3) then
         if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0, 1, 2 or 3.'
+        stop
+     endif
+     if (fiber_flex_structure_max_substep_splits < 0) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_max_substep_splits must be >= 0.'
         stop
      endif
      if (fiber_flex_structure_test_active .and. (fiber_flex_operator_test_active .or. fiber_flex_bending_test_active .or. &
