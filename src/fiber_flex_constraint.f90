@@ -642,9 +642,13 @@ contains
     enddo
   end subroutine solve_position_given_tension_schur
 
-  subroutine build_tension_schur_matrix(x_geom, dt_s, rho_tilde, gamma_b, smat)
+  subroutine build_tension_schur_matrix(x_geom, dt_s, rho_tilde, gamma_b, smat, schur_matrix_ok, &
+       schur_matrix_failure_mode, schur_matrix_failed_column)
     real(mytype), intent(in) :: x_geom(3,fiber_nl), dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: smat(fiber_nl-1,fiber_nl-1)
+    logical, intent(out) :: schur_matrix_ok
+    character(len=*), intent(out) :: schur_matrix_failure_mode
+    integer, intent(out) :: schur_matrix_failed_column
     real(mytype) :: et(fiber_nl-1), delta_t(fiber_nl-1), delta_ft(3,fiber_nl), rhs_delta(3,fiber_nl), delta_x(3,fiber_nl)
     real(mytype) :: dsx(3,fiber_nl-1), dsdx(3,fiber_nl-1), alpha
     integer :: j, i, c, it_used, restart_count, failure_mode
@@ -652,6 +656,9 @@ contains
     logical :: converged, breakdown_detected
 
     alpha = dt_s * dt_s / rho_tilde
+    schur_matrix_ok = .true.
+    schur_matrix_failure_mode = 'none'
+    schur_matrix_failed_column = 0
     call lag_ds_center_node_to_half(x_geom, dsx)
     do j = 1, fiber_nl-1
       delta_t = 0._mytype
@@ -663,7 +670,9 @@ contains
         call solve_free_end_implicit_bending_rhs_scalar(rhs_delta(c,:), delta_x(c,:), alpha, gamma_b, it_used, dxmax, &
              converged, breakdown_detected, restart_count, failure_mode)
         if (.not.converged) then
-          smat = 0._mytype
+          schur_matrix_ok = .false.
+          schur_matrix_failure_mode = 'bending_basis_solve_failed'
+          schur_matrix_failed_column = j
           return
         endif
       enddo
@@ -932,14 +941,15 @@ contains
     endif
   end subroutine solve_structure_dynamics_newton_step
 
-  subroutine solve_structure_dynamics_schur_step(xnm1, xn, xnp1, t_half, fext_in, dt_s, rho_tilde, gamma_b, &
+  subroutine solve_structure_dynamics_schur_step(xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, t_half_initial, xnp1, t_half_out, &
        schur_solver_converged, schur_iterations_used, schur_final_constraint_residual, schur_final_momentum_residual, &
        schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda, &
        schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, schur_regularization_mu_final, &
        schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode, schur_position_solve_converged, &
-       position_solve_failure_mode)
+       position_solve_failure_mode, schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
-    real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
+    real(mytype), intent(in) :: t_half_initial(fiber_nl-1)
+    real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half_out(fiber_nl-1)
     logical, intent(out) :: schur_solver_converged, schur_regularization_used
     integer, intent(out) :: schur_iterations_used
     real(mytype), intent(out) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
@@ -948,23 +958,25 @@ contains
     character(len=*), intent(out) :: schur_convergence_mode, schur_linear_solver_method, schur_linear_failure_mode
     logical, intent(out) :: schur_position_solve_converged
     character(len=*), intent(out) :: position_solve_failure_mode
+    logical, intent(out) :: schur_matrix_ok
+    character(len=*), intent(out) :: schur_matrix_failure_mode
+    integer, intent(out) :: schur_matrix_failed_column
     real(mytype) :: xk(3,fiber_nl), xtrial(3,fiber_nl), xwork(3,fiber_nl), tk(fiber_nl-1), ttrial(fiber_nl-1), delta_t(fiber_nl-1)
     real(mytype) :: gk(fiber_nl-1), gtrial(fiber_nl-1), smat(fiber_nl-1,fiber_nl-1), lambda, phi, phi_trial
     real(mytype) :: max_abs_g, max_seg_err, max_inext_err, max_abs_g_trial, rx_scale, alpha, rx_rel_trial
     real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), beta_ls
     integer :: it, ibt, maxit, maxbt
-    logical :: accepted, solve_ok, geom_ok, finite_ok
+    logical :: accepted, solve_ok, geometry_sane, geometry_finite, plateau_detected, strict_success, plateau_success
+    real(mytype) :: plateau_g_tol, plateau_rx_rel_tol
 
     alpha = dt_s * dt_s / rho_tilde
     xk = 2._mytype * xn - xnm1 + alpha * fext_in
-    if (allocated(fiber_tension_half_prevstep) .and. size(fiber_tension_half_prevstep) == fiber_nl-1) then
-      tk = fiber_tension_half_prevstep
-    else
-      tk = 0._mytype
-    endif
+    tk = t_half_initial
     maxit = fiber_flex_constraint_outer_maxit
     maxbt = fiber_flex_constraint_line_search_max_backtracks
     beta_ls = fiber_flex_constraint_line_search_beta
+    plateau_g_tol = 10._mytype * fiber_flex_constraint_outer_tol_g
+    plateau_rx_rel_tol = 10._mytype * fiber_flex_constraint_outer_tol_rx_rel
     schur_solver_converged = .false.
     schur_convergence_mode = 'failed'
     schur_accepted_lambda = 0._mytype
@@ -973,6 +985,15 @@ contains
     schur_iterations_used = 0
     schur_position_solve_converged = .true.
     position_solve_failure_mode = 'none'
+    schur_matrix_ok = .true.
+    schur_matrix_failure_mode = 'none'
+    schur_matrix_failed_column = 0
+    schur_linear_solver_method = 'failed'
+    schur_linear_failure_mode = 'none'
+    schur_regularization_used = .false.
+    schur_regularization_mu_final = 0._mytype
+    schur_min_abs_pivot = huge(1._mytype)
+    schur_max_abs_pivot = 0._mytype
 
     do it = 1, maxit
       xwork = xk
@@ -988,16 +1009,26 @@ contains
       call compute_momentum_residual_scale_final_time(xk, tk, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
       schur_final_momentum_residual = maxval(abs(rx))
       schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
-      finite_ok = all(xk == xk) .and. all(tk == tk)
-      geom_ok = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
+      geometry_finite = all(xk == xk) .and. all(tk == tk) .and. all(rx == rx) .and. all(gk == gk)
+      geometry_sane = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
       schur_iterations_used = it
-      if (max_abs_g <= fiber_flex_constraint_outer_tol_g .and. schur_final_rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
-           finite_ok .and. geom_ok) then
+      strict_success = solve_ok .and. geometry_finite .and. geometry_sane .and. &
+           (max_abs_g <= fiber_flex_constraint_outer_tol_g) .and. &
+           (schur_final_rx_rel <= fiber_flex_constraint_outer_tol_rx_rel)
+      if (strict_success) then
         schur_solver_converged = .true.
         schur_convergence_mode = 'strict'
         exit
       endif
-      call build_tension_schur_matrix(xk, dt_s, rho_tilde, gamma_b, smat)
+      call build_tension_schur_matrix(xk, dt_s, rho_tilde, gamma_b, smat, schur_matrix_ok, schur_matrix_failure_mode, &
+           schur_matrix_failed_column)
+      if (.not.schur_matrix_ok) then
+        schur_solver_converged = .false.
+        schur_convergence_mode = 'failed'
+        schur_linear_solver_method = 'failed'
+        schur_linear_failure_mode = trim(schur_matrix_failure_mode)
+        exit
+      endif
       call solve_schur_tension_correction(smat, gk, delta_t, schur_linear_solver_method, schur_regularization_used, &
            schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode)
       if (trim(schur_linear_solver_method) == 'failed') then
@@ -1021,17 +1052,26 @@ contains
         call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
         call compute_momentum_residual_scale_final_time(xtrial, ttrial, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
         rx_rel_trial = maxval(abs(rx)) / max(rx_scale, 1.0e-30_mytype)
-        finite_ok = all(xtrial == xtrial) .and. all(ttrial == ttrial) .and. all(rx == rx) .and. all(gtrial == gtrial)
-        geom_ok = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
+        geometry_finite = all(xtrial == xtrial) .and. all(ttrial == ttrial) .and. all(rx == rx) .and. all(gtrial == gtrial)
+        geometry_sane = max_seg_err <= 1.0e-2_mytype .and. max_inext_err <= 1.0e-2_mytype
         phi_trial = max(max_abs_g_trial, rx_rel_trial)
-        if (phi_trial < max(phi, schur_final_rx_rel) .and. finite_ok .and. geom_ok) then
+        if (phi_trial < max(phi, schur_final_rx_rel) .and. geometry_finite .and. geometry_sane) then
           accepted = .true.
           exit
         endif
         lambda = beta_ls * lambda
       enddo
       if (.not.accepted) then
-        if (max_abs_g <= 10._mytype * fiber_flex_constraint_outer_tol_g) then
+        plateau_detected = .true.
+        strict_success = solve_ok .and. geometry_finite .and. geometry_sane .and. &
+             (max_abs_g <= fiber_flex_constraint_outer_tol_g) .and. &
+             (schur_final_rx_rel <= fiber_flex_constraint_outer_tol_rx_rel)
+        plateau_success = solve_ok .and. geometry_finite .and. geometry_sane .and. plateau_detected .and. &
+             (max_abs_g <= plateau_g_tol) .and. (schur_final_rx_rel <= plateau_rx_rel_tol)
+        if (strict_success) then
+          schur_solver_converged = .true.
+          schur_convergence_mode = 'strict'
+        else if (plateau_success) then
           schur_solver_converged = .true.
           schur_convergence_mode = 'plateau_accepted'
         else
@@ -1048,9 +1088,9 @@ contains
     enddo
 
     xnp1 = xk
-    t_half = tk
-    call build_coupled_structure_residual(xnp1, t_half, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
-    call compute_momentum_residual_scale_final_time(xnp1, t_half, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+    t_half_out = tk
+    call build_coupled_structure_residual(xnp1, t_half_out, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+    call compute_momentum_residual_scale_final_time(xnp1, t_half_out, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
     schur_final_momentum_residual = maxval(abs(rx))
     schur_final_constraint_residual = maxval(abs(rg))
     schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
@@ -1061,7 +1101,8 @@ contains
        schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel, schur_final_update_norm_x, &
        schur_final_update_norm_t, schur_accepted_lambda, schur_convergence_mode, schur_linear_solver_method, &
        schur_regularization_used, schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, &
-       schur_linear_failure_mode, schur_position_solve_converged, position_solve_failure_mode, bending_kernel_failure_count)
+       schur_linear_failure_mode, schur_position_solve_converged, position_solve_failure_mode, bending_kernel_failure_count, &
+       schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column, structure_local_tension_warm_start_active)
     integer, intent(in) :: case_id
     real(mytype), intent(in) :: t_macro_start
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), dt_macro, rho_tilde, gamma_b
@@ -1075,8 +1116,12 @@ contains
     logical, intent(out) :: schur_position_solve_converged
     character(len=*), intent(out) :: position_solve_failure_mode
     integer, intent(out) :: bending_kernel_failure_count
+    logical, intent(out) :: schur_matrix_ok, structure_local_tension_warm_start_active
+    character(len=*), intent(out) :: schur_matrix_failure_mode
+    integer, intent(out) :: schur_matrix_failed_column
     real(mytype) :: xprev(3,fiber_nl), xcur(3,fiber_nl), xnext(3,fiber_nl), veln(3,fiber_nl), dt_sub
     real(mytype) :: fext_sub(3,fiber_nl), t_sub
+    real(mytype) :: t_prev_local(fiber_nl-1), t_sub_out(fiber_nl-1), tension_prev_backup(fiber_nl-1)
     integer :: split, nsub, isub
     logical :: ok_local
 
@@ -1085,6 +1130,12 @@ contains
     retry_count = 0
     min_substep_dt = dt_macro
     bending_kernel_failure_count = 0
+    schur_matrix_ok = .true.
+    schur_matrix_failure_mode = 'none'
+    schur_matrix_failed_column = 0
+    structure_local_tension_warm_start_active = .true.
+    if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
+    tension_prev_backup = fiber_tension_half_prevstep
     do split = 0, merge(fiber_flex_structure_max_substep_splits, 0, fiber_flex_structure_adaptive_substep_active)
       nsub = 2**split
       dt_sub = dt_macro / real(nsub, mytype)
@@ -1092,35 +1143,39 @@ contains
       veln = (xn - xnm1) / dt_macro
       xprev = xn - dt_sub * veln
       xcur = xn
+      t_prev_local = tension_prev_backup
       ok_local = .true.
       do isub = 1, nsub
         t_sub = t_macro_start + real(isub,mytype) * dt_sub
         call compute_prescribed_structure_force(case_id, t_sub, xcur, fext_sub)
-        call solve_structure_dynamics_schur_step(xprev, xcur, xnext, t_half, fext_sub, dt_sub, rho_tilde, gamma_b, &
+        call solve_structure_dynamics_schur_step(xprev, xcur, fext_sub, dt_sub, rho_tilde, gamma_b, t_prev_local, xnext, t_sub_out, &
              schur_solver_converged, schur_iterations_used, schur_final_constraint_residual, schur_final_momentum_residual, &
              schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda, &
              schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, schur_regularization_mu_final, &
              schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode, schur_position_solve_converged, &
-             position_solve_failure_mode)
+             position_solve_failure_mode, schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column)
         if (.not.schur_solver_converged) then
           if (.not.schur_position_solve_converged) bending_kernel_failure_count = bending_kernel_failure_count + 1
           ok_local = .false.
           exit
         endif
+        t_prev_local = t_sub_out
         xprev = xcur
         xcur = xnext
       enddo
       if (ok_local) then
         step_success = .true.
         xnp1 = xcur
+        t_half = t_prev_local
         nsub_used = nsub
-        if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
-        fiber_tension_half_prevstep = t_half
+        fiber_tension_half_prevstep = t_prev_local
         return
       endif
       rejection_count = rejection_count + 1
       retry_count = retry_count + nsub
     enddo
+    fiber_tension_half_prevstep = tension_prev_backup
+    t_half = tension_prev_backup
     xnp1 = xn
     nsub_used = 2**4
   end subroutine advance_structure_dynamics_with_retry
@@ -1672,6 +1727,8 @@ contains
     logical :: step_success, structure_step_failed_any, structure_adaptive_substepping_active
     integer :: structure_step_rejection_count, structure_substep_retry_count, structure_max_substeps_used, nsub_used
     real(mytype) :: structure_min_substep_dt, max_schur_accepted_update_norm_global
+    real(mytype) :: structure_failed_time
+    integer :: structure_failed_step_index
     real(mytype) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
     real(mytype) :: schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda
     real(mytype) :: schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot
@@ -1681,6 +1738,9 @@ contains
     logical :: schur_position_solve_converged
     character(len=32) :: position_solve_failure_mode
     integer :: bending_kernel_failure_count
+    logical :: schur_matrix_ok, structure_local_tension_warm_start_active
+    character(len=64) :: schur_matrix_failure_mode
+    integer :: schur_matrix_failed_column
 
     if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
          .not.fiber_flex_structure_test_active) then
@@ -1719,6 +1779,8 @@ contains
     structure_max_substeps_used = 1
     structure_min_substep_dt = fiber_flex_structure_dt
     structure_step_failed_any = .false.
+    structure_failed_step_index = 0
+    structure_failed_time = 0._mytype
     max_schur_accepted_update_norm_global = 0._mytype
 
     call write_fiber_flex_structure_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
@@ -1739,9 +1801,14 @@ contains
            schur_final_momentum_residual, schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, &
            schur_accepted_lambda, schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, &
            schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode, &
-           schur_position_solve_converged, position_solve_failure_mode, bending_kernel_failure_count)
+           schur_position_solve_converged, position_solve_failure_mode, bending_kernel_failure_count, schur_matrix_ok, &
+           schur_matrix_failure_mode, schur_matrix_failed_column, structure_local_tension_warm_start_active)
       structure_max_substeps_used = max(structure_max_substeps_used, nsub_used)
-      structure_step_failed_any = structure_step_failed_any .or. (.not.step_success)
+      if (.not.step_success) then
+        structure_step_failed_any = .true.
+        structure_failed_step_index = step
+        structure_failed_time = tnow
+      endif
       max_schur_accepted_update_norm_global = max(max_schur_accepted_update_norm_global, schur_final_update_norm_x)
       max_newton_accepted_update_norm_global = max(max_newton_accepted_update_norm_global, schur_final_update_norm_x)
       coupled_solver_converged = step_success
@@ -1780,6 +1847,7 @@ contains
              final_coupled_residual_x_rel, max_outer_iterations_used, accepted_line_search_lambda, &
              newton_final_update_norm, newton_final_residual_norm, final_coupled_convergence_mode, .false.)
       endif
+      if (.not.step_success) exit
       xnm1 = xn
       xn = xnp1
     enddo
@@ -1812,7 +1880,9 @@ contains
          schur_accepted_lambda, schur_convergence_mode, structure_adaptive_substepping_active, &
          structure_step_rejection_count, structure_substep_retry_count, structure_max_substeps_used, structure_min_substep_dt, &
          structure_step_failed_any, max_schur_accepted_update_norm_global, schur_position_solve_converged, &
-         trim(position_solve_failure_mode), bending_kernel_failure_count, .true.)
+         trim(position_solve_failure_mode), bending_kernel_failure_count, .true., schur_matrix_ok, &
+         trim(schur_matrix_failure_mode), schur_matrix_failed_column, structure_failed_step_index, structure_failed_time, &
+         structure_local_tension_warm_start_active)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_structure_dynamics_test

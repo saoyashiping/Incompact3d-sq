@@ -1038,7 +1038,9 @@ contains
        schur_convergence_mode, structure_adaptive_substepping_active, structure_step_rejection_count, &
        structure_substep_retry_count, structure_max_substeps_used, structure_min_substep_dt, structure_step_failed_any, &
        max_schur_accepted_update_norm_global, schur_position_solve_converged, position_solve_failure_mode, &
-       bending_kernel_failure_count, tension_prevstep_writeback_on_macro_success_only)
+       bending_kernel_failure_count, tension_prevstep_writeback_on_macro_success_only, schur_matrix_ok, &
+       schur_matrix_failure_mode, schur_matrix_failed_column, structure_failed_step_index, structure_failed_time, &
+       structure_local_tension_warm_start_active)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1068,6 +1070,10 @@ contains
     logical, intent(in) :: schur_position_solve_converged, tension_prevstep_writeback_on_macro_success_only
     character(len=*), intent(in) :: position_solve_failure_mode
     integer, intent(in) :: bending_kernel_failure_count
+    logical, intent(in) :: schur_matrix_ok, structure_local_tension_warm_start_active
+    character(len=*), intent(in) :: schur_matrix_failure_mode
+    integer, intent(in) :: schur_matrix_failed_column, structure_failed_step_index
+    real(mytype), intent(in) :: structure_failed_time
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1120,14 +1126,20 @@ contains
     write(ifile,'(A,L1)') 'schur_position_solve_converged ', schur_position_solve_converged
     write(ifile,'(A,A)') 'position_solve_failure_mode ', trim(position_solve_failure_mode)
     write(ifile,'(A,I8)') 'bending_kernel_failure_count ', bending_kernel_failure_count
+    write(ifile,'(A,L1)') 'schur_matrix_ok ', schur_matrix_ok
+    write(ifile,'(A,A)') 'schur_matrix_failure_mode ', trim(schur_matrix_failure_mode)
+    write(ifile,'(A,I8)') 'schur_matrix_failed_column ', schur_matrix_failed_column
     write(ifile,'(A,L1)') 'structure_adaptive_substepping_active ', structure_adaptive_substepping_active
     write(ifile,'(A,I8)') 'structure_step_rejection_count ', structure_step_rejection_count
     write(ifile,'(A,I8)') 'structure_substep_retry_count ', structure_substep_retry_count
     write(ifile,'(A,I8)') 'structure_max_substeps_used ', structure_max_substeps_used
     write(ifile,'(A,ES24.16)') 'structure_min_substep_dt ', structure_min_substep_dt
     write(ifile,'(A,L1)') 'structure_step_failed_any ', structure_step_failed_any
+    write(ifile,'(A,I8)') 'structure_failed_step_index ', structure_failed_step_index
+    write(ifile,'(A,ES24.16)') 'structure_failed_time ', structure_failed_time
     write(ifile,'(A,ES24.16)') 'max_schur_accepted_update_norm_global ', max_schur_accepted_update_norm_global
     write(ifile,'(A,L1)') 'tension_prevstep_writeback_on_macro_success_only ', tension_prevstep_writeback_on_macro_success_only
+    write(ifile,'(A,L1)') 'structure_local_tension_warm_start_active ', structure_local_tension_warm_start_active
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
     write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
