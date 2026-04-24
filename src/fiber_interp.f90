@@ -5,9 +5,11 @@
 module fiber_interp
 
   use decomp_2d_constants, only : mytype
+  use decomp_2d, only : xstart
   use decomp_2d_mpi, only : nrank, nproc
+  use mpi, only : MPI_ALLREDUCE, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD
   use variables, only : nx, ny, nz, xp, yp, zp
-  use param, only : xlx, yly, zlz
+  use param, only : xlx, yly, zlz, ifirst
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_interp_max_error, interp_test_case
   use fiber_delta, only : delta_kernel_3d
@@ -203,6 +205,85 @@ contains
     deallocate(xg, yg, zg, uxe, uye, uze)
 
   end subroutine run_fiber_interp_operator_test
+
+  subroutine run_fiber_interp_solver_production(uxe, uye, uze, itime)
+
+    real(mytype), intent(in), dimension(:,:,:) :: uxe, uye, uze
+    integer, intent(in) :: itime
+
+    integer :: i, j, k, l, ierr
+    integer :: ig, jg, kg, shift_x, shift_y, shift_z
+    real(mytype) :: hx, hz, hy_loc, weight, sumw
+    real(mytype) :: rx, ry, rz
+    real(mytype), allocatable :: uinterp_local(:,:), sumw_local(:)
+
+    if (.not.fiber_active) return
+    if (itime < 0) return
+
+    hx = xp(2) - xp(1)
+    hz = zp(2) - zp(1)
+
+    shift_x = xstart(1) - lbound(uxe,1)
+    shift_y = xstart(2) - lbound(uxe,2)
+    shift_z = xstart(3) - lbound(uxe,3)
+
+    if (.not.allocated(fiber_uinterp)) allocate(fiber_uinterp(3, fiber_nl))
+    if (.not.allocated(fiber_sumw)) allocate(fiber_sumw(fiber_nl))
+    allocate(uinterp_local(3, fiber_nl), sumw_local(fiber_nl))
+
+    fiber_uinterp = 0._mytype
+    fiber_sumw = 0._mytype
+    uinterp_local = 0._mytype
+    sumw_local = 0._mytype
+
+    do l = 1, fiber_nl
+      sumw = 0._mytype
+
+      do k = lbound(uxe,3), ubound(uxe,3)
+        kg = k + shift_z
+        rz = minimum_image(fiber_x(3,l) - zp(kg), zlz)
+        if (abs(rz) > 2._mytype * hz) cycle
+
+        do j = lbound(uxe,2), ubound(uxe,2)
+          jg = j + shift_y
+          hy_loc = local_dy(yp, jg, 1, ny)
+
+          ry = fiber_x(2,l) - yp(jg)
+          if (abs(ry) > 2._mytype * hy_loc) cycle
+
+          do i = lbound(uxe,1), ubound(uxe,1)
+            ig = i + shift_x
+            rx = minimum_image(fiber_x(1,l) - xp(ig), xlx)
+            if (abs(rx) > 2._mytype * hx) cycle
+
+            weight = delta_kernel_3d(rx, ry, rz, hx, hy_loc, hz) * hx * hy_loc * hz
+            sumw = sumw + weight
+            uinterp_local(1,l) = uinterp_local(1,l) + uxe(i,j,k) * weight
+            uinterp_local(2,l) = uinterp_local(2,l) + uye(i,j,k) * weight
+            uinterp_local(3,l) = uinterp_local(3,l) + uze(i,j,k) * weight
+          enddo
+        enddo
+      enddo
+
+      sumw_local(l) = sumw
+    enddo
+
+    call MPI_ALLREDUCE(uinterp_local, fiber_uinterp, 3 * fiber_nl, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+    call MPI_ALLREDUCE(sumw_local, fiber_sumw, fiber_nl, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+    do l = 1, fiber_nl
+      if (fiber_sumw(l) > 0._mytype) fiber_uinterp(:,l) = fiber_uinterp(:,l) / fiber_sumw(l)
+    enddo
+
+    if (nrank == 0 .and. itime == ifirst) then
+      write(*,'(A,3ES12.4)') 'Fiber production interpolation sumw_min/max/umax: ', &
+           minval(fiber_sumw), maxval(fiber_sumw), &
+           maxval(sqrt(fiber_uinterp(1,:)**2 + fiber_uinterp(2,:)**2 + fiber_uinterp(3,:)**2))
+    endif
+
+    deallocate(uinterp_local, sumw_local)
+
+  end subroutine run_fiber_interp_solver_production
 
 
   subroutine run_fiber_interp_solver_readonly(uxe, uye, uze, itime)
