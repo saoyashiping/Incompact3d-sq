@@ -1043,7 +1043,8 @@ contains
        structure_local_tension_warm_start_active, schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, &
        schur_rhs_failure_mode, schur_momentum_consistent_rhs_active, schur_combined_merit_initial, &
        schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm, schur_nonzero_update_accepted, &
-       schur_pre_state_effective_ok)
+       schur_pre_state_effective_ok, schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, &
+       schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm, schur_internal_update_failure)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1079,8 +1080,11 @@ contains
     real(mytype), intent(in) :: structure_failed_time
     logical, intent(in) :: schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok
     logical, intent(in) :: schur_momentum_consistent_rhs_active, schur_nonzero_update_accepted, schur_pre_state_effective_ok
+    logical, intent(in) :: schur_internal_update_failure
     character(len=*), intent(in) :: schur_rhs_failure_mode
     real(mytype), intent(in) :: schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm
+    real(mytype), intent(in) :: schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm
+    real(mytype), intent(in) :: schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1142,8 +1146,16 @@ contains
     write(ifile,'(A,L1)') 'schur_momentum_consistent_rhs_active ', schur_momentum_consistent_rhs_active
     write(ifile,'(A,ES24.16)') 'schur_combined_merit_initial ', schur_combined_merit_initial
     write(ifile,'(A,ES24.16)') 'schur_combined_merit_final ', schur_combined_merit_final
+    write(ifile,'(A,ES24.16)') 'schur_rx_norm ', schur_rx_norm
+    write(ifile,'(A,ES24.16)') 'schur_alpha_rx_norm ', schur_alpha_rx_norm
+    write(ifile,'(A,ES24.16)') 'schur_w_proj_norm ', schur_w_proj_norm
     write(ifile,'(A,ES24.16)') 'schur_delta_x_norm ', schur_delta_x_norm
     write(ifile,'(A,ES24.16)') 'schur_delta_t_norm ', schur_delta_t_norm
+    write(ifile,'(A,ES24.16)') 'schur_delta_ft_norm ', schur_delta_ft_norm
+    write(ifile,'(A,ES24.16)') 'schur_alpha_delta_ft_norm ', schur_alpha_delta_ft_norm
+    write(ifile,'(A,ES24.16)') 'schur_zcorr_norm ', schur_zcorr_norm
+    write(ifile,'(A,ES24.16)') 'schur_x_trial_update_norm ', schur_x_trial_update_norm
+    write(ifile,'(A,L1)') 'schur_internal_update_failure ', schur_internal_update_failure
     write(ifile,'(A,L1)') 'schur_nonzero_update_accepted ', schur_nonzero_update_accepted
     write(ifile,'(A,L1)') 'schur_pre_state_effective_ok ', schur_pre_state_effective_ok
     write(ifile,'(A,L1)') 'structure_adaptive_substepping_active ', structure_adaptive_substepping_active

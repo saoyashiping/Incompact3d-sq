@@ -131,6 +131,12 @@ contains
     enddo
   end subroutine compute_constraint_error
 
+  pure function max_abs_array_2d(a) result(vmax)
+    real(mytype), intent(in) :: a(:,:)
+    real(mytype) :: vmax
+    vmax = maxval(abs(a))
+  end function max_abs_array_2d
+
   subroutine compute_tension_term_huang_style(t_half, x_ref, ftension)
     ! Huang-style tension force term:
     !   d_s ( T d_s X )
@@ -683,19 +689,32 @@ contains
     enddo
   end subroutine build_tension_schur_matrix
 
-  subroutine project_momentum_residual_through_bending(x_geom, rx, dt_s, rho_tilde, gamma_b, w_out, projection_ok, failure_mode)
-    real(mytype), intent(in) :: x_geom(3,fiber_nl), rx(3,fiber_nl), dt_s, rho_tilde, gamma_b
+  subroutine project_momentum_residual_through_bending(rx, dt_s, rho_tilde, gamma_b, w_out, projection_ok, failure_mode, &
+       schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm, internal_update_failure)
+    real(mytype), intent(in) :: rx(3,fiber_nl), dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: w_out(3,fiber_nl)
     logical, intent(out) :: projection_ok
     character(len=*), intent(out) :: failure_mode
+    real(mytype), intent(out) :: schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm
+    logical, intent(out) :: internal_update_failure
     real(mytype) :: alpha, rhs_w(3,fiber_nl), dxmax
     integer :: c, it_used, restart_count, failure_code
     logical :: converged, breakdown_detected
 
     alpha = dt_s * dt_s / rho_tilde
+    schur_rx_norm = max_abs_array_2d(rx)
     rhs_w = alpha * rx
+    schur_alpha_rx_norm = max_abs_array_2d(rhs_w)
+    schur_w_proj_norm = 0._mytype
     projection_ok = .true.
     failure_mode = 'none'
+    internal_update_failure = .false.
+    if (schur_rx_norm > 0._mytype .and. schur_alpha_rx_norm <= 0._mytype) then
+      projection_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'momentum_projection_rhs_zero_internal_failure'
+      return
+    endif
     do c = 1, 3
       w_out(c,:) = 0._mytype
       call solve_free_end_implicit_bending_rhs_scalar(rhs_w(c,:), w_out(c,:), alpha, gamma_b, it_used, dxmax, &
@@ -706,6 +725,12 @@ contains
         return
       endif
     enddo
+    schur_w_proj_norm = max_abs_array_2d(w_out)
+    if (schur_alpha_rx_norm > 0._mytype .and. schur_w_proj_norm <= 0._mytype) then
+      projection_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'momentum_projection_solution_zero_internal_failure'
+    endif
   end subroutine project_momentum_residual_through_bending
 
   subroutine compute_constraint_linearized_projection(x_geom, vec_node, cvec)
@@ -720,31 +745,52 @@ contains
     enddo
   end subroutine compute_constraint_linearized_projection
 
-  subroutine apply_momentum_consistent_schur_update(x_geom, delta_t, w_proj, dt_s, rho_tilde, gamma_b, delta_x, update_ok, failure_mode)
+  subroutine apply_momentum_consistent_schur_update(x_geom, delta_t, w_proj, dt_s, rho_tilde, gamma_b, zcorr, update_ok, &
+       failure_mode, schur_delta_t_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+       internal_update_failure)
     real(mytype), intent(in) :: x_geom(3,fiber_nl), delta_t(fiber_nl-1), w_proj(3,fiber_nl), dt_s, rho_tilde, gamma_b
-    real(mytype), intent(out) :: delta_x(3,fiber_nl)
+    real(mytype), intent(out) :: zcorr(3,fiber_nl)
     logical, intent(out) :: update_ok
     character(len=*), intent(out) :: failure_mode
-    real(mytype) :: delta_ft(3,fiber_nl), rhs_z(3,fiber_nl), zcorr(3,fiber_nl), alpha, dxmax
+    real(mytype), intent(out) :: schur_delta_t_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm
+    logical, intent(out) :: internal_update_failure
+    real(mytype) :: delta_ft(3,fiber_nl), rhs_z(3,fiber_nl), alpha, dxmax
     integer :: c, it_used, restart_count, failure_code
     logical :: converged, breakdown_detected
 
     alpha = dt_s * dt_s / rho_tilde
+    schur_delta_t_norm = maxval(abs(delta_t))
     call compute_tension_term_huang_style(delta_t, x_geom, delta_ft)
+    schur_delta_ft_norm = max_abs_array_2d(delta_ft)
     rhs_z = alpha * delta_ft
+    schur_alpha_delta_ft_norm = max_abs_array_2d(rhs_z)
+    schur_zcorr_norm = 0._mytype
     update_ok = .true.
     failure_mode = 'none'
+    internal_update_failure = .false.
+    if (schur_delta_t_norm > 0._mytype .and. schur_delta_ft_norm <= 0._mytype) then
+      update_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'tension_response_force_zero_internal_failure'
+      return
+    endif
     do c = 1, 3
       zcorr(c,:) = 0._mytype
       call solve_free_end_implicit_bending_rhs_scalar(rhs_z(c,:), zcorr(c,:), alpha, gamma_b, it_used, dxmax, &
            converged, breakdown_detected, restart_count, failure_code)
       if (.not.converged) then
         update_ok = .false.
-        failure_mode = 'delta_x_bending_solve_failed'
+        failure_mode = 'tension_response_bending_solve_failed'
         return
       endif
     enddo
-    delta_x = -w_proj + zcorr
+    schur_zcorr_norm = max_abs_array_2d(zcorr)
+    if (schur_alpha_delta_ft_norm > 0._mytype .and. schur_zcorr_norm <= 0._mytype) then
+      update_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'tension_response_solution_zero_internal_failure'
+      return
+    endif
   end subroutine apply_momentum_consistent_schur_update
 
   subroutine solve_schur_tension_correction(smat, gvec, delta_t, method, reg_used, mu_final, min_abs_pivot, max_abs_pivot, &
@@ -1013,7 +1059,9 @@ contains
        position_solve_failure_mode, schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column, &
        schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, schur_rhs_failure_mode, &
        schur_momentum_consistent_rhs_active, schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, &
-       schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok)
+       schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok, schur_rx_norm, &
+       schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+       schur_x_trial_update_norm, schur_internal_update_failure)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
     real(mytype), intent(in) :: t_half_initial(fiber_nl-1)
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half_out(fiber_nl-1)
@@ -1030,16 +1078,20 @@ contains
     integer, intent(out) :: schur_matrix_failed_column
     logical, intent(out) :: schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok
     logical, intent(out) :: schur_momentum_consistent_rhs_active, schur_nonzero_update_accepted, schur_pre_state_effective_ok
+    logical, intent(out) :: schur_internal_update_failure
     character(len=*), intent(out) :: schur_rhs_failure_mode
     real(mytype), intent(out) :: schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm
+    real(mytype), intent(out) :: schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm
+    real(mytype), intent(out) :: schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm
     real(mytype) :: xk(3,fiber_nl), xtrial(3,fiber_nl), tk(fiber_nl-1), ttrial(fiber_nl-1), delta_t(fiber_nl-1)
     real(mytype) :: gk(fiber_nl-1), gtrial(fiber_nl-1), smat(fiber_nl-1,fiber_nl-1), lambda, phi_current, phi_trial
     real(mytype) :: max_abs_g, max_seg_err, max_inext_err, max_abs_g_trial, rx_scale, alpha, rx_rel_trial
-    real(mytype) :: rhs_t(fiber_nl-1), rhs_solver(fiber_nl-1), cw(fiber_nl-1), wproj(3,fiber_nl), delta_x(3,fiber_nl)
+    real(mytype) :: rhs_t(fiber_nl-1), rhs_solver(fiber_nl-1), cw(fiber_nl-1), wproj(3,fiber_nl), zcorr(3,fiber_nl), delta_x(3,fiber_nl)
     real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), beta_ls
+    real(mytype) :: delta_t_floor, delta_x_floor
     integer :: it, ibt, maxit, maxbt
     logical :: accepted, solve_ok, geometry_sane, geometry_finite, plateau_detected, strict_success, plateau_success
-    logical :: update_ok, pre_state_effective_ok, accepted_nonzero_update
+    logical :: update_ok, pre_state_effective_ok, accepted_nonzero_update, internal_failure_local
     real(mytype) :: plateau_g_tol, plateau_rx_rel_tol, g_scale, rx_scale_success, tiny_merit, update_floor, update_norm, phi_prev
 
     alpha = dt_s * dt_s / rho_tilde
@@ -1075,12 +1127,22 @@ contains
     schur_combined_merit_final = huge(1._mytype)
     schur_delta_x_norm = 0._mytype
     schur_delta_t_norm = 0._mytype
+    schur_rx_norm = 0._mytype
+    schur_alpha_rx_norm = 0._mytype
+    schur_w_proj_norm = 0._mytype
+    schur_delta_ft_norm = 0._mytype
+    schur_alpha_delta_ft_norm = 0._mytype
+    schur_zcorr_norm = 0._mytype
+    schur_x_trial_update_norm = 0._mytype
+    schur_internal_update_failure = .false.
     schur_nonzero_update_accepted = .false.
     schur_pre_state_effective_ok = .false.
     tiny_merit = 1.0e-30_mytype
     g_scale = max(fiber_flex_constraint_outer_tol_g, tiny_merit)
     rx_scale_success = max(fiber_flex_constraint_outer_tol_rx_rel, tiny_merit)
     update_floor = 10._mytype * epsilon(1._mytype)
+    delta_t_floor = 100._mytype * epsilon(1._mytype)
+    delta_x_floor = 100._mytype * epsilon(1._mytype) * max(1._mytype, fiber_length)
     phi_prev = huge(1._mytype)
 
     do it = 1, maxit
@@ -1104,11 +1166,16 @@ contains
         schur_convergence_mode = 'strict'
         exit
       endif
-      call project_momentum_residual_through_bending(xk, rx, dt_s, rho_tilde, gamma_b, wproj, update_ok, schur_rhs_failure_mode)
+      call project_momentum_residual_through_bending(rx, dt_s, rho_tilde, gamma_b, wproj, update_ok, schur_rhs_failure_mode, &
+           schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm, internal_failure_local)
       schur_rhs_momentum_projection_ok = update_ok
       if (.not.update_ok) then
         schur_position_solve_converged = .false.
         position_solve_failure_mode = 'momentum_projection_bending_solve_failed'
+        if (internal_failure_local) then
+          position_solve_failure_mode = 'momentum_proj_internal_fail'
+          schur_internal_update_failure = .true.
+        endif
         schur_convergence_mode = 'failed'
         exit
       endif
@@ -1130,21 +1197,44 @@ contains
         schur_convergence_mode = 'failed'
         exit
       endif
-      call apply_momentum_consistent_schur_update(xk, delta_t, wproj, dt_s, rho_tilde, gamma_b, delta_x, update_ok, schur_rhs_failure_mode)
+      call apply_momentum_consistent_schur_update(xk, delta_t, wproj, dt_s, rho_tilde, gamma_b, zcorr, update_ok, &
+           schur_rhs_failure_mode, schur_delta_t_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+           internal_failure_local)
       schur_rhs_momentum_projection_ok = schur_rhs_momentum_projection_ok .and. update_ok
       if (.not.update_ok) then
         schur_position_solve_converged = .false.
-        position_solve_failure_mode = 'delta_x_bending_solve_failed'
+        position_solve_failure_mode = 'tension_response_bending_solve_failed'
+        if (internal_failure_local) then
+          position_solve_failure_mode = 'tension_resp_internal_fail'
+          schur_internal_update_failure = .true.
+        endif
         schur_convergence_mode = 'failed'
         exit
       endif
-      schur_delta_x_norm = maxval(abs(delta_x))
-      schur_delta_t_norm = maxval(abs(delta_t))
+      delta_x = -wproj + zcorr
+      schur_delta_x_norm = max_abs_array_2d(delta_x)
+      if (schur_delta_t_norm > delta_t_floor .and. schur_delta_x_norm <= delta_x_floor) then
+        schur_internal_update_failure = .true.
+        schur_rhs_failure_mode = 'delta_t_nonzero_but_delta_x_zero_internal_failure'
+        schur_position_solve_converged = .false.
+        position_solve_failure_mode = 'delta_t_nonzero_delta_x_zero'
+        schur_convergence_mode = 'failed'
+        exit
+      endif
       lambda = 1._mytype
       accepted = .false.
       do ibt = 0, maxbt
         ttrial = tk + lambda * delta_t
         xtrial = xk + lambda * delta_x
+        schur_x_trial_update_norm = max_abs_array_2d(xtrial - xk)
+        if (lambda > 0._mytype .and. schur_delta_x_norm > delta_x_floor .and. schur_x_trial_update_norm <= delta_x_floor) then
+          schur_internal_update_failure = .true.
+          schur_rhs_failure_mode = 'x_trial_not_updated_internal_failure'
+          schur_position_solve_converged = .false.
+          position_solve_failure_mode = 'x_trial_not_updated'
+          schur_convergence_mode = 'failed'
+          exit
+        endif
         call compute_half_segment_constraint_residual(xtrial, gtrial, max_abs_g_trial, max_seg_err, max_inext_err)
         call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
         call compute_momentum_residual_scale_final_time(xtrial, ttrial, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
@@ -1159,8 +1249,10 @@ contains
         endif
         lambda = beta_ls * lambda
       enddo
+      if (trim(schur_convergence_mode) == 'failed' .and. schur_internal_update_failure) exit
       update_norm = lambda * max(schur_delta_x_norm, schur_delta_t_norm)
-      accepted_nonzero_update = accepted .and. (lambda > 0._mytype) .and. (update_norm > update_floor)
+      accepted_nonzero_update = accepted .and. (lambda > 0._mytype) .and. (schur_delta_x_norm > delta_x_floor) .and. &
+           (update_norm > update_floor) .and. (.not.schur_internal_update_failure)
       schur_nonzero_update_accepted = schur_nonzero_update_accepted .or. accepted_nonzero_update
       pre_state_effective_ok = solve_ok .and. geometry_finite .and. geometry_sane .and. &
            (max_abs_g <= plateau_g_tol) .and. (schur_final_rx_rel <= plateau_rx_rel_tol)
@@ -1170,7 +1262,7 @@ contains
         strict_success = solve_ok .and. geometry_finite .and. geometry_sane .and. &
              (max_abs_g <= fiber_flex_constraint_outer_tol_g) .and. &
              (schur_final_rx_rel <= fiber_flex_constraint_outer_tol_rx_rel)
-        plateau_success = solve_ok .and. geometry_finite .and. geometry_sane .and. &
+        plateau_success = (.not.schur_internal_update_failure) .and. solve_ok .and. geometry_finite .and. geometry_sane .and. &
              (max_abs_g <= plateau_g_tol) .and. (schur_final_rx_rel <= plateau_rx_rel_tol) .and. &
              ( (pre_state_effective_ok .and. plateau_detected) .or. accepted_nonzero_update )
         if (strict_success) then
@@ -1190,6 +1282,13 @@ contains
       schur_final_update_norm_x = lambda * maxval(abs(delta_x))
       tk = ttrial
       xk = xtrial
+      call compute_half_segment_constraint_residual(xk, gk, max_abs_g, max_seg_err, max_inext_err)
+      call build_coupled_structure_residual(xk, tk, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+      call compute_momentum_residual_scale_final_time(xk, tk, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+      schur_final_momentum_residual = maxval(abs(rx))
+      schur_final_constraint_residual = maxval(abs(gk))
+      schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
+      schur_combined_merit_final = max(schur_final_constraint_residual / g_scale, schur_final_rx_rel / rx_scale_success)
       phi_prev = phi_current
     enddo
 
@@ -1212,7 +1311,9 @@ contains
        schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column, structure_local_tension_warm_start_active, &
        schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, schur_rhs_failure_mode, &
        schur_momentum_consistent_rhs_active, schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, &
-       schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok)
+       schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok, schur_rx_norm, &
+       schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+       schur_x_trial_update_norm, schur_internal_update_failure)
     integer, intent(in) :: case_id
     real(mytype), intent(in) :: t_macro_start
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), dt_macro, rho_tilde, gamma_b
@@ -1231,8 +1332,11 @@ contains
     integer, intent(out) :: schur_matrix_failed_column
     logical, intent(out) :: schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok
     logical, intent(out) :: schur_momentum_consistent_rhs_active, schur_nonzero_update_accepted, schur_pre_state_effective_ok
+    logical, intent(out) :: schur_internal_update_failure
     character(len=*), intent(out) :: schur_rhs_failure_mode
     real(mytype), intent(out) :: schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm
+    real(mytype), intent(out) :: schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm
+    real(mytype), intent(out) :: schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm
     real(mytype) :: xprev(3,fiber_nl), xcur(3,fiber_nl), xnext(3,fiber_nl), veln(3,fiber_nl), dt_sub
     real(mytype) :: fext_sub(3,fiber_nl), t_sub
     real(mytype) :: t_prev_local(fiber_nl-1), t_sub_out(fiber_nl-1), tension_prev_backup(fiber_nl-1)
@@ -1255,6 +1359,14 @@ contains
     schur_combined_merit_final = huge(1._mytype)
     schur_delta_x_norm = 0._mytype
     schur_delta_t_norm = 0._mytype
+    schur_rx_norm = 0._mytype
+    schur_alpha_rx_norm = 0._mytype
+    schur_w_proj_norm = 0._mytype
+    schur_delta_ft_norm = 0._mytype
+    schur_alpha_delta_ft_norm = 0._mytype
+    schur_zcorr_norm = 0._mytype
+    schur_x_trial_update_norm = 0._mytype
+    schur_internal_update_failure = .false.
     schur_nonzero_update_accepted = .false.
     schur_pre_state_effective_ok = .false.
     structure_local_tension_warm_start_active = .true.
@@ -1280,7 +1392,9 @@ contains
              position_solve_failure_mode, schur_matrix_ok, schur_matrix_failure_mode, schur_matrix_failed_column, &
              schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, schur_rhs_failure_mode, &
              schur_momentum_consistent_rhs_active, schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, &
-             schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok)
+             schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok, schur_rx_norm, &
+             schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+             schur_x_trial_update_norm, schur_internal_update_failure)
         if (.not.schur_solver_converged) then
           if (.not.schur_position_solve_converged) bending_kernel_failure_count = bending_kernel_failure_count + 1
           ok_local = .false.
@@ -1870,8 +1984,11 @@ contains
     integer :: schur_matrix_failed_column
     logical :: schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok
     logical :: schur_momentum_consistent_rhs_active, schur_nonzero_update_accepted, schur_pre_state_effective_ok
+    logical :: schur_internal_update_failure
     character(len=64) :: schur_rhs_failure_mode
     real(mytype) :: schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm
+    real(mytype) :: schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm
+    real(mytype) :: schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm
 
     if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
          .not.fiber_flex_structure_test_active) then
@@ -1936,7 +2053,9 @@ contains
            schur_matrix_failure_mode, schur_matrix_failed_column, structure_local_tension_warm_start_active, &
            schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, schur_rhs_failure_mode, &
            schur_momentum_consistent_rhs_active, schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, &
-           schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok)
+           schur_delta_t_norm, schur_nonzero_update_accepted, schur_pre_state_effective_ok, schur_rx_norm, &
+           schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, schur_alpha_delta_ft_norm, schur_zcorr_norm, &
+           schur_x_trial_update_norm, schur_internal_update_failure)
       structure_max_substeps_used = max(structure_max_substeps_used, nsub_used)
       if (.not.step_success) then
         structure_step_failed_any = .true.
@@ -2019,7 +2138,8 @@ contains
          structure_local_tension_warm_start_active, schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, &
          trim(schur_rhs_failure_mode), schur_momentum_consistent_rhs_active, schur_combined_merit_initial, &
          schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm, schur_nonzero_update_accepted, &
-         schur_pre_state_effective_ok)
+         schur_pre_state_effective_ok, schur_rx_norm, schur_alpha_rx_norm, schur_w_proj_norm, schur_delta_ft_norm, &
+         schur_alpha_delta_ft_norm, schur_zcorr_norm, schur_x_trial_update_norm, schur_internal_update_failure)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_structure_dynamics_test
