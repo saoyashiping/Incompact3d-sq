@@ -534,8 +534,8 @@ subroutine parameter(input_i3d)
         if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_force_direction must be non-zero.'
         stop
      endif
-     if (fiber_flex_structure_case < 0 .or. fiber_flex_structure_case > 2) then
-        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0, 1 or 2.'
+     if (fiber_flex_structure_case < 0 .or. fiber_flex_structure_case > 3) then
+        if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0, 1, 2 or 3.'
         stop
      endif
      if (fiber_flex_structure_test_active .and. (fiber_flex_operator_test_active .or. fiber_flex_bending_test_active .or. &

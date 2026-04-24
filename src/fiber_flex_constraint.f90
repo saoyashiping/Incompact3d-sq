@@ -342,6 +342,8 @@ contains
   end subroutine build_coupled_structure_residual
 
   subroutine compute_scaled_momentum_residual_reference(x_trial, t_half_trial, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
+    ! Deprecated for Step 3.5 default path.
+    ! Kept only for older 3.4 reference routines.
     real(mytype), intent(in) :: x_trial(3,fiber_nl), t_half_trial(fiber_nl-1), xn(3,fiber_nl), xnm1(3,fiber_nl)
     real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
     real(mytype), intent(out) :: rx_scale
@@ -361,6 +363,27 @@ contains
     ! this is a scaled momentum residual used for coupled outer-iteration convergence assessment
     rx_scale = max(1._mytype, max(inertia_ref_max, max(ftension_max, max(fb_max, fext_max))))
   end subroutine compute_scaled_momentum_residual_reference
+
+  subroutine compute_momentum_residual_scale_final_time(x_trial, t_half_trial, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
+    ! momentum residual scale is translation-invariant and based on final-time residual term magnitudes
+    real(mytype), intent(in) :: x_trial(3,fiber_nl), t_half_trial(fiber_nl-1), xn(3,fiber_nl), xnm1(3,fiber_nl)
+    real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_c, rho_tilde, gamma_b
+    real(mytype), intent(out) :: rx_scale
+    real(mytype) :: ftension(3,fiber_nl), fb_trial(3,fiber_nl), inertia_term(3,fiber_nl)
+    real(mytype) :: inertia_max, ftension_max, fb_max, fext_max
+    integer :: c
+
+    inertia_term = (rho_tilde/(dt_c*dt_c)) * (x_trial - 2._mytype * xn + xnm1)
+    inertia_max = maxval(abs(inertia_term))
+    call compute_tension_term_huang_style(t_half_trial, x_trial, ftension)
+    ftension_max = maxval(abs(ftension))
+    do c = 1, 3
+      call apply_free_end_bending_operator_scalar(x_trial(c,:), fb_trial(c,:), gamma_b)
+    enddo
+    fb_max = maxval(abs(fb_trial))
+    fext_max = maxval(abs(fext_in))
+    rx_scale = max(1._mytype, max(inertia_max, max(ftension_max, max(fb_max, fext_max))))
+  end subroutine compute_momentum_residual_scale_final_time
 
   subroutine pack_structure_unknown(x, t_half, uvec)
     ! Unknown layout:
@@ -420,6 +443,36 @@ contains
     enddo
   end subroutine build_structure_newton_residual_vector
 
+  subroutine build_structure_newton_scaled_residual_vector(uvec, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rvec_scaled, &
+       rx_scale, rg_scale, rvec_unscaled)
+    ! scaled residual is used for Newton/KKT solve conditioning; unscaled residual is retained for diagnostics
+    real(mytype), intent(in) :: uvec(4*fiber_nl-1), xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl)
+    real(mytype), intent(in) :: dt_s, rho_tilde, gamma_b
+    real(mytype), intent(out) :: rvec_scaled(4*fiber_nl-1), rx_scale, rg_scale
+    real(mytype), intent(out), optional :: rvec_unscaled(4*fiber_nl-1)
+    real(mytype) :: x_trial(3,fiber_nl), t_trial(fiber_nl-1), rx(3,fiber_nl), rg(fiber_nl-1), rraw(4*fiber_nl-1)
+    integer :: l, c, k
+
+    call unpack_structure_unknown(uvec, x_trial, t_trial)
+    call build_coupled_structure_residual(x_trial, t_trial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+    call compute_momentum_residual_scale_final_time(x_trial, t_trial, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+    rg_scale = 1._mytype
+    k = 0
+    do c = 1, 3
+      do l = 1, fiber_nl
+        k = k + 1
+        rraw(k) = rx(c,l)
+        rvec_scaled(k) = rraw(k) / rx_scale
+      enddo
+    enddo
+    do l = 1, fiber_nl-1
+      k = k + 1
+      rraw(k) = rg(l)
+      rvec_scaled(k) = rraw(k) / rg_scale
+    enddo
+    if (present(rvec_unscaled)) rvec_unscaled = rraw
+  end subroutine build_structure_newton_scaled_residual_vector
+
   subroutine build_structure_newton_fd_jacobian(uvec, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jac)
     ! dense finite-difference Jacobian is used only for Step 3.5 academic validation;
     ! later stages may replace it with analytic / matrix-free Newton-Krylov.
@@ -427,6 +480,7 @@ contains
     real(mytype), intent(in) :: dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: jac(4*fiber_nl-1,4*fiber_nl-1)
     real(mytype) :: up(4*fiber_nl-1), um(4*fiber_nl-1), rp(4*fiber_nl-1), rm(4*fiber_nl-1), epsj, eps0
+    real(mytype) :: rx_scale_dummy, rg_scale_dummy
     integer :: j
     eps0 = sqrt(epsilon(1._mytype))
     do j = 1, 4*fiber_nl-1
@@ -435,8 +489,10 @@ contains
       um = uvec
       up(j) = up(j) + epsj
       um(j) = um(j) - epsj
-      call build_structure_newton_residual_vector(up, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rp)
-      call build_structure_newton_residual_vector(um, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rm)
+      call build_structure_newton_scaled_residual_vector(up, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rp, &
+           rx_scale_dummy, rg_scale_dummy)
+      call build_structure_newton_scaled_residual_vector(um, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rm, &
+           rx_scale_dummy, rg_scale_dummy)
       jac(:,j) = (rp - rm) / (2._mytype * epsj)
     enddo
   end subroutine build_structure_newton_fd_jacobian
@@ -453,12 +509,13 @@ contains
     real(mytype), intent(out) :: newton_final_update_norm, newton_accepted_lambda
     character(len=*), intent(out) :: newton_convergence_mode
     real(mytype) :: u(4*fiber_nl-1), r(4*fiber_nl-1), jmat(4*fiber_nl-1,4*fiber_nl-1), du(4*fiber_nl-1)
-    real(mytype) :: utrial(4*fiber_nl-1), rtrial(4*fiber_nl-1), lambda, beta_ls, phi, phi_trial, rx_scale
+    real(mytype) :: utrial(4*fiber_nl-1), rtrial(4*fiber_nl-1), r_unscaled(4*fiber_nl-1), lambda, beta_ls
+    real(mytype) :: phi, phi_trial, rx_scale, rg_scale
     real(mytype) :: xk(3,fiber_nl), tk(fiber_nl-1), xtrial(3,fiber_nl), ttrial(fiber_nl-1), xpred(3,fiber_nl)
     real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), rx_rel, du_inf, alpha
     real(mytype) :: phi_hist(3), du_hist(3)
     integer :: it, ibt, maxit, maxbt
-    logical :: accepted, plateau, geometry_regular
+    logical :: accepted, plateau, geometry_regular, final_nan_inf, final_geometry_regular
 
     alpha = dt_s * dt_s / rho_tilde
     xpred = 2._mytype * xn - xnm1 + alpha * fext_in
@@ -484,14 +541,13 @@ contains
     newton_iterations_used = 0
 
     do it = 1, maxit
-      call build_structure_newton_residual_vector(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, r)
+      call build_structure_newton_scaled_residual_vector(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, r, rx_scale, rg_scale, r_unscaled)
       call unpack_structure_unknown(u, xk, tk)
       call build_coupled_structure_residual(xk, tk, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
-      call compute_scaled_momentum_residual_reference(xk, tk, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
       newton_final_residual_x = maxval(abs(rx))
       newton_final_residual_g = maxval(abs(rg))
       rx_rel = newton_final_residual_x / rx_scale
-      phi = max(rx_rel, newton_final_residual_g)
+      phi = maxval(abs(r))
       newton_final_residual_norm = phi
       newton_iterations_used = it
       if (newton_final_residual_g <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
@@ -509,11 +565,11 @@ contains
       accepted = .false.
       do ibt = 0, maxbt
         utrial = u + lambda * du
-        call build_structure_newton_residual_vector(utrial, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rtrial)
+        call build_structure_newton_scaled_residual_vector(utrial, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, rtrial, &
+             rx_scale, rg_scale)
         call unpack_structure_unknown(utrial, xtrial, ttrial)
         call build_coupled_structure_residual(xtrial, ttrial, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
-        call compute_scaled_momentum_residual_reference(xtrial, ttrial, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
-        phi_trial = max(maxval(abs(rg)), maxval(abs(rx)) / rx_scale)
+        phi_trial = maxval(abs(rtrial))
         if (phi_trial < phi) then
           accepted = .true.
           exit
@@ -547,6 +603,36 @@ contains
     enddo
 
     call unpack_structure_unknown(u, xnp1, t_half)
+    ! final post-loop residual recheck prevents stale convergence labels after the last accepted Newton step
+    call build_structure_newton_scaled_residual_vector(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, r, rx_scale, rg_scale)
+    call build_coupled_structure_residual(xnp1, t_half, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+    newton_final_residual_x = maxval(abs(rx))
+    newton_final_residual_g = maxval(abs(rg))
+    rx_rel = newton_final_residual_x / max(rx_scale, 1.0e-30_mytype)
+    newton_final_residual_norm = maxval(abs(r))
+    final_nan_inf = (.not.all(xnp1 == xnp1)) .or. (.not.all(t_half == t_half)) .or. (.not.all(r == r))
+    final_geometry_regular = (.not.final_nan_inf) .and. maxval(abs(xnp1)) < 1.0e30_mytype
+    plateau = (newton_iterations_used >= 3 .and. abs(phi_hist(3)-phi_hist(2)) <= 1.0e-2_mytype * max(phi_hist(2), 1.0e-14_mytype) .and. &
+         abs(phi_hist(2)-phi_hist(1)) <= 1.0e-2_mytype * max(phi_hist(1), 1.0e-14_mytype))
+    if (newton_final_residual_g <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+         newton_final_update_norm <= fiber_flex_constraint_outer_tol_x .and. final_geometry_regular) then
+      newton_convergence_mode = 'strict'
+    else if (newton_final_residual_g <= fiber_flex_constraint_outer_tol_g .and. rx_rel <= fiber_flex_constraint_outer_tol_rx_rel .and. &
+         (newton_final_update_norm <= 10._mytype * fiber_flex_constraint_outer_tol_x .or. plateau) .and. final_geometry_regular) then
+      newton_convergence_mode = 'plateau_accepted'
+    else
+      newton_convergence_mode = 'failed'
+    endif
+    if (trim(newton_convergence_mode) == 'strict') then
+      newton_converged_strict = .true.
+      newton_converged_effective = .true.
+    else if (trim(newton_convergence_mode) == 'plateau_accepted') then
+      newton_converged_strict = .false.
+      newton_converged_effective = .true.
+    else
+      newton_converged_strict = .false.
+      newton_converged_effective = .false.
+    endif
     if (newton_converged_effective) then
       if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
       fiber_tension_half_prevstep = t_half
@@ -628,7 +714,7 @@ contains
       max_abs_rx = final_coupled_residual_x
       max_abs_rg = final_coupled_residual_g
       phi_current = max(max_abs_rx, max_abs_rg)
-      call compute_scaled_momentum_residual_reference(xk, t_half, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
+      call compute_momentum_residual_scale_final_time(xk, t_half, xn, xnm1, fext_in, dt_c, rho_tilde, gamma_b, rx_scale)
       rx_rel = max_abs_rx / rx_scale
       final_coupled_residual_x_rel = rx_rel
       max_abs_momentum_residual_during_outer = max(max_abs_momentum_residual_during_outer, max_abs_rx)
@@ -863,6 +949,7 @@ contains
     case default
       amp_now = 0._mytype
     end select
+    if (case_id == 3) amp_now = 5._mytype * amp_now
     do l = 1, fiber_nl
       q = (fiber_s_ref(l) - fiber_s_ref(1)) / max(fiber_length, 1.0e-12_mytype)
       gshape = q**4 * (1._mytype - q)**4
@@ -870,14 +957,71 @@ contains
     enddo
   end subroutine compute_prescribed_structure_force
 
-  subroutine initialize_structure_dynamics_test_state(case_id, xnm1, xn)
+  subroutine reparameterize_curve_to_uniform_arclength(x_in, x_out)
+    ! Reparameterize a curved initial shape to uniform arc-length nodes.
+    ! This projects the initial geometry close to the inextensible manifold
+    ! without changing the target fiber length.
+    real(mytype), intent(in) :: x_in(3,fiber_nl)
+    real(mytype), intent(out) :: x_out(3,fiber_nl)
+    real(mytype) :: seglen(fiber_nl-1), sacc(fiber_nl), starget, total_len, w
+    integer :: i, j
+
+    sacc(1) = 0._mytype
+    do i = 1, fiber_nl-1
+      seglen(i) = sqrt(sum((x_in(:,i+1)-x_in(:,i))**2))
+      sacc(i+1) = sacc(i) + seglen(i)
+    enddo
+    total_len = max(sacc(fiber_nl), 1.0e-14_mytype)
+    x_out(:,1) = x_in(:,1)
+    x_out(:,fiber_nl) = x_in(:,fiber_nl)
+    do i = 2, fiber_nl-1
+      starget = (real(i-1,mytype)/real(fiber_nl-1,mytype)) * total_len
+      j = 1
+      do while (j < fiber_nl-1 .and. sacc(j+1) < starget)
+        j = j + 1
+      enddo
+      if (sacc(j+1) > sacc(j)) then
+        w = (starget - sacc(j)) / (sacc(j+1) - sacc(j))
+      else
+        w = 0._mytype
+      endif
+      x_out(:,i) = (1._mytype - w) * x_in(:,j) + w * x_in(:,j+1)
+    enddo
+  end subroutine reparameterize_curve_to_uniform_arclength
+
+  subroutine compute_free_end_boundary_residuals_independent(x_in, max_d2_independent, max_d3_independent)
+    ! Independent one-sided physical-node boundary estimator for free-end d2/d3 residuals.
+    ! Used for diagnostics only; does not alter solver operators.
+    real(mytype), intent(in) :: x_in(3,fiber_nl)
+    real(mytype), intent(out) :: max_d2_independent, max_d3_independent
+    real(mytype) :: d2_left(3), d2_right(3), d3_left(3), d3_right(3), invds2, invds3
+
+    invds2 = 1._mytype / (fiber_ds * fiber_ds)
+    invds3 = 1._mytype / (fiber_ds * fiber_ds * fiber_ds)
+    d2_left = (2._mytype*x_in(:,1) - 5._mytype*x_in(:,2) + 4._mytype*x_in(:,3) - x_in(:,4)) * invds2
+    d2_right = (2._mytype*x_in(:,fiber_nl) - 5._mytype*x_in(:,fiber_nl-1) + 4._mytype*x_in(:,fiber_nl-2) - &
+         x_in(:,fiber_nl-3)) * invds2
+    d3_left = (-5._mytype*x_in(:,1) + 18._mytype*x_in(:,2) - 24._mytype*x_in(:,3) + 14._mytype*x_in(:,4) - &
+         3._mytype*x_in(:,5)) * (0.5_mytype*invds3)
+    d3_right = (5._mytype*x_in(:,fiber_nl) - 18._mytype*x_in(:,fiber_nl-1) + 24._mytype*x_in(:,fiber_nl-2) - &
+         14._mytype*x_in(:,fiber_nl-3) + 3._mytype*x_in(:,fiber_nl-4)) * (0.5_mytype*invds3)
+    max_d2_independent = max(maxval(abs(d2_left)), maxval(abs(d2_right)))
+    max_d3_independent = max(maxval(abs(d3_left)), maxval(abs(d3_right)))
+  end subroutine compute_free_end_boundary_residuals_independent
+
+  subroutine initialize_structure_dynamics_test_state(case_id, xnm1, xn, initial_shape_projection_active, &
+       initial_max_seg_err, initial_max_inext_err)
     integer, intent(in) :: case_id
     real(mytype), intent(out) :: xnm1(3,fiber_nl), xn(3,fiber_nl)
+    logical, intent(out) :: initial_shape_projection_active
+    real(mytype), intent(out) :: initial_max_seg_err, initial_max_inext_err
     real(mytype) :: q, gshape, amp0
+    real(mytype) :: xproj(3,fiber_nl)
     integer :: l
 
     xn = fiber_x
     amp0 = fiber_flex_structure_initial_shape_amp
+    initial_shape_projection_active = .false.
     select case (case_id)
     case (0)
       do l = 1, fiber_nl
@@ -885,6 +1029,9 @@ contains
         gshape = q**4 * (1._mytype - q)**4
         xn(2,l) = xn(2,l) + amp0 * gshape
       enddo
+      call reparameterize_curve_to_uniform_arclength(xn, xproj)
+      xn = xproj
+      initial_shape_projection_active = .true.
       xnm1 = xn
     case (1)
       xnm1 = xn
@@ -894,17 +1041,29 @@ contains
         gshape = q**4 * (1._mytype - q)**4
         xn(2,l) = xn(2,l) + 1.5_mytype * amp0 * gshape
       enddo
+      call reparameterize_curve_to_uniform_arclength(xn, xproj)
+      xn = xproj
+      initial_shape_projection_active = .true.
       xnm1 = xn
+    case (3)
+      ! optional stronger harmonic-load validation case; keeps prescribed-force semantics
+      xnm1 = xn
+      if (fiber_flex_structure_force_mode == 0) then
+        if (nrank == 0) write(*,*) 'Warning: structure case 3 is most informative with non-zero force mode.'
+      endif
     case default
-      if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0,1,2.'
+      if (nrank == 0) write(*,*) 'Error: fiber_flex_structure_case must be 0,1,2,3.'
       stop
     end select
+    call compute_constraint_error(xn, initial_max_seg_err, initial_max_inext_err)
   end subroutine initialize_structure_dynamics_test_state
 
   subroutine compute_structure_dynamics_metrics(xn, xnp1, fext_now, dt_s, kinetic_energy, bending_energy, external_power, &
-       max_end_bc_d2_residual, max_end_bc_d3_residual)
+       max_end_bc_d2_residual, max_end_bc_d3_residual, max_end_bc_d2_residual_independent, &
+       max_end_bc_d3_residual_independent)
     real(mytype), intent(in) :: xn(3,fiber_nl), xnp1(3,fiber_nl), fext_now(3,fiber_nl), dt_s
     real(mytype), intent(out) :: kinetic_energy, bending_energy, external_power, max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype), intent(out) :: max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent
     real(mytype) :: u(3,fiber_nl), xss(3,fiber_nl), d3_left(3), d3_right(3)
     integer :: c
     u = (xnp1 - xn) / dt_s
@@ -918,6 +1077,12 @@ contains
     d3_left = (xss(:,2) - xss(:,1)) / fiber_ds
     d3_right = (xss(:,fiber_nl) - xss(:,fiber_nl-1)) / fiber_ds
     max_end_bc_d3_residual = max(maxval(abs(d3_left)), maxval(abs(d3_right)))
+    if (fiber_nl >= 5) then
+      call compute_free_end_boundary_residuals_independent(xnp1, max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent)
+    else
+      max_end_bc_d2_residual_independent = max_end_bc_d2_residual
+      max_end_bc_d3_residual_independent = max_end_bc_d3_residual
+    endif
   end subroutine compute_structure_dynamics_metrics
 
   subroutine run_flexible_structure_dynamics_test()
@@ -931,8 +1096,13 @@ contains
     real(mytype) :: kinetic_energy, bending_energy, external_power
     real(mytype) :: max_abs_fext, max_abs_fext_global, max_abs_fext_final, external_power_final
     real(mytype) :: max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype) :: max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent
     real(mytype) :: kinetic_energy_final, bending_energy_final, final_displacement_norm
     real(mytype) :: max_end_bc_d2_residual_global, max_end_bc_d3_residual_global
+    real(mytype) :: max_end_bc_d2_residual_independent_global, max_end_bc_d3_residual_independent_global
+    real(mytype) :: max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, rx_scale_step
+    real(mytype) :: initial_max_seg_err, initial_max_inext_err
+    logical :: initial_shape_projection_active
     integer :: step, outint, max_outer_iterations_used
     logical :: coupled_solver_converged, coupled_solver_converged_strict, coupled_solver_converged_effective
     logical :: plateau_detected
@@ -948,13 +1118,18 @@ contains
 
     allocate(xnm1(3,fiber_nl), xn(3,fiber_nl), xnp1(3,fiber_nl), xinit(3,fiber_nl), fext(3,fiber_nl), t_half(fiber_nl-1))
     if (allocated(fiber_tension_half_prevstep)) fiber_tension_half_prevstep = 0._mytype
-    call initialize_structure_dynamics_test_state(fiber_flex_structure_case, xnm1, xn)
+    call initialize_structure_dynamics_test_state(fiber_flex_structure_case, xnm1, xn, initial_shape_projection_active, &
+         initial_max_seg_err, initial_max_inext_err)
     xinit = xn
     outint = max(1, fiber_flex_structure_output_interval)
     max_seg_err_global = 0._mytype
     max_inext_err_global = 0._mytype
     max_end_bc_d2_residual_global = 0._mytype
     max_end_bc_d3_residual_global = 0._mytype
+    max_end_bc_d2_residual_independent_global = 0._mytype
+    max_end_bc_d3_residual_independent_global = 0._mytype
+    max_forced_predictor_norm_global = 0._mytype
+    max_newton_accepted_update_norm_global = 0._mytype
     coupled_solver_converged_strict = .false.
     coupled_solver_converged_effective = .false.
     kinetic_energy_final = 0._mytype
@@ -976,23 +1151,31 @@ contains
       max_abs_fext = maxval(abs(fext))
       max_abs_fext_global = max(max_abs_fext_global, max_abs_fext)
       max_abs_fext_final = max_abs_fext
+      max_forced_predictor_norm_global = max(max_forced_predictor_norm_global, &
+           (fiber_flex_structure_dt*fiber_flex_structure_dt/max(fiber_structure_rho_tilde,1.0e-12_mytype))*max_abs_fext)
       call solve_structure_dynamics_newton_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_structure_dt, fiber_structure_rho_tilde, &
            fiber_bending_gamma, coupled_solver_converged_strict, coupled_solver_converged_effective, newton_iterations_used, &
            final_coupled_residual_x, final_coupled_residual_g, newton_final_residual_norm, newton_final_update_norm, &
            newton_accepted_lambda, final_coupled_convergence_mode)
+      max_newton_accepted_update_norm_global = max(max_newton_accepted_update_norm_global, newton_final_update_norm)
       coupled_solver_converged = coupled_solver_converged_effective
-      final_coupled_residual_x_rel = max(0._mytype, newton_final_residual_norm)
+      call compute_momentum_residual_scale_final_time(xnp1, t_half, xn, xnm1, fext, fiber_flex_structure_dt, &
+           fiber_structure_rho_tilde, fiber_bending_gamma, rx_scale_step)
+      final_coupled_residual_x_rel = final_coupled_residual_x / max(rx_scale_step, 1.0e-30_mytype)
       max_outer_iterations_used = newton_iterations_used
       accepted_line_search_lambda = newton_accepted_lambda
       max_abs_momentum_residual_during_outer = final_coupled_residual_x
       max_abs_constraint_residual_during_outer = final_coupled_residual_g
       call compute_constraint_error(xnp1, max_seg_err, max_inext_err)
       call compute_structure_dynamics_metrics(xn, xnp1, fext, fiber_flex_structure_dt, kinetic_energy, bending_energy, external_power, &
-           max_end_bc_d2_residual, max_end_bc_d3_residual)
+           max_end_bc_d2_residual, max_end_bc_d3_residual, max_end_bc_d2_residual_independent, &
+           max_end_bc_d3_residual_independent)
       max_seg_err_global = max(max_seg_err_global, max_seg_err)
       max_inext_err_global = max(max_inext_err_global, max_inext_err)
       max_end_bc_d2_residual_global = max(max_end_bc_d2_residual_global, max_end_bc_d2_residual)
       max_end_bc_d3_residual_global = max(max_end_bc_d3_residual_global, max_end_bc_d3_residual)
+      max_end_bc_d2_residual_independent_global = max(max_end_bc_d2_residual_independent_global, max_end_bc_d2_residual_independent)
+      max_end_bc_d3_residual_independent_global = max(max_end_bc_d3_residual_independent_global, max_end_bc_d3_residual_independent)
       kinetic_energy_final = kinetic_energy
       bending_energy_final = bending_energy
       external_power_final = external_power
@@ -1021,8 +1204,11 @@ contains
          coupled_solver_converged_strict, coupled_solver_converged_effective, final_coupled_convergence_mode, &
          final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g, kinetic_energy_final, &
          bending_energy_final, max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual_global, &
-         max_end_bc_d3_residual_global, final_displacement_norm, max_abs_fext_global, max_abs_fext_final, external_power_final, &
-         newton_iterations_used, newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda)
+         max_end_bc_d3_residual_global, max_end_bc_d2_residual_independent_global, max_end_bc_d3_residual_independent_global, &
+         final_displacement_norm, max_abs_fext_global, max_abs_fext_final, external_power_final, &
+         max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, initial_shape_projection_active, &
+         initial_max_seg_err, initial_max_inext_err, newton_iterations_used, newton_final_residual_norm, &
+         newton_final_update_norm, newton_accepted_lambda)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_structure_dynamics_test

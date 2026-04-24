@@ -997,9 +997,9 @@ contains
   end subroutine write_fiber_flex_constraint_summary
 
   subroutine write_fiber_flex_structure_series(step, time, kinetic_energy, bending_energy, external_power, max_abs_fext, &
-       max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, outer_iter, accepted_line_search_lambda, &
+       max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, newton_iterations_used, accepted_line_search_lambda, &
        newton_final_update_norm, newton_final_residual_norm, newton_convergence_mode, overwrite)
-    integer, intent(in) :: step, outer_iter
+    integer, intent(in) :: step, newton_iterations_used
     real(mytype), intent(in) :: time, kinetic_energy, bending_energy, external_power, max_abs_fext
     real(mytype), intent(in) :: max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, accepted_line_search_lambda
     real(mytype), intent(in) :: newton_final_update_norm, newton_final_residual_norm
@@ -1010,29 +1010,37 @@ contains
     if (.not.fiber_flex_structure_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_structure_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time kinetic_energy bending_energy external_power max_abs_fext max_seg_err max_inext_err max_abs_rx max_abs_rg rx_rel outer_iter accepted_line_search_lambda newton_final_update_norm newton_final_residual_norm newton_convergence_mode'
+      write(ifile,'(A)') 'step time kinetic_energy bending_energy external_power max_seg_err max_inext_err max_abs_fext max_abs_rx max_abs_rg rx_rel newton_iterations_used accepted_line_search_lambda newton_final_update_norm newton_final_residual_norm convergence_mode'
     else
       open(newunit=ifile, file='fiber_flex_structure_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,13(ES24.16,1X),I10,1X,A)') step, time, kinetic_energy, bending_energy, external_power, max_abs_fext, &
-         max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, accepted_line_search_lambda, &
-         newton_final_update_norm, newton_final_residual_norm, outer_iter, trim(newton_convergence_mode)
+    write(ifile,'(I10,1X,10(ES24.16,1X),I10,1X,3(ES24.16,1X),A)') step, time, kinetic_energy, bending_energy, &
+         external_power, max_seg_err, max_inext_err, max_abs_fext, max_abs_rx, max_abs_rg, rx_rel, &
+         newton_iterations_used, accepted_line_search_lambda, newton_final_update_norm, newton_final_residual_norm, &
+         trim(newton_convergence_mode)
     close(ifile)
   end subroutine write_fiber_flex_structure_series
 
   subroutine write_fiber_flex_structure_summary(case_id, dt_s, nsteps, coupled_solver_converged_strict, &
        coupled_solver_converged_effective, final_coupled_convergence_mode, final_coupled_residual_x, &
        final_coupled_residual_x_rel, final_coupled_residual_g, kinetic_energy_final, bending_energy_final, &
-       max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual, final_displacement_norm, &
-       max_abs_fext_global, max_abs_fext_final, external_power_final, newton_iterations_used, &
+       max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual, &
+       max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent, final_displacement_norm, &
+       max_abs_fext_global, max_abs_fext_final, external_power_final, max_forced_predictor_norm_global, &
+       max_newton_accepted_update_norm_global, initial_shape_projection_active, initial_max_seg_err, &
+       initial_max_inext_err, newton_iterations_used, &
        newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
     real(mytype), intent(in) :: kinetic_energy_final, bending_energy_final
     real(mytype), intent(in) :: max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype), intent(in) :: max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent
     real(mytype), intent(in) :: final_displacement_norm
     real(mytype), intent(in) :: max_abs_fext_global, max_abs_fext_final, external_power_final
+    real(mytype), intent(in) :: max_forced_predictor_norm_global, max_newton_accepted_update_norm_global
+    logical, intent(in) :: initial_shape_projection_active
+    real(mytype), intent(in) :: initial_max_seg_err, initial_max_inext_err
     integer, intent(in) :: newton_iterations_used
     real(mytype), intent(in) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
     character(len=*), intent(in) :: final_coupled_convergence_mode
@@ -1055,9 +1063,12 @@ contains
     write(ifile,'(A,ES24.16)') 'final_coupled_residual_g ', final_coupled_residual_g
     write(ifile,'(A,ES24.16)') 'max_abs_fext_global ', max_abs_fext_global
     write(ifile,'(A,ES24.16)') 'max_abs_fext_final ', max_abs_fext_final
+    write(ifile,'(A,ES24.16)') 'max_forced_predictor_norm_global ', max_forced_predictor_norm_global
+    write(ifile,'(A,ES24.16)') 'max_newton_accepted_update_norm_global ', max_newton_accepted_update_norm_global
     write(ifile,'(A,ES24.16)') 'external_power_final ', external_power_final
     write(ifile,'(A,I8)') 'newton_iterations_used ', newton_iterations_used
     write(ifile,'(A,ES24.16)') 'newton_final_residual_norm ', newton_final_residual_norm
+    write(ifile,'(A,ES24.16)') 'final_newton_scaled_residual_norm ', newton_final_residual_norm
     write(ifile,'(A,ES24.16)') 'newton_final_update_norm ', newton_final_update_norm
     write(ifile,'(A,ES24.16)') 'newton_accepted_lambda ', newton_accepted_lambda
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
@@ -1066,6 +1077,11 @@ contains
     write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
     write(ifile,'(A,ES24.16)') 'max_end_bc_d2_residual ', max_end_bc_d2_residual
     write(ifile,'(A,ES24.16)') 'max_end_bc_d3_residual ', max_end_bc_d3_residual
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d2_residual_independent ', max_end_bc_d2_residual_independent
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d3_residual_independent ', max_end_bc_d3_residual_independent
+    write(ifile,'(A,L1)') 'initial_shape_projection_active ', initial_shape_projection_active
+    write(ifile,'(A,ES24.16)') 'initial_max_seg_err ', initial_max_seg_err
+    write(ifile,'(A,ES24.16)') 'initial_max_inext_err ', initial_max_inext_err
     write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
     write(ifile,'(A,L1)') 'grid_convergence_ready ', .true.
     write(ifile,'(A,L1)') 'dt_convergence_ready ', .true.
