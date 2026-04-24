@@ -996,10 +996,10 @@ contains
     close(ifile)
   end subroutine write_fiber_flex_constraint_summary
 
-  subroutine write_fiber_flex_structure_series(step, time, kinetic_energy, bending_energy, external_power, &
+  subroutine write_fiber_flex_structure_series(step, time, kinetic_energy, bending_energy, external_power, max_abs_fext, &
        max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, outer_iter, accepted_line_search_lambda, overwrite)
     integer, intent(in) :: step, outer_iter
-    real(mytype), intent(in) :: time, kinetic_energy, bending_energy, external_power
+    real(mytype), intent(in) :: time, kinetic_energy, bending_energy, external_power, max_abs_fext
     real(mytype), intent(in) :: max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, accepted_line_search_lambda
     logical, intent(in) :: overwrite
     integer :: ifile
@@ -1007,11 +1007,11 @@ contains
     if (.not.fiber_flex_structure_test_active) return
     if (overwrite) then
       open(newunit=ifile, file='fiber_flex_structure_series.dat', status='replace', action='write', form='formatted')
-      write(ifile,'(A)') 'step time kinetic_energy bending_energy external_power max_seg_err max_inext_err max_abs_rx max_abs_rg rx_rel outer_iter accepted_line_search_lambda'
+      write(ifile,'(A)') 'step time kinetic_energy bending_energy external_power max_abs_fext max_seg_err max_inext_err max_abs_rx max_abs_rg rx_rel outer_iter accepted_line_search_lambda'
     else
       open(newunit=ifile, file='fiber_flex_structure_series.dat', status='old', action='write', position='append', form='formatted')
     endif
-    write(ifile,'(I10,1X,10(ES24.16,1X),I10)') step, time, kinetic_energy, bending_energy, external_power, &
+    write(ifile,'(I10,1X,11(ES24.16,1X),I10)') step, time, kinetic_energy, bending_energy, external_power, max_abs_fext, &
          max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, accepted_line_search_lambda, outer_iter
     close(ifile)
   end subroutine write_fiber_flex_structure_series
@@ -1019,13 +1019,15 @@ contains
   subroutine write_fiber_flex_structure_summary(case_id, dt_s, nsteps, coupled_solver_converged_strict, &
        coupled_solver_converged_effective, final_coupled_convergence_mode, final_coupled_residual_x, &
        final_coupled_residual_x_rel, final_coupled_residual_g, kinetic_energy_final, bending_energy_final, &
-       max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual, final_displacement_norm)
+       max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual, final_displacement_norm, &
+       max_abs_fext_global, max_abs_fext_final, external_power_final)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
     real(mytype), intent(in) :: kinetic_energy_final, bending_energy_final
     real(mytype), intent(in) :: max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual
     real(mytype), intent(in) :: final_displacement_norm
+    real(mytype), intent(in) :: max_abs_fext_global, max_abs_fext_final, external_power_final
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1044,6 +1046,9 @@ contains
     write(ifile,'(A,ES24.16)') 'final_coupled_residual_x ', final_coupled_residual_x
     write(ifile,'(A,ES24.16)') 'final_coupled_residual_x_rel ', final_coupled_residual_x_rel
     write(ifile,'(A,ES24.16)') 'final_coupled_residual_g ', final_coupled_residual_g
+    write(ifile,'(A,ES24.16)') 'max_abs_fext_global ', max_abs_fext_global
+    write(ifile,'(A,ES24.16)') 'max_abs_fext_final ', max_abs_fext_final
+    write(ifile,'(A,ES24.16)') 'external_power_final ', external_power_final
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
     write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
