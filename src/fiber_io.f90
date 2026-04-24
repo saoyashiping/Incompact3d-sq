@@ -1029,7 +1029,10 @@ contains
        max_abs_fext_global, max_abs_fext_final, external_power_final, max_forced_predictor_norm_global, &
        max_newton_accepted_update_norm_global, initial_shape_projection_active, initial_max_seg_err, &
        initial_max_inext_err, initial_projection_semantics, newton_iterations_used, &
-       newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda)
+       newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda, &
+       newton_linear_solver_method, newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, &
+       newton_max_abs_pivot, newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, &
+       fd_jacobian_max_perturb, newton_unknown_scaling_active, newton_update_norm_scaled)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1044,6 +1047,11 @@ contains
     character(len=*), intent(in) :: initial_projection_semantics
     integer, intent(in) :: newton_iterations_used
     real(mytype), intent(in) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
+    character(len=*), intent(in) :: newton_linear_solver_method, newton_linear_failure_mode
+    logical, intent(in) :: newton_lm_regularization_used, newton_unknown_scaling_active
+    real(mytype), intent(in) :: newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot
+    real(mytype), intent(in) :: fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb
+    real(mytype), intent(in) :: newton_update_norm_scaled
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1072,7 +1080,18 @@ contains
     write(ifile,'(A,ES24.16)') 'newton_final_residual_norm ', newton_final_residual_norm
     write(ifile,'(A,ES24.16)') 'final_newton_scaled_residual_norm ', newton_final_residual_norm
     write(ifile,'(A,ES24.16)') 'newton_final_update_norm ', newton_final_update_norm
+    write(ifile,'(A,ES24.16)') 'newton_update_norm_scaled ', newton_update_norm_scaled
     write(ifile,'(A,ES24.16)') 'newton_accepted_lambda ', newton_accepted_lambda
+    write(ifile,'(A,A)') 'newton_linear_solver_method ', trim(newton_linear_solver_method)
+    write(ifile,'(A,L1)') 'newton_lm_regularization_used ', newton_lm_regularization_used
+    write(ifile,'(A,ES24.16)') 'newton_lm_mu_final ', newton_lm_mu_final
+    write(ifile,'(A,ES24.16)') 'newton_min_abs_pivot ', newton_min_abs_pivot
+    write(ifile,'(A,ES24.16)') 'newton_max_abs_pivot ', newton_max_abs_pivot
+    write(ifile,'(A,A)') 'newton_linear_failure_mode ', trim(newton_linear_failure_mode)
+    write(ifile,'(A,ES24.16)') 'fd_jacobian_eps_base ', fd_jacobian_eps_base
+    write(ifile,'(A,ES24.16)') 'fd_jacobian_min_perturb ', fd_jacobian_min_perturb
+    write(ifile,'(A,ES24.16)') 'fd_jacobian_max_perturb ', fd_jacobian_max_perturb
+    write(ifile,'(A,L1)') 'newton_unknown_scaling_active ', newton_unknown_scaling_active
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
     write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global

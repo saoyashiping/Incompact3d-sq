@@ -474,18 +474,149 @@ contains
     if (present(rvec_unscaled)) rvec_unscaled = rraw
   end subroutine build_structure_newton_scaled_residual_vector
 
-  subroutine build_structure_newton_fd_jacobian(uvec, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jac)
+  subroutine build_newton_unknown_scaling(uvec, fext_in, gamma_b, u_scale, x_scale, t_scale)
+    real(mytype), intent(in) :: uvec(4*fiber_nl-1), fext_in(3,fiber_nl), gamma_b
+    real(mytype), intent(out) :: u_scale(4*fiber_nl-1), x_scale, t_scale
+    real(mytype) :: max_abs_tension, max_abs_fext, tiny_s
+    integer :: j
+
+    x_scale = max(fiber_length, 1._mytype)
+    max_abs_tension = maxval(abs(uvec(3*fiber_nl+1:4*fiber_nl-1)))
+    max_abs_fext = maxval(abs(fext_in))
+    tiny_s = max(fiber_ds*fiber_ds, 1.0e-14_mytype)
+    t_scale = max(1._mytype, max(max_abs_tension, max(max_abs_fext * fiber_length, gamma_b / tiny_s)))
+    do j = 1, 3*fiber_nl
+      u_scale(j) = x_scale
+    enddo
+    do j = 3*fiber_nl+1, 4*fiber_nl-1
+      u_scale(j) = t_scale
+    enddo
+  end subroutine build_newton_unknown_scaling
+
+  subroutine solve_dense_general_pivoted(ain, b, x, n, info, min_abs_pivot, max_abs_pivot)
+    integer, intent(in) :: n
+    real(mytype), intent(in) :: ain(n,n), b(n)
+    real(mytype), intent(out) :: x(n)
+    integer, intent(out) :: info
+    real(mytype), intent(out) :: min_abs_pivot, max_abs_pivot
+    real(mytype) :: a(n,n), rhs(n), rowtmp(n), piv, fac, tmp, pivot_tol
+    integer :: i, k, p
+
+    a = ain; rhs = b; x = 0._mytype
+    info = 0
+    min_abs_pivot = huge(1._mytype)
+    max_abs_pivot = 0._mytype
+    pivot_tol = 1.0e-14_mytype
+    do k = 1, n
+      p = k; piv = abs(a(k,k))
+      do i = k+1, n
+        if (abs(a(i,k)) > piv) then
+          piv = abs(a(i,k)); p = i
+        endif
+      enddo
+      min_abs_pivot = min(min_abs_pivot, piv)
+      max_abs_pivot = max(max_abs_pivot, piv)
+      if (piv <= pivot_tol) then
+        info = 1
+        return
+      endif
+      if (p /= k) then
+        rowtmp = a(k,:); a(k,:) = a(p,:); a(p,:) = rowtmp
+        tmp = rhs(k); rhs(k) = rhs(p); rhs(p) = tmp
+      endif
+      do i = k+1, n
+        fac = a(i,k) / a(k,k)
+        a(i,k:n) = a(i,k:n) - fac * a(k,k:n)
+        rhs(i) = rhs(i) - fac * rhs(k)
+      enddo
+    enddo
+    do i = n, 1, -1
+      if (abs(a(i,i)) <= pivot_tol) then
+        info = 2
+        return
+      endif
+      if (i < n) then
+        x(i) = (rhs(i) - sum(a(i,i+1:n)*x(i+1:n))) / a(i,i)
+      else
+        x(i) = rhs(i) / a(i,i)
+      endif
+    enddo
+  end subroutine solve_dense_general_pivoted
+
+  subroutine solve_newton_linear_system_with_lm_fallback(jac, rvec, u_scale, du, method, lm_used, mu_final, &
+       min_abs_pivot, max_abs_pivot, failure_mode)
+    real(mytype), intent(in) :: jac(4*fiber_nl-1,4*fiber_nl-1), rvec(4*fiber_nl-1), u_scale(4*fiber_nl-1)
+    real(mytype), intent(out) :: du(4*fiber_nl-1), mu_final, min_abs_pivot, max_abs_pivot
+    character(len=*), intent(out) :: method, failure_mode
+    logical, intent(out) :: lm_used
+    real(mytype) :: a(4*fiber_nl-1,4*fiber_nl-1), dz(4*fiber_nl-1), rhs(4*fiber_nl-1)
+    real(mytype) :: ata(4*fiber_nl-1,4*fiber_nl-1), ata0(4*fiber_nl-1,4*fiber_nl-1), atr(4*fiber_nl-1), mu
+    integer :: n, j, it_lm, info
+    real(mytype) :: minp, maxp, minp_lm, maxp_lm
+
+    n = 4*fiber_nl-1
+    do j = 1, n
+      a(:,j) = jac(:,j) * u_scale(j)
+    enddo
+    rhs = -rvec
+    call solve_dense_general_pivoted(a, rhs, dz, n, info, minp, maxp)
+    min_abs_pivot = minp
+    max_abs_pivot = maxp
+    if (info == 0) then
+      du = u_scale * dz
+      method = 'pivoted_lu'
+      lm_used = .false.
+      mu_final = 0._mytype
+      failure_mode = 'none'
+      return
+    endif
+
+    ata0 = matmul(transpose(a), a)
+    atr = -matmul(transpose(a), rvec)
+    mu = 1.0e-12_mytype
+    lm_used = .true.
+    do it_lm = 1, 8
+      ata = ata0
+      do j = 1, n
+        ata(j,j) = ata(j,j) + mu
+      enddo
+      call solve_dense_general_pivoted(ata, atr, dz, n, info, minp_lm, maxp_lm)
+      if (info == 0) then
+        du = u_scale * dz
+        method = 'lm_fallback'
+        mu_final = mu
+        min_abs_pivot = min(min_abs_pivot, minp_lm)
+        max_abs_pivot = max(max_abs_pivot, maxp_lm)
+        failure_mode = 'lu_near_singular_recovered_by_lm'
+        return
+      endif
+      mu = 10._mytype * mu
+    enddo
+    du = 0._mytype
+    method = 'failed'
+    mu_final = mu
+    failure_mode = 'lu_and_lm_failed'
+  end subroutine solve_newton_linear_system_with_lm_fallback
+
+  subroutine build_structure_newton_fd_jacobian(uvec, u_scale, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jac, &
+       eps_base, hmin, hmax)
     ! dense finite-difference Jacobian is used only for Step 3.5 academic validation;
     ! later stages may replace it with analytic / matrix-free Newton-Krylov.
-    real(mytype), intent(in) :: uvec(4*fiber_nl-1), xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl)
+    real(mytype), intent(in) :: uvec(4*fiber_nl-1), u_scale(4*fiber_nl-1), xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl)
     real(mytype), intent(in) :: dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: jac(4*fiber_nl-1,4*fiber_nl-1)
+    real(mytype), intent(out) :: eps_base, hmin, hmax
     real(mytype) :: up(4*fiber_nl-1), um(4*fiber_nl-1), rp(4*fiber_nl-1), rm(4*fiber_nl-1), epsj, eps0
     real(mytype) :: rx_scale_dummy, rg_scale_dummy
     integer :: j
     eps0 = sqrt(epsilon(1._mytype))
+    eps_base = eps0
+    hmin = huge(1._mytype)
+    hmax = 0._mytype
     do j = 1, 4*fiber_nl-1
-      epsj = eps0 * max(1._mytype, abs(uvec(j)))
+      epsj = eps0 * max(1._mytype, max(abs(uvec(j)), u_scale(j)))
+      hmin = min(hmin, epsj)
+      hmax = max(hmax, epsj)
       up = uvec
       um = uvec
       up(j) = up(j) + epsj
@@ -501,7 +632,9 @@ contains
   subroutine solve_structure_dynamics_newton_step(xnm1, xn, xnp1, t_half, fext_in, dt_s, rho_tilde, gamma_b, &
        newton_converged_strict, newton_converged_effective, newton_iterations_used, newton_final_residual_x, &
        newton_final_residual_g, newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda, &
-       newton_convergence_mode)
+       newton_convergence_mode, newton_linear_solver_method, newton_lm_regularization_used, newton_lm_mu_final, &
+       newton_min_abs_pivot, newton_max_abs_pivot, newton_linear_failure_mode, fd_jacobian_eps_base, &
+       fd_jacobian_min_perturb, fd_jacobian_max_perturb, newton_unknown_scaling_active, newton_update_norm_scaled)
     real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
     real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
     logical, intent(out) :: newton_converged_strict, newton_converged_effective
@@ -509,11 +642,17 @@ contains
     real(mytype), intent(out) :: newton_final_residual_x, newton_final_residual_g, newton_final_residual_norm
     real(mytype), intent(out) :: newton_final_update_norm, newton_accepted_lambda
     character(len=*), intent(out) :: newton_convergence_mode
+    character(len=*), intent(out) :: newton_linear_solver_method, newton_linear_failure_mode
+    logical, intent(out) :: newton_lm_regularization_used, newton_unknown_scaling_active
+    real(mytype), intent(out) :: newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot
+    real(mytype), intent(out) :: fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb
+    real(mytype), intent(out) :: newton_update_norm_scaled
     real(mytype) :: u(4*fiber_nl-1), r(4*fiber_nl-1), jmat(4*fiber_nl-1,4*fiber_nl-1), du(4*fiber_nl-1)
     real(mytype) :: utrial(4*fiber_nl-1), rtrial(4*fiber_nl-1), r_unscaled(4*fiber_nl-1), lambda, beta_ls
     real(mytype) :: phi, phi_trial, rx_scale, rg_scale
     real(mytype) :: xk(3,fiber_nl), tk(fiber_nl-1), xtrial(3,fiber_nl), ttrial(fiber_nl-1), xpred(3,fiber_nl)
-    real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), rx_rel, du_inf, alpha
+    real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), rx_rel, du_inf, alpha, du_scaled_inf
+    real(mytype) :: u_scale(4*fiber_nl-1), x_scale_dummy, t_scale_dummy
     real(mytype) :: phi_hist(3), du_hist(3)
     integer :: it, ibt, maxit, maxbt
     logical :: accepted, plateau, geometry_regular, final_nan_inf, final_geometry_regular
@@ -539,10 +678,22 @@ contains
     newton_converged_effective = .false.
     newton_accepted_lambda = 0._mytype
     newton_final_update_norm = 0._mytype
+    newton_update_norm_scaled = 0._mytype
     newton_iterations_used = 0
+    newton_linear_solver_method = 'failed'
+    newton_lm_regularization_used = .false.
+    newton_lm_mu_final = 0._mytype
+    newton_min_abs_pivot = huge(1._mytype)
+    newton_max_abs_pivot = 0._mytype
+    newton_linear_failure_mode = 'none'
+    fd_jacobian_eps_base = sqrt(epsilon(1._mytype))
+    fd_jacobian_min_perturb = huge(1._mytype)
+    fd_jacobian_max_perturb = 0._mytype
+    newton_unknown_scaling_active = .true.
 
     do it = 1, maxit
       call build_structure_newton_scaled_residual_vector(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, r, rx_scale, rg_scale, r_unscaled)
+      call build_newton_unknown_scaling(u, fext_in, gamma_b, u_scale, x_scale_dummy, t_scale_dummy)
       call unpack_structure_unknown(u, xk, tk)
       call build_coupled_structure_residual(xk, tk, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
       newton_final_residual_x = maxval(abs(rx))
@@ -559,9 +710,17 @@ contains
         exit
       endif
 
-      call build_structure_newton_fd_jacobian(u, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jmat)
-      call solve_dense_small(jmat, -r, du, 4*fiber_nl-1)
+      call build_structure_newton_fd_jacobian(u, u_scale, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jmat, &
+           fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb)
+      call solve_newton_linear_system_with_lm_fallback(jmat, r, u_scale, du, newton_linear_solver_method, &
+           newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot, &
+           newton_linear_failure_mode)
+      if (trim(newton_linear_solver_method) == 'failed') then
+        newton_convergence_mode = 'failed'
+        exit
+      endif
       du_inf = maxval(abs(du))
+      du_scaled_inf = maxval(abs(du / max(u_scale, 1.0e-30_mytype)))
       if (fiber_flex_constraint_line_search_active) then
         lambda = 1._mytype
         accepted = .false.
@@ -607,6 +766,7 @@ contains
       u = utrial
       newton_accepted_lambda = lambda
       newton_final_update_norm = lambda * du_inf
+      newton_update_norm_scaled = lambda * du_scaled_inf
     enddo
 
     call unpack_structure_unknown(u, xnp1, t_half)
@@ -617,6 +777,7 @@ contains
     newton_final_residual_g = maxval(abs(rg))
     rx_rel = newton_final_residual_x / max(rx_scale, 1.0e-30_mytype)
     newton_final_residual_norm = maxval(abs(r))
+    newton_update_norm_scaled = max(newton_update_norm_scaled, 0._mytype)
     final_nan_inf = (.not.all(xnp1 == xnp1)) .or. (.not.all(t_half == t_half)) .or. (.not.all(r == r))
     final_geometry_regular = (.not.final_nan_inf) .and. maxval(abs(xnp1)) < 1.0e30_mytype
     plateau = (newton_iterations_used >= 3 .and. abs(phi_hist(3)-phi_hist(2)) <= 1.0e-2_mytype * max(phi_hist(2), 1.0e-14_mytype) .and. &
@@ -1189,7 +1350,12 @@ contains
     logical :: plateau_detected
     character(len=32) :: final_coupled_convergence_mode
     real(mytype) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
+    real(mytype) :: newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot
+    real(mytype) :: fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb
+    real(mytype) :: newton_update_norm_scaled
     integer :: newton_iterations_used
+    logical :: newton_lm_regularization_used, newton_unknown_scaling_active
+    character(len=32) :: newton_linear_solver_method, newton_linear_failure_mode
 
     if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
          .not.fiber_flex_structure_test_active) then
@@ -1237,7 +1403,10 @@ contains
       call solve_structure_dynamics_newton_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_structure_dt, fiber_structure_rho_tilde, &
            fiber_bending_gamma, coupled_solver_converged_strict, coupled_solver_converged_effective, newton_iterations_used, &
            final_coupled_residual_x, final_coupled_residual_g, newton_final_residual_norm, newton_final_update_norm, &
-           newton_accepted_lambda, final_coupled_convergence_mode)
+           newton_accepted_lambda, final_coupled_convergence_mode, newton_linear_solver_method, &
+           newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot, &
+           newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb, &
+           newton_unknown_scaling_active, newton_update_norm_scaled)
       max_newton_accepted_update_norm_global = max(max_newton_accepted_update_norm_global, newton_final_update_norm)
       coupled_solver_converged = coupled_solver_converged_effective
       call compute_momentum_residual_scale_final_time(xnp1, t_half, xn, xnm1, fext, fiber_flex_structure_dt, &
@@ -1290,7 +1459,10 @@ contains
          max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, initial_shape_projection_active, &
          initial_max_seg_err, initial_max_inext_err, trim(initial_projection_semantics), &
          newton_iterations_used, newton_final_residual_norm, &
-         newton_final_update_norm, newton_accepted_lambda)
+         newton_final_update_norm, newton_accepted_lambda, newton_linear_solver_method, &
+         newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot, &
+         newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb, &
+         newton_unknown_scaling_active, newton_update_norm_scaled)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_structure_dynamics_test
