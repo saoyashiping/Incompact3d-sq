@@ -739,6 +739,13 @@ contains
     schur_w_projection_negligible = .false.
     projection_ok = .true.
     failure_mode = 'none'
+    internal_update_failure = .false.
+    if (schur_rx_norm > 0._mytype .and. schur_alpha_rx_norm <= 0._mytype) then
+      projection_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'momentum_projection_rhs_zero_internal_failure'
+      return
+    endif
     do c = 1, 3
       w_out(c,:) = 0._mytype
       call solve_free_end_implicit_bending_rhs_scalar(rhs_w(c,:), w_out(c,:), alpha, gamma_b, it_used, dxmax, &
@@ -796,6 +803,13 @@ contains
     schur_z_projection_negligible = .false.
     update_ok = .true.
     failure_mode = 'none'
+    internal_update_failure = .false.
+    if (schur_delta_t_norm > 0._mytype .and. schur_delta_ft_norm <= 0._mytype) then
+      update_ok = .false.
+      internal_update_failure = .true.
+      failure_mode = 'tension_response_force_zero_internal_failure'
+      return
+    endif
     do c = 1, 3
       zcorr(c,:) = 0._mytype
       call solve_free_end_implicit_bending_rhs_scalar(rhs_z(c,:), zcorr(c,:), alpha, gamma_b, it_used, dxmax, &
@@ -1272,6 +1286,7 @@ contains
         endif
         lambda = beta_ls * lambda
       enddo
+      if (trim(schur_convergence_mode) == 'failed' .and. schur_internal_update_failure) exit
       update_norm = lambda * max(schur_delta_x_norm, schur_delta_t_norm)
       accepted_nonzero_update = accepted .and. (lambda > 0._mytype) .and. (schur_delta_x_norm > delta_x_floor) .and. &
            (update_norm > update_floor) .and. (.not.schur_internal_update_failure)
