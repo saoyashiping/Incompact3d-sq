@@ -1040,7 +1040,10 @@ contains
        max_schur_accepted_update_norm_global, schur_position_solve_converged, position_solve_failure_mode, &
        bending_kernel_failure_count, tension_prevstep_writeback_on_macro_success_only, schur_matrix_ok, &
        schur_matrix_failure_mode, schur_matrix_failed_column, structure_failed_step_index, structure_failed_time, &
-       structure_local_tension_warm_start_active)
+       structure_local_tension_warm_start_active, schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok, &
+       schur_rhs_failure_mode, schur_momentum_consistent_rhs_active, schur_combined_merit_initial, &
+       schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm, schur_nonzero_update_accepted, &
+       schur_pre_state_effective_ok)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1074,6 +1077,10 @@ contains
     character(len=*), intent(in) :: schur_matrix_failure_mode
     integer, intent(in) :: schur_matrix_failed_column, structure_failed_step_index
     real(mytype), intent(in) :: structure_failed_time
+    logical, intent(in) :: schur_rhs_momentum_projection_active, schur_rhs_momentum_projection_ok
+    logical, intent(in) :: schur_momentum_consistent_rhs_active, schur_nonzero_update_accepted, schur_pre_state_effective_ok
+    character(len=*), intent(in) :: schur_rhs_failure_mode
+    real(mytype), intent(in) :: schur_combined_merit_initial, schur_combined_merit_final, schur_delta_x_norm, schur_delta_t_norm
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1129,6 +1136,16 @@ contains
     write(ifile,'(A,L1)') 'schur_matrix_ok ', schur_matrix_ok
     write(ifile,'(A,A)') 'schur_matrix_failure_mode ', trim(schur_matrix_failure_mode)
     write(ifile,'(A,I8)') 'schur_matrix_failed_column ', schur_matrix_failed_column
+    write(ifile,'(A,L1)') 'schur_rhs_momentum_projection_active ', schur_rhs_momentum_projection_active
+    write(ifile,'(A,L1)') 'schur_rhs_momentum_projection_ok ', schur_rhs_momentum_projection_ok
+    write(ifile,'(A,A)') 'schur_rhs_failure_mode ', trim(schur_rhs_failure_mode)
+    write(ifile,'(A,L1)') 'schur_momentum_consistent_rhs_active ', schur_momentum_consistent_rhs_active
+    write(ifile,'(A,ES24.16)') 'schur_combined_merit_initial ', schur_combined_merit_initial
+    write(ifile,'(A,ES24.16)') 'schur_combined_merit_final ', schur_combined_merit_final
+    write(ifile,'(A,ES24.16)') 'schur_delta_x_norm ', schur_delta_x_norm
+    write(ifile,'(A,ES24.16)') 'schur_delta_t_norm ', schur_delta_t_norm
+    write(ifile,'(A,L1)') 'schur_nonzero_update_accepted ', schur_nonzero_update_accepted
+    write(ifile,'(A,L1)') 'schur_pre_state_effective_ok ', schur_pre_state_effective_ok
     write(ifile,'(A,L1)') 'structure_adaptive_substepping_active ', structure_adaptive_substepping_active
     write(ifile,'(A,I8)') 'structure_step_rejection_count ', structure_step_rejection_count
     write(ifile,'(A,I8)') 'structure_substep_retry_count ', structure_substep_retry_count
