@@ -598,6 +598,124 @@ contains
     failure_mode = 'lu_and_lm_failed'
   end subroutine solve_newton_linear_system_with_lm_fallback
 
+  subroutine compute_half_segment_constraint_residual(x_in, g_out, max_abs_g, max_seg_err, max_inext_err)
+    real(mytype), intent(in) :: x_in(3,fiber_nl)
+    real(mytype), intent(out) :: g_out(fiber_nl-1), max_abs_g, max_seg_err, max_inext_err
+    real(mytype) :: dsvec(3), seglen
+    integer :: i
+    max_abs_g = 0._mytype
+    max_seg_err = 0._mytype
+    max_inext_err = 0._mytype
+    do i = 1, fiber_nl-1
+      dsvec = (x_in(:,i+1)-x_in(:,i))/fiber_ds
+      g_out(i) = dot_product(dsvec, dsvec) - 1._mytype
+      seglen = sqrt(sum((x_in(:,i+1)-x_in(:,i))**2))
+      max_abs_g = max(max_abs_g, abs(g_out(i)))
+      max_seg_err = max(max_seg_err, abs(seglen - fiber_ds))
+      max_inext_err = max(max_inext_err, abs(g_out(i)))
+    enddo
+  end subroutine compute_half_segment_constraint_residual
+
+  subroutine solve_position_given_tension_schur(xnm1, xn, x_geom, t_half, fext_in, dt_s, rho_tilde, gamma_b, x_new)
+    ! implicit bending kernel absorbs the high-order stiffness and is reused from Step 3.3
+    real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), x_geom(3,fiber_nl), t_half(fiber_nl-1)
+    real(mytype), intent(in) :: fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
+    real(mytype), intent(out) :: x_new(3,fiber_nl)
+    real(mytype) :: ftension(3,fiber_nl), rhs(3,fiber_nl), alpha, dxmax
+    integer :: c, it_used, restart_count, failure_mode
+    logical :: converged, breakdown_detected
+
+    alpha = dt_s * dt_s / rho_tilde
+    call compute_tension_term_huang_style(t_half, x_geom, ftension)
+    rhs = 2._mytype * xn - xnm1 + alpha * (fext_in + ftension)
+    do c = 1, 3
+      x_new(c,:) = x_geom(c,:)
+      call solve_free_end_implicit_bending_rhs_scalar(rhs(c,:), x_new(c,:), alpha, gamma_b, it_used, dxmax, &
+           converged, breakdown_detected, restart_count, failure_mode)
+      if (.not.converged) then
+        x_new(c,:) = rhs(c,:)
+      endif
+    enddo
+  end subroutine solve_position_given_tension_schur
+
+  subroutine build_tension_schur_matrix(x_geom, dt_s, rho_tilde, gamma_b, smat)
+    real(mytype), intent(in) :: x_geom(3,fiber_nl), dt_s, rho_tilde, gamma_b
+    real(mytype), intent(out) :: smat(fiber_nl-1,fiber_nl-1)
+    real(mytype) :: et(fiber_nl-1), delta_t(fiber_nl-1), delta_ft(3,fiber_nl), rhs_delta(3,fiber_nl), delta_x(3,fiber_nl)
+    real(mytype) :: dsx(3,fiber_nl-1), dsdx(3,fiber_nl-1), alpha
+    integer :: j, i, c, it_used, restart_count, failure_mode
+    real(mytype) :: dxmax
+    logical :: converged, breakdown_detected
+
+    alpha = dt_s * dt_s / rho_tilde
+    call lag_ds_center_node_to_half(x_geom, dsx)
+    do j = 1, fiber_nl-1
+      delta_t = 0._mytype
+      delta_t(j) = 1._mytype
+      call compute_tension_term_huang_style(delta_t, x_geom, delta_ft)
+      rhs_delta = alpha * delta_ft
+      do c = 1, 3
+        delta_x(c,:) = 0._mytype
+        call solve_free_end_implicit_bending_rhs_scalar(rhs_delta(c,:), delta_x(c,:), alpha, gamma_b, it_used, dxmax, &
+             converged, breakdown_detected, restart_count, failure_mode)
+        if (.not.converged) delta_x(c,:) = rhs_delta(c,:)
+      enddo
+      call lag_ds_center_node_to_half(delta_x, dsdx)
+      do i = 1, fiber_nl-1
+        smat(i,j) = 2._mytype * dot_product(dsx(:,i), dsdx(:,i))
+      enddo
+    enddo
+  end subroutine build_tension_schur_matrix
+
+  subroutine solve_schur_tension_correction(smat, gvec, delta_t, method, reg_used, mu_final, min_abs_pivot, max_abs_pivot, &
+       failure_mode)
+    real(mytype), intent(in) :: smat(fiber_nl-1,fiber_nl-1), gvec(fiber_nl-1)
+    real(mytype), intent(out) :: delta_t(fiber_nl-1), mu_final, min_abs_pivot, max_abs_pivot
+    character(len=*), intent(out) :: method, failure_mode
+    logical, intent(out) :: reg_used
+    real(mytype) :: rhs(fiber_nl-1), dz(fiber_nl-1), sts(fiber_nl-1,fiber_nl-1), sts0(fiber_nl-1,fiber_nl-1), stg(fiber_nl-1), mu
+    real(mytype) :: minp, maxp, minp2, maxp2
+    integer :: info, i, it
+
+    rhs = -gvec
+    call solve_dense_general_pivoted(smat, rhs, dz, fiber_nl-1, info, minp, maxp)
+    min_abs_pivot = minp
+    max_abs_pivot = maxp
+    if (info == 0) then
+      delta_t = dz
+      method = 'pivoted_lu'
+      reg_used = .false.
+      mu_final = 0._mytype
+      failure_mode = 'none'
+      return
+    endif
+    sts0 = matmul(transpose(smat), smat)
+    stg = -matmul(transpose(smat), gvec)
+    mu = 1.0e-12_mytype
+    reg_used = .true.
+    do it = 1, 8
+      sts = sts0
+      do i = 1, fiber_nl-1
+        sts(i,i) = sts(i,i) + mu
+      enddo
+      call solve_dense_general_pivoted(sts, stg, dz, fiber_nl-1, info, minp2, maxp2)
+      if (info == 0) then
+        delta_t = dz
+        method = 'lm_fallback'
+        mu_final = mu
+        min_abs_pivot = min(min_abs_pivot, minp2)
+        max_abs_pivot = max(max_abs_pivot, maxp2)
+        failure_mode = 'lu_near_singular_recovered_by_lm'
+        return
+      endif
+      mu = 10._mytype * mu
+    enddo
+    delta_t = 0._mytype
+    method = 'failed'
+    mu_final = mu
+    failure_mode = 'lu_and_lm_failed'
+  end subroutine solve_schur_tension_correction
+
   subroutine build_structure_newton_fd_jacobian(uvec, u_scale, xnm1, xn, fext_in, dt_s, rho_tilde, gamma_b, jac, &
        eps_base, hmin, hmax)
     ! dense finite-difference Jacobian is used only for Step 3.5 academic validation;
@@ -806,6 +924,159 @@ contains
       fiber_tension_half_prevstep = t_half
     endif
   end subroutine solve_structure_dynamics_newton_step
+
+  subroutine solve_structure_dynamics_schur_step(xnm1, xn, xnp1, t_half, fext_in, dt_s, rho_tilde, gamma_b, &
+       schur_solver_converged, schur_iterations_used, schur_final_constraint_residual, schur_final_momentum_residual, &
+       schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda, &
+       schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, schur_regularization_mu_final, &
+       schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode)
+    real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_s, rho_tilde, gamma_b
+    real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1)
+    logical, intent(out) :: schur_solver_converged, schur_regularization_used
+    integer, intent(out) :: schur_iterations_used
+    real(mytype), intent(out) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
+    real(mytype), intent(out) :: schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda
+    real(mytype), intent(out) :: schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot
+    character(len=*), intent(out) :: schur_convergence_mode, schur_linear_solver_method, schur_linear_failure_mode
+    real(mytype) :: xk(3,fiber_nl), xtrial(3,fiber_nl), tk(fiber_nl-1), ttrial(fiber_nl-1), delta_t(fiber_nl-1)
+    real(mytype) :: gk(fiber_nl-1), gtrial(fiber_nl-1), smat(fiber_nl-1,fiber_nl-1), lambda, phi, phi_trial
+    real(mytype) :: max_abs_g, max_seg_err, max_inext_err, max_abs_g_trial, rx_scale, alpha
+    real(mytype) :: rx(3,fiber_nl), rg(fiber_nl-1), beta_ls
+    integer :: it, ibt, maxit, maxbt
+    logical :: accepted
+
+    alpha = dt_s * dt_s / rho_tilde
+    xk = 2._mytype * xn - xnm1 + alpha * fext_in
+    if (allocated(fiber_tension_half_prevstep) .and. size(fiber_tension_half_prevstep) == fiber_nl-1) then
+      tk = fiber_tension_half_prevstep
+    else
+      tk = 0._mytype
+    endif
+    maxit = fiber_flex_constraint_outer_maxit
+    maxbt = fiber_flex_constraint_line_search_max_backtracks
+    beta_ls = fiber_flex_constraint_line_search_beta
+    schur_solver_converged = .false.
+    schur_convergence_mode = 'failed'
+    schur_accepted_lambda = 0._mytype
+    schur_final_update_norm_x = 0._mytype
+    schur_final_update_norm_t = 0._mytype
+    schur_iterations_used = 0
+
+    do it = 1, maxit
+      call solve_position_given_tension_schur(xnm1, xn, xk, tk, fext_in, dt_s, rho_tilde, gamma_b, xk)
+      call compute_half_segment_constraint_residual(xk, gk, max_abs_g, max_seg_err, max_inext_err)
+      schur_iterations_used = it
+      if (max_abs_g <= fiber_flex_constraint_outer_tol_g) then
+        schur_solver_converged = .true.
+        schur_convergence_mode = 'strict'
+        exit
+      endif
+      call build_tension_schur_matrix(xk, dt_s, rho_tilde, gamma_b, smat)
+      call solve_schur_tension_correction(smat, gk, delta_t, schur_linear_solver_method, schur_regularization_used, &
+           schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode)
+      if (trim(schur_linear_solver_method) == 'failed') then
+        schur_convergence_mode = 'failed'
+        exit
+      endif
+      phi = max_abs_g
+      lambda = 1._mytype
+      accepted = .false.
+      do ibt = 0, maxbt
+        ttrial = tk + lambda * delta_t
+        call solve_position_given_tension_schur(xnm1, xn, xk, ttrial, fext_in, dt_s, rho_tilde, gamma_b, xtrial)
+        call compute_half_segment_constraint_residual(xtrial, gtrial, max_abs_g_trial, max_seg_err, max_inext_err)
+        phi_trial = max_abs_g_trial
+        if (phi_trial < phi) then
+          accepted = .true.
+          exit
+        endif
+        lambda = beta_ls * lambda
+      enddo
+      if (.not.accepted) then
+        if (max_abs_g <= 10._mytype * fiber_flex_constraint_outer_tol_g) then
+          schur_solver_converged = .true.
+          schur_convergence_mode = 'plateau_accepted'
+        else
+          schur_solver_converged = .false.
+          schur_convergence_mode = 'failed'
+        endif
+        exit
+      endif
+      schur_accepted_lambda = lambda
+      schur_final_update_norm_t = lambda * maxval(abs(delta_t))
+      schur_final_update_norm_x = maxval(abs(xtrial - xk))
+      tk = ttrial
+      xk = xtrial
+    enddo
+
+    xnp1 = xk
+    t_half = tk
+    call build_coupled_structure_residual(xnp1, t_half, xn, xnm1, rx, rg, fext_in, dt_s, rho_tilde, gamma_b)
+    call compute_momentum_residual_scale_final_time(xnp1, t_half, xn, xnm1, fext_in, dt_s, rho_tilde, gamma_b, rx_scale)
+    schur_final_momentum_residual = maxval(abs(rx))
+    schur_final_constraint_residual = maxval(abs(rg))
+    schur_final_rx_rel = schur_final_momentum_residual / max(rx_scale, 1.0e-30_mytype)
+    if (schur_solver_converged) then
+      if (.not.allocated(fiber_tension_half_prevstep)) allocate(fiber_tension_half_prevstep(fiber_nl-1))
+      fiber_tension_half_prevstep = t_half
+    endif
+  end subroutine solve_structure_dynamics_schur_step
+
+  subroutine advance_structure_dynamics_with_retry(xnm1, xn, xnp1, t_half, fext_in, dt_macro, rho_tilde, gamma_b, &
+       step_success, nsub_used, rejection_count, retry_count, min_substep_dt, schur_solver_converged, schur_iterations_used, &
+       schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel, schur_final_update_norm_x, &
+       schur_final_update_norm_t, schur_accepted_lambda, schur_convergence_mode, schur_linear_solver_method, &
+       schur_regularization_used, schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, &
+       schur_linear_failure_mode)
+    real(mytype), intent(in) :: xnm1(3,fiber_nl), xn(3,fiber_nl), fext_in(3,fiber_nl), dt_macro, rho_tilde, gamma_b
+    real(mytype), intent(out) :: xnp1(3,fiber_nl), t_half(fiber_nl-1), min_substep_dt
+    logical, intent(out) :: step_success, schur_solver_converged, schur_regularization_used
+    integer, intent(out) :: nsub_used, rejection_count, retry_count, schur_iterations_used
+    real(mytype), intent(out) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
+    real(mytype), intent(out) :: schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda
+    real(mytype), intent(out) :: schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot
+    character(len=*), intent(out) :: schur_convergence_mode, schur_linear_solver_method, schur_linear_failure_mode
+    real(mytype) :: xprev(3,fiber_nl), xcur(3,fiber_nl), xnext(3,fiber_nl), veln(3,fiber_nl), dt_sub
+    integer :: split, nsub, isub
+    logical :: ok_local
+
+    step_success = .false.
+    rejection_count = 0
+    retry_count = 0
+    min_substep_dt = dt_macro
+    do split = 0, 4
+      nsub = 2**split
+      dt_sub = dt_macro / real(nsub, mytype)
+      min_substep_dt = min(min_substep_dt, dt_sub)
+      veln = (xn - xnm1) / dt_macro
+      xprev = xn - dt_sub * veln
+      xcur = xn
+      ok_local = .true.
+      do isub = 1, nsub
+        call solve_structure_dynamics_schur_step(xprev, xcur, xnext, t_half, fext_in, dt_sub, rho_tilde, gamma_b, &
+             schur_solver_converged, schur_iterations_used, schur_final_constraint_residual, schur_final_momentum_residual, &
+             schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda, &
+             schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, schur_regularization_mu_final, &
+             schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode)
+        if (.not.schur_solver_converged) then
+          ok_local = .false.
+          exit
+        endif
+        xprev = xcur
+        xcur = xnext
+      enddo
+      if (ok_local) then
+        step_success = .true.
+        xnp1 = xcur
+        nsub_used = nsub
+        return
+      endif
+      rejection_count = rejection_count + 1
+      retry_count = retry_count + nsub
+    enddo
+    xnp1 = xn
+    nsub_used = 2**4
+  end subroutine advance_structure_dynamics_with_retry
 
   subroutine solve_coupled_constrained_structure_step(xnm1, xn, xnp1, t_half, fext_in, dt_c, rho_tilde, gamma_b, &
        max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
@@ -1350,12 +1621,16 @@ contains
     logical :: plateau_detected
     character(len=32) :: final_coupled_convergence_mode
     real(mytype) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
-    real(mytype) :: newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot
-    real(mytype) :: fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb
-    real(mytype) :: newton_update_norm_scaled
     integer :: newton_iterations_used
-    logical :: newton_lm_regularization_used, newton_unknown_scaling_active
-    character(len=32) :: newton_linear_solver_method, newton_linear_failure_mode
+    logical :: step_success, structure_step_failed_any, structure_adaptive_substepping_active
+    integer :: structure_step_rejection_count, structure_substep_retry_count, structure_max_substeps_used, nsub_used
+    real(mytype) :: structure_min_substep_dt, max_schur_accepted_update_norm_global
+    real(mytype) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
+    real(mytype) :: schur_final_update_norm_x, schur_final_update_norm_t, schur_accepted_lambda
+    real(mytype) :: schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot
+    logical :: schur_solver_converged, schur_regularization_used
+    integer :: schur_iterations_used
+    character(len=32) :: schur_convergence_mode, schur_linear_solver_method, schur_linear_failure_mode
 
     if (.not.fiber_active .or. .not.fiber_flexible_active .or. .not.fiber_flex_initialized .or. &
          .not.fiber_flex_structure_test_active) then
@@ -1388,6 +1663,13 @@ contains
     max_abs_fext_global = 0._mytype
     max_abs_fext_final = 0._mytype
     external_power_final = 0._mytype
+    structure_adaptive_substepping_active = .true.
+    structure_step_rejection_count = 0
+    structure_substep_retry_count = 0
+    structure_max_substeps_used = 1
+    structure_min_substep_dt = fiber_flex_structure_dt
+    structure_step_failed_any = .false.
+    max_schur_accepted_update_norm_global = 0._mytype
 
     call write_fiber_flex_structure_series(0, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, 0._mytype, &
          0._mytype, 0._mytype, 0._mytype, 0._mytype, 0, 0._mytype, 0._mytype, 0._mytype, 'failed', .true.)
@@ -1400,18 +1682,29 @@ contains
       max_abs_fext_final = max_abs_fext
       max_forced_predictor_norm_global = max(max_forced_predictor_norm_global, &
            (fiber_flex_structure_dt*fiber_flex_structure_dt/max(fiber_structure_rho_tilde,1.0e-12_mytype))*max_abs_fext)
-      call solve_structure_dynamics_newton_step(xnm1, xn, xnp1, t_half, fext, fiber_flex_structure_dt, fiber_structure_rho_tilde, &
-           fiber_bending_gamma, coupled_solver_converged_strict, coupled_solver_converged_effective, newton_iterations_used, &
-           final_coupled_residual_x, final_coupled_residual_g, newton_final_residual_norm, newton_final_update_norm, &
-           newton_accepted_lambda, final_coupled_convergence_mode, newton_linear_solver_method, &
-           newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot, &
-           newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb, &
-           newton_unknown_scaling_active, newton_update_norm_scaled)
-      max_newton_accepted_update_norm_global = max(max_newton_accepted_update_norm_global, newton_final_update_norm)
-      coupled_solver_converged = coupled_solver_converged_effective
+      call advance_structure_dynamics_with_retry(xnm1, xn, xnp1, t_half, fext, fiber_flex_structure_dt, fiber_structure_rho_tilde, &
+           fiber_bending_gamma, step_success, nsub_used, structure_step_rejection_count, structure_substep_retry_count, &
+           structure_min_substep_dt, schur_solver_converged, schur_iterations_used, schur_final_constraint_residual, &
+           schur_final_momentum_residual, schur_final_rx_rel, schur_final_update_norm_x, schur_final_update_norm_t, &
+           schur_accepted_lambda, schur_convergence_mode, schur_linear_solver_method, schur_regularization_used, &
+           schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, schur_linear_failure_mode)
+      structure_max_substeps_used = max(structure_max_substeps_used, nsub_used)
+      structure_step_failed_any = structure_step_failed_any .or. (.not.step_success)
+      max_schur_accepted_update_norm_global = max(max_schur_accepted_update_norm_global, schur_final_update_norm_x)
+      max_newton_accepted_update_norm_global = max(max_newton_accepted_update_norm_global, schur_final_update_norm_x)
+      coupled_solver_converged = step_success
+      coupled_solver_converged_effective = step_success
+      coupled_solver_converged_strict = step_success .and. trim(schur_convergence_mode) == 'strict'
+      final_coupled_convergence_mode = schur_convergence_mode
+      final_coupled_residual_x = schur_final_momentum_residual
+      final_coupled_residual_g = schur_final_constraint_residual
+      final_coupled_residual_x_rel = schur_final_rx_rel
+      newton_iterations_used = schur_iterations_used
+      newton_final_residual_norm = max(schur_final_constraint_residual, schur_final_rx_rel)
+      newton_final_update_norm = schur_final_update_norm_x
+      newton_accepted_lambda = schur_accepted_lambda
       call compute_momentum_residual_scale_final_time(xnp1, t_half, xn, xnm1, fext, fiber_flex_structure_dt, &
            fiber_structure_rho_tilde, fiber_bending_gamma, rx_scale_step)
-      final_coupled_residual_x_rel = final_coupled_residual_x / max(rx_scale_step, 1.0e-30_mytype)
       max_outer_iterations_used = newton_iterations_used
       accepted_line_search_lambda = newton_accepted_lambda
       max_abs_momentum_residual_during_outer = final_coupled_residual_x
@@ -1459,10 +1752,14 @@ contains
          max_forced_predictor_norm_global, max_newton_accepted_update_norm_global, initial_shape_projection_active, &
          initial_max_seg_err, initial_max_inext_err, trim(initial_projection_semantics), &
          newton_iterations_used, newton_final_residual_norm, &
-         newton_final_update_norm, newton_accepted_lambda, newton_linear_solver_method, &
-         newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot, &
-         newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb, &
-         newton_unknown_scaling_active, newton_update_norm_scaled)
+         newton_final_update_norm, newton_accepted_lambda, schur_linear_solver_method, &
+         schur_regularization_used, schur_regularization_mu_final, schur_min_abs_pivot, schur_max_abs_pivot, &
+         schur_linear_failure_mode, sqrt(epsilon(1._mytype)), 0._mytype, 0._mytype, &
+         .true., schur_final_update_norm_x, 'schur_tension_implicit_bending', .true., schur_solver_converged, &
+         schur_iterations_used, schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel, &
+         schur_accepted_lambda, schur_convergence_mode, structure_adaptive_substepping_active, &
+         structure_step_rejection_count, structure_substep_retry_count, structure_max_substeps_used, structure_min_substep_dt, &
+         structure_step_failed_any, max_schur_accepted_update_norm_global)
 
     deallocate(xnm1, xn, xnp1, xinit, fext, t_half)
   end subroutine run_flexible_structure_dynamics_test

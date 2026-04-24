@@ -1032,7 +1032,12 @@ contains
        newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda, &
        newton_linear_solver_method, newton_lm_regularization_used, newton_lm_mu_final, newton_min_abs_pivot, &
        newton_max_abs_pivot, newton_linear_failure_mode, fd_jacobian_eps_base, fd_jacobian_min_perturb, &
-       fd_jacobian_max_perturb, newton_unknown_scaling_active, newton_update_norm_scaled)
+       fd_jacobian_max_perturb, newton_unknown_scaling_active, newton_update_norm_scaled, structure_solver_type, &
+       deprecated_dense_kkt_solver_available, schur_solver_converged, schur_iterations_used, &
+       schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel, schur_accepted_lambda, &
+       schur_convergence_mode, structure_adaptive_substepping_active, structure_step_rejection_count, &
+       structure_substep_retry_count, structure_max_substeps_used, structure_min_substep_dt, structure_step_failed_any, &
+       max_schur_accepted_update_norm_global)
     integer, intent(in) :: case_id, nsteps
     logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
     real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
@@ -1052,6 +1057,13 @@ contains
     real(mytype), intent(in) :: newton_lm_mu_final, newton_min_abs_pivot, newton_max_abs_pivot
     real(mytype), intent(in) :: fd_jacobian_eps_base, fd_jacobian_min_perturb, fd_jacobian_max_perturb
     real(mytype), intent(in) :: newton_update_norm_scaled
+    character(len=*), intent(in) :: structure_solver_type, schur_convergence_mode
+    logical, intent(in) :: deprecated_dense_kkt_solver_available, schur_solver_converged
+    logical, intent(in) :: structure_adaptive_substepping_active, structure_step_failed_any
+    integer, intent(in) :: schur_iterations_used, structure_step_rejection_count, structure_substep_retry_count
+    integer, intent(in) :: structure_max_substeps_used
+    real(mytype), intent(in) :: schur_final_constraint_residual, schur_final_momentum_residual, schur_final_rx_rel
+    real(mytype), intent(in) :: schur_accepted_lambda, structure_min_substep_dt, max_schur_accepted_update_norm_global
     character(len=*), intent(in) :: final_coupled_convergence_mode
     integer :: ifile
     if (nrank /= 0) return
@@ -1063,6 +1075,8 @@ contains
     write(ifile,'(A,I8)') 'fiber_flex_structure_case ', case_id
     write(ifile,'(A,ES24.16)') 'fiber_flex_structure_dt ', dt_s
     write(ifile,'(A,I8)') 'fiber_flex_structure_nsteps ', nsteps
+    write(ifile,'(A,A)') 'structure_solver_type ', trim(structure_solver_type)
+    write(ifile,'(A,L1)') 'deprecated_dense_kkt_solver_available ', deprecated_dense_kkt_solver_available
     write(ifile,'(A,I8)') 'fiber_flex_structure_force_mode ', fiber_flex_structure_force_mode
     write(ifile,'(A,L1)') 'newton_line_search_active ', fiber_flex_constraint_line_search_active
     write(ifile,'(A,L1)') 'coupled_solver_converged_strict ', coupled_solver_converged_strict
@@ -1092,6 +1106,20 @@ contains
     write(ifile,'(A,ES24.16)') 'fd_jacobian_min_perturb ', fd_jacobian_min_perturb
     write(ifile,'(A,ES24.16)') 'fd_jacobian_max_perturb ', fd_jacobian_max_perturb
     write(ifile,'(A,L1)') 'newton_unknown_scaling_active ', newton_unknown_scaling_active
+    write(ifile,'(A,L1)') 'schur_solver_converged ', schur_solver_converged
+    write(ifile,'(A,I8)') 'schur_iterations_used ', schur_iterations_used
+    write(ifile,'(A,ES24.16)') 'schur_final_constraint_residual ', schur_final_constraint_residual
+    write(ifile,'(A,ES24.16)') 'schur_final_momentum_residual ', schur_final_momentum_residual
+    write(ifile,'(A,ES24.16)') 'schur_final_rx_rel ', schur_final_rx_rel
+    write(ifile,'(A,ES24.16)') 'schur_accepted_lambda ', schur_accepted_lambda
+    write(ifile,'(A,A)') 'schur_convergence_mode ', trim(schur_convergence_mode)
+    write(ifile,'(A,L1)') 'structure_adaptive_substepping_active ', structure_adaptive_substepping_active
+    write(ifile,'(A,I8)') 'structure_step_rejection_count ', structure_step_rejection_count
+    write(ifile,'(A,I8)') 'structure_substep_retry_count ', structure_substep_retry_count
+    write(ifile,'(A,I8)') 'structure_max_substeps_used ', structure_max_substeps_used
+    write(ifile,'(A,ES24.16)') 'structure_min_substep_dt ', structure_min_substep_dt
+    write(ifile,'(A,L1)') 'structure_step_failed_any ', structure_step_failed_any
+    write(ifile,'(A,ES24.16)') 'max_schur_accepted_update_norm_global ', max_schur_accepted_update_norm_global
     write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
     write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
     write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
