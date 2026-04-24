@@ -6,13 +6,48 @@ module fiber_io
 
   use decomp_2d_constants, only : mytype
   use decomp_2d_mpi, only : nrank
+  use param, only : xlx, zlz
   use fiber_types, only : fiber_active, fiber_nl, fiber_x, fiber_uinterp, fiber_uexact, fiber_uerror, &
        fiber_sumw, fiber_test_force, fiber_quad_w, spread_test_case, fiber_xdot, fiber_slip, fiber_coupling_force, &
-       fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total
+       fiber_xc, fiber_uc, fiber_p, fiber_omega, fiber_force_total, fiber_torque_total, &
+       rigid_two_way_min_wall_gap, fiber_s_ref, fiber_x_old, fiber_x_nm1, fiber_flexible_active, &
+       fiber_flex_initialized, fiber_length, fiber_ds, fiber_center, fiber_direction, &
+       fiber_flex_operator_test_active, fiber_flex_bending_test_active, fiber_flex_constraint_test_active, &
+       fiber_flex_structure_test_active, fiber_flex_structure_force_mode, &
+       fiber_structure_rho_tilde, fiber_flex_constraint_outer_maxit, fiber_flex_constraint_outer_tol_x, &
+       fiber_flex_constraint_outer_tol_g, fiber_flex_constraint_outer_tol_rx_rel, &
+       fiber_flex_constraint_line_search_active, fiber_flex_constraint_line_search_beta, &
+       fiber_flex_constraint_line_search_max_backtracks, fiber_flex_constraint_tension_warm_start_active
 
   implicit none
 
 contains
+
+  pure real(mytype) function periodic_delta_local(delta, period_length)
+
+    real(mytype), intent(in) :: delta, period_length
+
+    periodic_delta_local = delta
+    if (period_length > 0._mytype) then
+      if (periodic_delta_local >  0.5_mytype * period_length) periodic_delta_local = periodic_delta_local - period_length
+      if (periodic_delta_local < -0.5_mytype * period_length) periodic_delta_local = periodic_delta_local + period_length
+    endif
+
+  end function periodic_delta_local
+
+  pure real(mytype) function wrap_periodic_local(coord, period_length)
+
+    real(mytype), intent(in) :: coord, period_length
+    real(mytype) :: wrapped
+
+    wrap_periodic_local = coord
+    if (period_length > 0._mytype) then
+      wrapped = modulo(coord, period_length)
+      if (wrapped < 0._mytype) wrapped = wrapped + period_length
+      wrap_periodic_local = wrapped
+    endif
+
+  end function wrap_periodic_local
 
   subroutine write_fiber_points(filename)
 
@@ -412,5 +447,645 @@ contains
     close(ifile)
 
   end subroutine write_fiber_rigid_two_way_momentum
+
+  subroutine write_fiber_rigid_two_way_turb_series(itime, time, slip_max, slip_rms, min_wall_gap, filename)
+
+    integer, intent(in) :: itime
+    real(mytype), intent(in) :: time, slip_max, slip_rms, min_wall_gap
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+    logical :: file_exists
+
+    if (nrank /= 0) return
+
+    output_file = 'rigid_two_way_turb_series.dat'
+    if (present(filename)) output_file = filename
+
+    inquire(file=trim(output_file), exist=file_exists)
+    if (file_exists) then
+      open(newunit=ifile, file=trim(output_file), status='old', action='write', position='append', form='formatted')
+    else
+      open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'itime time xc yc zc uc_x uc_y uc_z p_x p_y p_z omega_x omega_y omega_z ' // &
+           'slip_max slip_rms min_wall_gap min_wall_gap_limit'
+    endif
+
+    write(ifile,'(I10,1X,17(ES24.16,1X))') itime, time, fiber_xc(1), fiber_xc(2), fiber_xc(3), &
+         fiber_uc(1), fiber_uc(2), fiber_uc(3), fiber_p(1), fiber_p(2), fiber_p(3), &
+         fiber_omega(1), fiber_omega(2), fiber_omega(3), &
+         slip_max, slip_rms, min_wall_gap, rigid_two_way_min_wall_gap
+    close(ifile)
+
+  end subroutine write_fiber_rigid_two_way_turb_series
+
+  subroutine write_fiber_flex_init_points(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_s_ref)) then
+      write(*,*) 'Error: fiber_s_ref is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_old)) then
+      write(*,*) 'Error: fiber_x_old is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_nm1)) then
+      write(*,*) 'Error: fiber_x_nm1 is not allocated in write_fiber_flex_init_points.'
+      stop
+    endif
+
+    output_file = 'fiber_flex_init_points.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init points (raw internal coordinates; Step 3.1 data layer only)'
+    write(ifile,'(A)') '# internal centerline coordinates may remain unwrapped across periodic x/z directions'
+    write(ifile,'(A)') '# l s_ref x_raw y_raw z_raw x_old_raw y_old_raw z_old_raw x_nm1_raw y_nm1_raw z_nm1_raw'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,10(ES24.16,1X))') l, fiber_s_ref(l), &
+           fiber_x(1,l), fiber_x(2,l), fiber_x(3,l), &
+           fiber_x_old(1,l), fiber_x_old(2,l), fiber_x_old(3,l), &
+           fiber_x_nm1(1,l), fiber_x_nm1(2,l), fiber_x_nm1(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_points
+
+  subroutine write_fiber_flex_init_points_wrapped(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_s_ref)) then
+      write(*,*) 'Error: fiber_s_ref is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_old)) then
+      write(*,*) 'Error: fiber_x_old is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+    if (.not.allocated(fiber_x_nm1)) then
+      write(*,*) 'Error: fiber_x_nm1 is not allocated in write_fiber_flex_init_points_wrapped.'
+      stop
+    endif
+
+    output_file = 'fiber_flex_init_points_wrapped.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init points (wrapped output view; internal storage remains unwrapped)'
+    write(ifile,'(A)') '# l s_ref x_wrapped y_wrapped z_wrapped x_old_wrapped y_old_wrapped z_old_wrapped ' // &
+         'x_nm1_wrapped y_nm1_wrapped z_nm1_wrapped'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,10(ES24.16,1X))') l, fiber_s_ref(l), &
+           wrap_periodic_local(fiber_x(1,l), xlx), fiber_x(2,l), wrap_periodic_local(fiber_x(3,l), zlz), &
+           wrap_periodic_local(fiber_x_old(1,l), xlx), fiber_x_old(2,l), wrap_periodic_local(fiber_x_old(3,l), zlz), &
+           wrap_periodic_local(fiber_x_nm1(1,l), xlx), fiber_x_nm1(2,l), wrap_periodic_local(fiber_x_nm1(3,l), zlz)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_points_wrapped
+
+  subroutine write_fiber_flex_init_summary(filename)
+
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+    real(mytype) :: dx, dy, dz, seg_len, spacing_error_max, end_to_end_length
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (nrank /= 0) return
+
+    if (.not.allocated(fiber_x)) then
+      write(*,*) 'Error: fiber_x is not allocated in write_fiber_flex_init_summary.'
+      stop
+    endif
+
+    spacing_error_max = 0._mytype
+    do l = 1, fiber_nl - 1
+      dx = periodic_delta_local(fiber_x(1,l+1) - fiber_x(1,l), xlx)
+      dy = fiber_x(2,l+1) - fiber_x(2,l)
+      dz = periodic_delta_local(fiber_x(3,l+1) - fiber_x(3,l), zlz)
+      seg_len = sqrt(dx*dx + dy*dy + dz*dz)
+      spacing_error_max = max(spacing_error_max, abs(seg_len - fiber_ds))
+    enddo
+
+    dx = periodic_delta_local(fiber_x(1,fiber_nl) - fiber_x(1,1), xlx)
+    dy = fiber_x(2,fiber_nl) - fiber_x(2,1)
+    dz = periodic_delta_local(fiber_x(3,fiber_nl) - fiber_x(3,1), zlz)
+    end_to_end_length = sqrt(dx*dx + dy*dy + dz*dz)
+
+    output_file = 'fiber_flex_init_summary.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible fiber init summary (Step 3.1 data layer only)'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_length ', fiber_length
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,3(ES24.16,1X))') 'fiber_center ', fiber_center(1), fiber_center(2), fiber_center(3)
+    write(ifile,'(A,3(ES24.16,1X))') 'fiber_direction ', fiber_direction(1), fiber_direction(2), fiber_direction(3)
+    write(ifile,'(A)') 'fiber_geometry_storage_semantics continuous_unwrapped_internal'
+    write(ifile,'(A)') 'fiber_geometry_output_semantics raw_points_plus_wrapped_points'
+    write(ifile,'(A)') 'fiber_geometry_diagnostics_semantics minimum_image_periodic'
+    write(ifile,'(A,I8)') 'fiber_tension_half_size ', fiber_nl - 1
+    write(ifile,'(A)') 'fiber_tension_storage_semantics half_grid_primary_nodal_legacy'
+    write(ifile,'(A)') 'fiber_nodal_tension_storage_status deprecated_legacy_not_primary'
+    write(ifile,'(A,ES24.16)') 'end_to_end_length ', end_to_end_length
+    write(ifile,'(A,ES24.16)') 'spacing_error_max ', spacing_error_max
+    write(ifile,'(A,L1)') 'fiber_flex_initialized ', fiber_flex_initialized
+    close(ifile)
+
+  end subroutine write_fiber_flex_init_summary
+
+  subroutine write_fiber_flex_operator_points(x_exact, xs_num, xs_exact, xss_num, xss_exact, xssss_num, xssss_exact, filename)
+
+    real(mytype), intent(in) :: x_exact(3, fiber_nl), xs_num(3, fiber_nl), xs_exact(3, fiber_nl)
+    real(mytype), intent(in) :: xss_num(3, fiber_nl), xss_exact(3, fiber_nl)
+    real(mytype), intent(in) :: xssss_num(3, fiber_nl), xssss_exact(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (.not.fiber_flex_operator_test_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_flex_operator_points.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_exact_x x_exact_y x_exact_z ' // &
+         'xs_num_x xs_num_y xs_num_z xs_exact_x xs_exact_y xs_exact_z ' // &
+         'xss_num_x xss_num_y xss_num_z xss_exact_x xss_exact_y xss_exact_z ' // &
+         'xssss_num_x xssss_num_y xssss_num_z xssss_exact_x xssss_exact_y xssss_exact_z'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,22(ES24.16,1X))') l, fiber_s_ref(l), &
+           x_exact(1,l), x_exact(2,l), x_exact(3,l), &
+           xs_num(1,l), xs_num(2,l), xs_num(3,l), xs_exact(1,l), xs_exact(2,l), xs_exact(3,l), &
+           xss_num(1,l), xss_num(2,l), xss_num(3,l), xss_exact(1,l), xss_exact(2,l), xss_exact(3,l), &
+           xssss_num(1,l), xssss_num(2,l), xssss_num(3,l), xssss_exact(1,l), xssss_exact(2,l), xssss_exact(3,l)
+    enddo
+    close(ifile)
+
+  end subroutine write_fiber_flex_operator_points
+
+  subroutine write_fiber_flex_operator_summary(flex_case, err_xs_max, err_xss_max, err_xssss_max, &
+       gamma_test_for_fb, err_fb_max, &
+       bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max, &
+       bc_d2_left_indep_err_max, bc_d2_right_indep_err_max, bc_d3_left_indep_err_max, bc_d3_right_indep_err_max, &
+       filename)
+
+    integer, intent(in) :: flex_case
+    real(mytype), intent(in) :: err_xs_max, err_xss_max, err_xssss_max
+    real(mytype), intent(in) :: gamma_test_for_fb, err_fb_max
+    real(mytype), intent(in) :: bc_moment_left_max, bc_moment_right_max, bc_shear_left_max, bc_shear_right_max
+    real(mytype), intent(in) :: bc_d2_left_indep_err_max, bc_d2_right_indep_err_max
+    real(mytype), intent(in) :: bc_d3_left_indep_err_max, bc_d3_right_indep_err_max
+    character(len=*), intent(in), optional :: filename
+
+    character(len=256) :: output_file
+    integer :: ifile
+
+    if (.not.fiber_active) return
+    if (.not.fiber_flexible_active) return
+    if (.not.fiber_flex_operator_test_active) return
+    if (nrank /= 0) return
+
+    output_file = 'fiber_flex_operator_summary.dat'
+    if (present(filename)) output_file = filename
+
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Flexible operator summary (Step 3.2 spatial operator verification only)'
+    write(ifile,'(A)') '# boundary metrics include ghost-closure residuals and independent physical-node boundary errors'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_operator_case ', flex_case
+    write(ifile,'(A,ES24.16)') 'err_xs_max ', err_xs_max
+    write(ifile,'(A,ES24.16)') 'err_xss_max ', err_xss_max
+    write(ifile,'(A,ES24.16)') 'err_xssss_max ', err_xssss_max
+    write(ifile,'(A)') 'operator_layer_semantics geometric_plus_bending_force_verification'
+    write(ifile,'(A)') 'bending_force_semantics Fb_equals_minus_gamma_times_Xssss_for_constant_gamma'
+    write(ifile,'(A)') 'bending_force_verification_scope constant_gamma_uniform_flexibility_only'
+    write(ifile,'(A,ES24.16)') 'gamma_test_for_fb ', gamma_test_for_fb
+    write(ifile,'(A,ES24.16)') 'err_fb_max ', err_fb_max
+    write(ifile,'(A)') 'boundary_closure_residual_semantics ghost_closure_consistency_only'
+    write(ifile,'(A)') 'boundary_independent_error_semantics one_sided_physical_node_boundary_error'
+    write(ifile,'(A,ES24.16)') 'bc_moment_left_max ', bc_moment_left_max
+    write(ifile,'(A,ES24.16)') 'bc_moment_right_max ', bc_moment_right_max
+    write(ifile,'(A,ES24.16)') 'bc_shear_left_max ', bc_shear_left_max
+    write(ifile,'(A,ES24.16)') 'bc_shear_right_max ', bc_shear_right_max
+    write(ifile,'(A,ES24.16)') 'bc_d2_left_indep_err_max ', bc_d2_left_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d2_right_indep_err_max ', bc_d2_right_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d3_left_indep_err_max ', bc_d3_left_indep_err_max
+    write(ifile,'(A,ES24.16)') 'bc_d3_right_indep_err_max ', bc_d3_right_indep_err_max
+    close(ifile)
+
+  end subroutine write_fiber_flex_operator_summary
+
+  subroutine write_fiber_flex_bending_initial_points(x0, filename)
+    real(mytype), intent(in) :: x0(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    output_file = 'fiber_flex_bending_initial_points.dat'
+    if (present(filename)) output_file = filename
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x0 y0 z0'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), x0(1,l), x0(2,l), x0(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_bending_initial_points
+
+  subroutine write_fiber_flex_bending_final_points(xf, filename)
+    real(mytype), intent(in) :: xf(3, fiber_nl)
+    character(len=*), intent(in), optional :: filename
+    character(len=256) :: output_file
+    integer :: ifile, l
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    output_file = 'fiber_flex_bending_final_points.dat'
+    if (present(filename)) output_file = filename
+    open(newunit=ifile, file=trim(output_file), status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_final y_final z_final'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), xf(1,l), xf(2,l), xf(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_bending_final_points
+
+  subroutine write_fiber_flex_bending_series(step, time, bending_energy, max_update_norm, linear_iterations, &
+       linear_final_residual, linear_restarts, linear_breakdown_detected, linear_failure_mode, overwrite)
+    integer, intent(in) :: step
+    real(mytype), intent(in) :: time, bending_energy, max_update_norm, linear_final_residual
+    integer, intent(in) :: linear_iterations, linear_restarts, linear_failure_mode
+    logical, intent(in) :: linear_breakdown_detected
+    logical, intent(in) :: overwrite
+    integer :: ifile
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    if (overwrite) then
+      open(newunit=ifile, file='fiber_flex_bending_series.dat', status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'step time bending_energy max_update_norm linear_iterations linear_final_residual linear_restarts ' // &
+           'linear_breakdown_detected linear_failure_mode'
+    else
+      open(newunit=ifile, file='fiber_flex_bending_series.dat', status='old', action='write', position='append', form='formatted')
+    endif
+    write(ifile,'(I10,1X,3(ES24.16,1X),I10,1X,ES24.16,1X,I10,1X,L1,1X,I8)') step, time, bending_energy, max_update_norm, &
+         linear_iterations, linear_final_residual, linear_restarts, linear_breakdown_detected, linear_failure_mode
+    close(ifile)
+  end subroutine write_fiber_flex_bending_series
+
+  subroutine write_fiber_flex_bending_summary(case_id, dt_b, gamma_b, nsteps, e_init, e_final, energy_monotone, &
+       max_update_last_step, straight_preservation_error_max, final_displacement_norm, linear_solver_type, cg_tol, &
+       cg_maxit, max_linear_iterations_used, max_final_linear_residual, max_linear_restarts_used, &
+       linear_breakdown_detected_any, final_linear_failure_mode)
+    integer, intent(in) :: case_id, nsteps, linear_solver_type, cg_maxit, max_linear_iterations_used
+    real(mytype), intent(in) :: dt_b, gamma_b, e_init, e_final, max_update_last_step, cg_tol, max_final_linear_residual
+    real(mytype), intent(in) :: straight_preservation_error_max, final_displacement_norm
+    integer, intent(in) :: max_linear_restarts_used, final_linear_failure_mode
+    logical, intent(in) :: energy_monotone, linear_breakdown_detected_any
+    integer :: ifile
+    character(len=32) :: linear_failure_mode_label
+
+    if (nrank /= 0) return
+    if (.not.fiber_flex_bending_test_active) return
+    open(newunit=ifile, file='fiber_flex_bending_summary.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# Step 3.3 bending-only implicit summary'
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_bending_case ', case_id
+    write(ifile,'(A,ES24.16)') 'fiber_flex_bending_dt ', dt_b
+    write(ifile,'(A,ES24.16)') 'fiber_bending_gamma ', gamma_b
+    write(ifile,'(A,I8)') 'fiber_flex_bending_nsteps ', nsteps
+    write(ifile,'(A)') 'solver_role_semantics bending_only_intermediate_kernel'
+    write(ifile,'(A)') 'linear_solver_semantics operator_based_primary_dense_reference_available'
+    if (linear_solver_type == 1) then
+      write(ifile,'(A)') 'linear_solver_type iterative_primary'
+      write(ifile,'(A)') 'linear_solver_method bicgstab'
+    else
+      write(ifile,'(A)') 'linear_solver_type dense_reference'
+      write(ifile,'(A)') 'linear_solver_method dense_gaussian_elimination'
+    endif
+    write(ifile,'(A)') 'iterative_parameter_semantics cg_named_controls_used_for_primary_iterative_path'
+    write(ifile,'(A)') 'iterative_parameter_names_status iter_tol_iter_maxit_primary_cg_names_legacy_aliases'
+    write(ifile,'(A)') 'iterative_preconditioner_type jacobi'
+    write(ifile,'(A)') 'preconditioner_semantics diagonal_from_operator_action'
+    write(ifile,'(A,ES24.16)') 'cg_tol ', cg_tol
+    write(ifile,'(A,I8)') 'cg_maxit ', cg_maxit
+    write(ifile,'(A,I8)') 'max_linear_iterations_used ', max_linear_iterations_used
+    write(ifile,'(A,ES24.16)') 'max_final_linear_residual ', max_final_linear_residual
+    write(ifile,'(A,I8)') 'max_linear_restarts_used ', max_linear_restarts_used
+    write(ifile,'(A,L1)') 'linear_breakdown_detected_any ', linear_breakdown_detected_any
+    write(ifile,'(A,I8)') 'final_linear_failure_mode ', final_linear_failure_mode
+    select case (final_linear_failure_mode)
+    case (0); linear_failure_mode_label = 'none'
+    case (1); linear_failure_mode_label = 'maxit'
+    case (2); linear_failure_mode_label = 'breakdown_rho'
+    case (3); linear_failure_mode_label = 'breakdown_alpha_den'
+    case (4); linear_failure_mode_label = 'breakdown_omega'
+    case (5); linear_failure_mode_label = 'stagnation'
+    case default; linear_failure_mode_label = 'unknown'
+    end select
+    write(ifile,'(A,1X,A)') 'final_linear_failure_mode_label', trim(linear_failure_mode_label)
+    write(ifile,'(A,L1)') 'dense_solver_available_as_reference ', .true.
+    write(ifile,'(A,L1)') 'includes_structural_inertia ', .false.
+    write(ifile,'(A,L1)') 'includes_tension_constraint ', .false.
+    write(ifile,'(A,L1)') 'includes_fluid_structure_coupling ', .false.
+    write(ifile,'(A,L1)') 'not_final_structure_solver ', .true.
+    write(ifile,'(A,ES24.16)') 'initial_bending_energy ', e_init
+    write(ifile,'(A,ES24.16)') 'final_bending_energy ', e_final
+    write(ifile,'(A,L1)') 'energy_monotone_decay ', energy_monotone
+    write(ifile,'(A,ES24.16)') 'max_update_last_step ', max_update_last_step
+    if (case_id == 1) then
+      write(ifile,'(A)') 'case_validation_semantics straight_preservation_under_bending_only_kernel'
+      write(ifile,'(A,ES24.16)') 'straight_preservation_error_max ', straight_preservation_error_max
+    else if (case_id == 2) then
+      write(ifile,'(A)') 'case_validation_semantics free_end_curved_relaxation_under_bending_only_kernel'
+      write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
+    endif
+    close(ifile)
+  end subroutine write_fiber_flex_bending_summary
+
+  subroutine write_fiber_flex_constraint_initial_points(x0)
+    real(mytype), intent(in) :: x0(3, fiber_nl)
+    integer :: ifile, l
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_initial_points.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x0 y0 z0'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), x0(1,l), x0(2,l), x0(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_initial_points
+
+  subroutine write_fiber_flex_constraint_final_points(xf)
+    real(mytype), intent(in) :: xf(3, fiber_nl)
+    integer :: ifile, l
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_final_points.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# l s_ref x_final y_final z_final'
+    do l = 1, fiber_nl
+      write(ifile,'(I8,1X,4(ES24.16,1X))') l, fiber_s_ref(l), xf(1,l), xf(2,l), xf(3,l)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_final_points
+
+  subroutine write_fiber_flex_constraint_tension_last(t_half)
+    real(mytype), intent(in) :: t_half(fiber_nl-1)
+    integer :: ifile, i
+    real(mytype) :: sh
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_tension_last.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A)') '# i_half s_half T_last'
+    do i = 1, fiber_nl-1
+      sh = 0.5_mytype * (fiber_s_ref(i) + fiber_s_ref(i+1))
+      write(ifile,'(I8,1X,2(ES24.16,1X))') i, sh, t_half(i)
+    enddo
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_tension_last
+
+  subroutine write_fiber_flex_constraint_series(step, time, max_seg_err, max_inext_err, max_abs_tension, &
+       max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+       post_bending_correction_norm, post_bending_max_inext_err_after_correction, outer_iter, max_abs_rx, max_abs_rg, &
+       max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda, rx_rel, plateau_detected, overwrite)
+    integer, intent(in) :: step
+    real(mytype), intent(in) :: time, max_seg_err, max_inext_err, max_abs_tension
+    real(mytype), intent(in) :: max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm
+    real(mytype), intent(in) :: post_bending_correction_norm, post_bending_max_inext_err_after_correction
+    integer, intent(in) :: outer_iter
+    real(mytype), intent(in) :: max_abs_rx, max_abs_rg, max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda
+    real(mytype), intent(in) :: rx_rel
+    logical, intent(in) :: plateau_detected
+    logical, intent(in) :: overwrite
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    if (overwrite) then
+      open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'step time max_seg_err max_inext_err max_abs_tension max_abs_drift_term max_abs_vel_term max_abs_force_term implicit_bending_update_norm post_bending_correction_norm post_bending_max_inext_err_after_correction outer_iter max_abs_rx max_abs_rg max_abs_delta_x max_abs_delta_t accepted_line_search_lambda rx_rel plateau_detected'
+    else
+      open(newunit=ifile, file='fiber_flex_constraint_series.dat', status='old', action='write', position='append', form='formatted')
+    endif
+    write(ifile,'(I10,1X,10(ES24.16,1X),I10,1X,6(ES24.16,1X),L1)') step, time, max_seg_err, max_inext_err, max_abs_tension, &
+         max_abs_drift_term, max_abs_vel_term, max_abs_force_term, implicit_bending_update_norm, &
+         post_bending_correction_norm, post_bending_max_inext_err_after_correction, outer_iter, &
+         max_abs_rx, max_abs_rg, max_abs_delta_x, max_abs_delta_t, accepted_line_search_lambda, rx_rel, plateau_detected
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_series
+
+  subroutine write_fiber_flex_constraint_summary(case_id, dt_c, nsteps, max_seg_err_global, max_inext_err_global, &
+       max_abs_tension_global, case_metric, max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global, &
+       implicit_bending_update_norm_global, post_bending_correction_norm_global, &
+       post_bending_max_inext_err_after_correction_global, post_bending_correction_scale, max_outer_iterations_used, &
+       final_coupled_residual_x, final_coupled_residual_g, coupled_solver_converged, &
+       max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer, &
+       max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda, &
+       final_coupled_residual_x_rel, final_coupled_convergence_mode, plateau_detected)
+    integer, intent(in) :: case_id, nsteps
+    real(mytype), intent(in) :: dt_c, max_seg_err_global, max_inext_err_global, max_abs_tension_global, case_metric
+    real(mytype), intent(in) :: max_abs_drift_term_global, max_abs_vel_term_global, max_abs_force_term_global
+    real(mytype), intent(in) :: implicit_bending_update_norm_global
+    real(mytype), intent(in) :: post_bending_correction_norm_global, post_bending_max_inext_err_after_correction_global
+    real(mytype), intent(in) :: post_bending_correction_scale
+    integer, intent(in) :: max_outer_iterations_used
+    real(mytype), intent(in) :: final_coupled_residual_x, final_coupled_residual_g
+    logical, intent(in) :: coupled_solver_converged
+    real(mytype), intent(in) :: max_abs_constraint_residual_during_outer, max_abs_momentum_residual_during_outer
+    real(mytype), intent(in) :: max_abs_delta_x_during_outer, max_abs_delta_t_during_outer, accepted_line_search_lambda
+    real(mytype), intent(in) :: final_coupled_residual_x_rel
+    character(len=*), intent(in) :: final_coupled_convergence_mode
+    logical, intent(in) :: plateau_detected
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_constraint_test_active) return
+    open(newunit=ifile, file='fiber_flex_constraint_summary.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A,I8)') 'fiber_nl ', fiber_nl
+    write(ifile,'(A,ES24.16)') 'fiber_ds ', fiber_ds
+    write(ifile,'(A,I8)') 'fiber_flex_constraint_case ', case_id
+    write(ifile,'(A,ES24.16)') 'fiber_flex_constraint_dt ', dt_c
+    write(ifile,'(A,I8)') 'fiber_flex_constraint_nsteps ', nsteps
+    write(ifile,'(A,L1)') 'structure_inertia_included ', .true.
+    write(ifile,'(A,ES24.16)') 'fiber_structure_rho_tilde ', fiber_structure_rho_tilde
+    write(ifile,'(A,L1)') 'prediction_step_active ', .true.
+    write(ifile,'(A,L1)') 'constraint_drift_control_active ', .true.
+    write(ifile,'(A)') 'tension_storage_semantics half_grid_internal_unknowns_zero_end_bc'
+    write(ifile,'(A,L1)') 'implicit_bending_included ', .true.
+    write(ifile,'(A)') 'implicit_bending_semantics semi_implicit_3p3_kernel_in_final_position_update'
+    write(ifile,'(A)') 'bending_update_scope implicit_in_position_update_explicit_in_tension_rhs'
+    write(ifile,'(A,L1)') 'post_bending_constraint_correction_active ', .true.
+    write(ifile,'(A)') 'post_bending_correction_semantics single_tension_based_constraint_projection_after_implicit_bending'
+    write(ifile,'(A,ES24.16)') 'post_bending_correction_scale ', post_bending_correction_scale
+    write(ifile,'(A,L1)') 'coupled_final_time_constraint_solve_active ', .true.
+    write(ifile,'(A)') 'coupled_solver_semantics structure_only_coupled_final_time_X_and_T_solve'
+    write(ifile,'(A,L1)') 'deprecated_predictor_corrector_path_available ', .true.
+    write(ifile,'(A,I8)') 'coupled_outer_maxit ', fiber_flex_constraint_outer_maxit
+    write(ifile,'(A,ES24.16)') 'coupled_outer_tol_x ', fiber_flex_constraint_outer_tol_x
+    write(ifile,'(A,ES24.16)') 'coupled_outer_tol_g ', fiber_flex_constraint_outer_tol_g
+    write(ifile,'(A,ES24.16)') 'coupled_outer_tol_rx_rel ', fiber_flex_constraint_outer_tol_rx_rel
+    write(ifile,'(A,L1)') 'coupled_line_search_active ', fiber_flex_constraint_line_search_active
+    write(ifile,'(A,ES24.16)') 'coupled_line_search_beta ', fiber_flex_constraint_line_search_beta
+    write(ifile,'(A,I8)') 'coupled_line_search_max_backtracks ', fiber_flex_constraint_line_search_max_backtracks
+    write(ifile,'(A,L1)') 'coupled_tension_warm_start_active ', fiber_flex_constraint_tension_warm_start_active
+    write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
+    write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
+    write(ifile,'(A,ES24.16)') 'max_abs_tension_global ', max_abs_tension_global
+    write(ifile,'(A,ES24.16)') 'max_abs_drift_term_global ', max_abs_drift_term_global
+    write(ifile,'(A,ES24.16)') 'max_abs_vel_term_global ', max_abs_vel_term_global
+    write(ifile,'(A,ES24.16)') 'max_abs_force_term_global ', max_abs_force_term_global
+    write(ifile,'(A,ES24.16)') 'implicit_bending_update_norm_global ', implicit_bending_update_norm_global
+    write(ifile,'(A,ES24.16)') 'max_post_bending_correction_norm_global ', post_bending_correction_norm_global
+    write(ifile,'(A,ES24.16)') 'max_post_bending_max_inext_err_after_correction_global ', post_bending_max_inext_err_after_correction_global
+    write(ifile,'(A,I8)') 'max_outer_iterations_used ', max_outer_iterations_used
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_x ', final_coupled_residual_x
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_x_rel ', final_coupled_residual_x_rel
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_g ', final_coupled_residual_g
+    write(ifile,'(A,L1)') 'coupled_solver_converged ', coupled_solver_converged
+    write(ifile,'(A,A)') 'final_coupled_convergence_mode ', trim(final_coupled_convergence_mode)
+    write(ifile,'(A,L1)') 'plateau_detected ', plateau_detected
+    write(ifile,'(A,ES24.16)') 'max_abs_constraint_residual_during_outer ', max_abs_constraint_residual_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_momentum_residual_during_outer ', max_abs_momentum_residual_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_delta_x_during_outer ', max_abs_delta_x_during_outer
+    write(ifile,'(A,ES24.16)') 'max_abs_delta_t_during_outer ', max_abs_delta_t_during_outer
+    write(ifile,'(A,ES24.16)') 'accepted_line_search_lambda ', accepted_line_search_lambda
+    if (case_id == 1) then
+      write(ifile,'(A,ES24.16)') 'static_preservation_error_max ', case_metric
+    else if (case_id == 2) then
+      write(ifile,'(A,ES24.16)') 'translation_shape_error_max ', case_metric
+      write(ifile,'(A,ES24.16)') 'translation_tension_max ', max_abs_tension_global
+    else if (case_id == 3) then
+      write(ifile,'(A,ES24.16)') 'final_displacement_norm ', case_metric
+    endif
+    close(ifile)
+  end subroutine write_fiber_flex_constraint_summary
+
+  subroutine write_fiber_flex_structure_series(step, time, kinetic_energy, bending_energy, external_power, max_abs_fext, &
+       max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, newton_iterations_used, accepted_line_search_lambda, &
+       newton_final_update_norm, newton_final_residual_norm, newton_convergence_mode, overwrite)
+    integer, intent(in) :: step, newton_iterations_used
+    real(mytype), intent(in) :: time, kinetic_energy, bending_energy, external_power, max_abs_fext
+    real(mytype), intent(in) :: max_seg_err, max_inext_err, max_abs_rx, max_abs_rg, rx_rel, accepted_line_search_lambda
+    real(mytype), intent(in) :: newton_final_update_norm, newton_final_residual_norm
+    character(len=*), intent(in) :: newton_convergence_mode
+    logical, intent(in) :: overwrite
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_structure_test_active) return
+    if (overwrite) then
+      open(newunit=ifile, file='fiber_flex_structure_series.dat', status='replace', action='write', form='formatted')
+      write(ifile,'(A)') 'step time kinetic_energy bending_energy external_power max_seg_err max_inext_err max_abs_fext max_abs_rx max_abs_rg rx_rel newton_iterations_used accepted_line_search_lambda newton_final_update_norm newton_final_residual_norm convergence_mode'
+    else
+      open(newunit=ifile, file='fiber_flex_structure_series.dat', status='old', action='write', position='append', form='formatted')
+    endif
+    write(ifile,'(I10,1X,10(ES24.16,1X),I10,1X,3(ES24.16,1X),A)') step, time, kinetic_energy, bending_energy, &
+         external_power, max_seg_err, max_inext_err, max_abs_fext, max_abs_rx, max_abs_rg, rx_rel, &
+         newton_iterations_used, accepted_line_search_lambda, newton_final_update_norm, newton_final_residual_norm, &
+         trim(newton_convergence_mode)
+    close(ifile)
+  end subroutine write_fiber_flex_structure_series
+
+  subroutine write_fiber_flex_structure_summary(case_id, dt_s, nsteps, coupled_solver_converged_strict, &
+       coupled_solver_converged_effective, final_coupled_convergence_mode, final_coupled_residual_x, &
+       final_coupled_residual_x_rel, final_coupled_residual_g, kinetic_energy_final, bending_energy_final, &
+       max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual, &
+       max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent, final_displacement_norm, &
+       max_abs_fext_global, max_abs_fext_final, external_power_final, max_forced_predictor_norm_global, &
+       max_newton_accepted_update_norm_global, initial_shape_projection_active, initial_max_seg_err, &
+       initial_max_inext_err, newton_iterations_used, &
+       newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda)
+    integer, intent(in) :: case_id, nsteps
+    logical, intent(in) :: coupled_solver_converged_strict, coupled_solver_converged_effective
+    real(mytype), intent(in) :: dt_s, final_coupled_residual_x, final_coupled_residual_x_rel, final_coupled_residual_g
+    real(mytype), intent(in) :: kinetic_energy_final, bending_energy_final
+    real(mytype), intent(in) :: max_seg_err_global, max_inext_err_global, max_end_bc_d2_residual, max_end_bc_d3_residual
+    real(mytype), intent(in) :: max_end_bc_d2_residual_independent, max_end_bc_d3_residual_independent
+    real(mytype), intent(in) :: final_displacement_norm
+    real(mytype), intent(in) :: max_abs_fext_global, max_abs_fext_final, external_power_final
+    real(mytype), intent(in) :: max_forced_predictor_norm_global, max_newton_accepted_update_norm_global
+    logical, intent(in) :: initial_shape_projection_active
+    real(mytype), intent(in) :: initial_max_seg_err, initial_max_inext_err
+    integer, intent(in) :: newton_iterations_used
+    real(mytype), intent(in) :: newton_final_residual_norm, newton_final_update_norm, newton_accepted_lambda
+    character(len=*), intent(in) :: final_coupled_convergence_mode
+    integer :: ifile
+    if (nrank /= 0) return
+    if (.not.fiber_flex_structure_test_active) return
+    open(newunit=ifile, file='fiber_flex_structure_summary.dat', status='replace', action='write', form='formatted')
+    write(ifile,'(A,L1)') 'structure_only_dynamics_active ', .true.
+    write(ifile,'(A)') 'structure_dynamics_semantics inertia_tension_implicit_bending_structure_only'
+    write(ifile,'(A)') 'forcing_source_semantics prescribed_not_IBM'
+    write(ifile,'(A,I8)') 'fiber_flex_structure_case ', case_id
+    write(ifile,'(A,ES24.16)') 'fiber_flex_structure_dt ', dt_s
+    write(ifile,'(A,I8)') 'fiber_flex_structure_nsteps ', nsteps
+    write(ifile,'(A,I8)') 'fiber_flex_structure_force_mode ', fiber_flex_structure_force_mode
+    write(ifile,'(A,L1)') 'coupled_solver_converged_strict ', coupled_solver_converged_strict
+    write(ifile,'(A,L1)') 'coupled_solver_converged_effective ', coupled_solver_converged_effective
+    write(ifile,'(A,A)') 'final_coupled_convergence_mode ', trim(final_coupled_convergence_mode)
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_x ', final_coupled_residual_x
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_x_rel ', final_coupled_residual_x_rel
+    write(ifile,'(A,ES24.16)') 'final_coupled_residual_g ', final_coupled_residual_g
+    write(ifile,'(A,ES24.16)') 'max_abs_fext_global ', max_abs_fext_global
+    write(ifile,'(A,ES24.16)') 'max_abs_fext_final ', max_abs_fext_final
+    write(ifile,'(A,ES24.16)') 'max_forced_predictor_norm_global ', max_forced_predictor_norm_global
+    write(ifile,'(A,ES24.16)') 'max_newton_accepted_update_norm_global ', max_newton_accepted_update_norm_global
+    write(ifile,'(A,ES24.16)') 'external_power_final ', external_power_final
+    write(ifile,'(A,I8)') 'newton_iterations_used ', newton_iterations_used
+    write(ifile,'(A,ES24.16)') 'newton_final_residual_norm ', newton_final_residual_norm
+    write(ifile,'(A,ES24.16)') 'final_newton_scaled_residual_norm ', newton_final_residual_norm
+    write(ifile,'(A,ES24.16)') 'newton_final_update_norm ', newton_final_update_norm
+    write(ifile,'(A,ES24.16)') 'newton_accepted_lambda ', newton_accepted_lambda
+    write(ifile,'(A,ES24.16)') 'kinetic_energy_final ', kinetic_energy_final
+    write(ifile,'(A,ES24.16)') 'bending_energy_final ', bending_energy_final
+    write(ifile,'(A,ES24.16)') 'max_seg_err_global ', max_seg_err_global
+    write(ifile,'(A,ES24.16)') 'max_inext_err_global ', max_inext_err_global
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d2_residual ', max_end_bc_d2_residual
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d3_residual ', max_end_bc_d3_residual
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d2_residual_independent ', max_end_bc_d2_residual_independent
+    write(ifile,'(A,ES24.16)') 'max_end_bc_d3_residual_independent ', max_end_bc_d3_residual_independent
+    write(ifile,'(A,L1)') 'initial_shape_projection_active ', initial_shape_projection_active
+    write(ifile,'(A,ES24.16)') 'initial_max_seg_err ', initial_max_seg_err
+    write(ifile,'(A,ES24.16)') 'initial_max_inext_err ', initial_max_inext_err
+    write(ifile,'(A,ES24.16)') 'final_displacement_norm ', final_displacement_norm
+    write(ifile,'(A,L1)') 'grid_convergence_ready ', .true.
+    write(ifile,'(A,L1)') 'dt_convergence_ready ', .true.
+    close(ifile)
+  end subroutine write_fiber_flex_structure_summary
 
 end module fiber_io
