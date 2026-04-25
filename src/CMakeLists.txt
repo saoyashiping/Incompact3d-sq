@@ -89,6 +89,26 @@ install(TARGETS fibre_structure_check
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+
+add_executable(fibre_freefree_boundary_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_geometry.f90
+                    fibre_boundary_freefree.f90
+                    fibre_freefree_boundary_driver.f90)
+
+target_link_libraries(fibre_freefree_boundary_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_freefree_boundary_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_freefree_boundary_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

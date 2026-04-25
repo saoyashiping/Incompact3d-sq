@@ -59,8 +59,20 @@ contains
   function fibre_center_of_mass(fibre) result(x_cm)
     type(fibre_t), intent(in) :: fibre
     real(mytype) :: x_cm(3)
+    real(mytype) :: integral(3)
 
-    x_cm = sum(fibre%x, dim=2) / real(fibre%nl, mytype)
+    if (fibre%length <= 0._mytype) then
+      x_cm = 0._mytype
+      return
+    end if
+
+    integral = 0.5_mytype * fibre%x(:, 1) * fibre%ds
+    if (fibre%nl > 2) then
+      integral = integral + sum(fibre%x(:, 2:fibre%nl - 1), dim=2) * fibre%ds
+    end if
+    integral = integral + 0.5_mytype * fibre%x(:, fibre%nl) * fibre%ds
+
+    x_cm = integral / fibre%length
   end function fibre_center_of_mass
 
 end module fibre_geometry

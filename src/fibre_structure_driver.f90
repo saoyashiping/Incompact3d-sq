@@ -11,9 +11,9 @@ program fibre_structure_check
   type(fibre_t) :: fibre
   type(fibre_diagnostics_t) :: diag
 
-  call fibre_init_straight_free_free(fibre, nl=33, length=1.0_mytype, rho_tilde=0.0_mytype, gamma=0.0_mytype)
+  call fibre_init_straight_free_free(fibre, nl=33, length=1.0_mytype, rho_tilde=1.0_mytype, gamma=1.0_mytype)
 
   call fibre_compute_diagnostics(fibre, diag)
-  call fibre_write_diagnostics('fibre_geometry_check.dat', fibre, diag)
+  call fibre_write_diagnostics('stage2_outputs/fibre_geometry_check.dat', fibre, diag)
 
 end program fibre_structure_check

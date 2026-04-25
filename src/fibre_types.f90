@@ -14,6 +14,9 @@ module fibre_types
     real(mytype), allocatable :: x(:,:)
     real(mytype), allocatable :: x_old(:,:)
     real(mytype), allocatable :: v(:,:)
+    ! Stage 2.1 only stores segment/interface tension placeholders T_{i+1/2}.
+    ! The final constrained tension equation and exact boundary tension
+    ! treatment will be implemented in Stage 2.5.
     real(mytype), allocatable :: tension(:)
   end type fibre_t
 
@@ -35,7 +38,7 @@ contains
     allocate(fibre%x(3, nl))
     allocate(fibre%x_old(3, nl))
     allocate(fibre%v(3, nl))
-    allocate(fibre%tension(nl))
+    allocate(fibre%tension(nl - 1))
   end subroutine fibre_allocate
 
 end module fibre_types
