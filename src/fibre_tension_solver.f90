@@ -28,6 +28,7 @@ contains
     real(mytype), allocatable :: tau_basis(:), op_val(:)
 
     nseg = fibre%nl - 1
+    if (size(a_non_tension, 1) /= 3) error stop 'assemble_tension_system_freefree: a_non_tension first dimension must be 3'
     x_star = 2._mytype * fibre%x - fibre%x_old
 
     do j = 1, nseg
@@ -96,6 +97,7 @@ contains
     real(mytype) :: x_star(3, fibre%nl)
     real(mytype) :: t_star(3, fibre%nl - 1)
 
+    if (size(a_tension, 1) /= 3) error stop 'compute_tension_acceleration_freefree: a_tension first dimension must be 3'
     x_star = 2._mytype * fibre%x - fibre%x_old
 
     do j = 1, fibre%nl - 1
@@ -124,13 +126,18 @@ contains
   end subroutine apply_tension_operator_freefree
 
   subroutine apply_tension_operator_from_tstar(t_star, ds, tension, op_val)
-    real(mytype), intent(in) :: t_star(3, :)
+    real(mytype), intent(in) :: t_star(:, :)
     real(mytype), intent(in) :: ds
     real(mytype), intent(in) :: tension(:)
-    real(mytype), intent(out) :: op_val(size(tension))
+    real(mytype), intent(out) :: op_val(:)
 
     real(mytype) :: a_tension(3, size(tension) + 1)
-    integer :: j
+    integer :: j, nseg
+
+    if (size(t_star, 1) /= 3) error stop 'apply_tension_operator_from_tstar: t_star first dimension must be 3'
+    nseg = size(t_star, 2)
+    if (size(tension) /= nseg) error stop 'apply_tension_operator_from_tstar: tension size mismatch'
+    if (size(op_val) /= nseg) error stop 'apply_tension_operator_from_tstar: op_val size mismatch'
 
     call compute_tension_acceleration_from_tstar(t_star, ds, tension, a_tension)
 
@@ -140,14 +147,19 @@ contains
   end subroutine apply_tension_operator_from_tstar
 
   subroutine compute_tension_acceleration_from_tstar(t_star, ds, tension, a_tension)
-    real(mytype), intent(in) :: t_star(3, :)
+    real(mytype), intent(in) :: t_star(:, :)
     real(mytype), intent(in) :: ds
     real(mytype), intent(in) :: tension(:)
-    real(mytype), intent(out) :: a_tension(3, size(tension) + 1)
+    real(mytype), intent(out) :: a_tension(:, :)
 
     integer :: i, nseg
 
-    nseg = size(tension)
+    if (size(t_star, 1) /= 3) error stop 'compute_tension_acceleration_from_tstar: t_star first dimension must be 3'
+    nseg = size(t_star, 2)
+    if (size(tension) /= nseg) error stop 'compute_tension_acceleration_from_tstar: tension size mismatch'
+    if (size(a_tension, 1) /= 3) error stop 'compute_tension_acceleration_from_tstar: a_tension first dimension must be 3'
+    if (size(a_tension, 2) /= nseg + 1) error stop 'compute_tension_acceleration_from_tstar: a_tension second dimension mismatch'
+
     a_tension = 0._mytype
 
     a_tension(:, 1) = tension(1) * t_star(:, 1) / ds
