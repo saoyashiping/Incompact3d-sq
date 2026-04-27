@@ -36,12 +36,13 @@ program fibre_no_force_long_check
   real(mytype) :: curved_long_initial_length_error, curved_long_final_length_error
   real(mytype) :: curved_long_max_length_error
   real(mytype) :: curved_long_final_momentum_norm, curved_long_center_drift_norm
+  real(mytype) :: curved_long_final_momentum_relative
   real(mytype) :: curved_long_final_max_curvature
 
   real(mytype) :: center0(3), center_final(3), center_expected(3)
   real(mytype) :: u(3), momentum(3), momentum_expected(3), shift(3)
   real(mytype) :: left_before(3), right_before(3), left_after(3), right_after(3)
-  real(mytype) :: max_curv_dummy, eb, ek, total_energy, length_error
+  real(mytype) :: max_curv_dummy, eb, ek, total_energy, length_error, momentum_scale
 
   pi = acos(-1.0_mytype)
 
@@ -160,6 +161,8 @@ program fibre_no_force_long_check
   call compute_total_length_relative_error(fibre, curved_long_final_length_error)
   call compute_linear_momentum(fibre, momentum)
   curved_long_final_momentum_norm = sqrt(sum(momentum**2))
+  momentum_scale = max(sqrt(2.0_mytype * fibre%rho_tilde * fibre%length * curved_long_max_total_energy), 1.0e-300_mytype)
+  curved_long_final_momentum_relative = curved_long_final_momentum_norm / momentum_scale
   center_final = fibre_center_of_mass(fibre)
   curved_long_center_drift_norm = sqrt(sum((center_final - center0)**2))
   call compute_curvature_diagnostics(fibre, curved_long_final_max_curvature, max_curv_dummy)
@@ -198,6 +201,7 @@ program fibre_no_force_long_check
   write(io_unit, '(A,ES24.16)') 'curved_long_final_length_error = ', curved_long_final_length_error
   write(io_unit, '(A,ES24.16)') 'curved_long_max_length_error = ', curved_long_max_length_error
   write(io_unit, '(A,ES24.16)') 'curved_long_final_momentum_norm = ', curved_long_final_momentum_norm
+  write(io_unit, '(A,ES24.16)') 'curved_long_final_momentum_relative = ', curved_long_final_momentum_relative
   write(io_unit, '(A,ES24.16)') 'curved_long_center_drift_norm = ', curved_long_center_drift_norm
   write(io_unit, '(A,ES24.16)') 'curved_long_final_max_curvature = ', curved_long_final_max_curvature
   write(io_unit, '(A,I0)') 'curved_long_nan_detected = ', curved_long_nan_detected

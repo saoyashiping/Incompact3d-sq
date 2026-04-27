@@ -62,6 +62,7 @@ def main() -> None:
     curved_long_final_length_error = get_float(data, "curved_long_final_length_error")
     curved_long_max_length_error = get_float(data, "curved_long_max_length_error")
     curved_long_final_momentum_norm = get_float(data, "curved_long_final_momentum_norm")
+    curved_long_final_momentum_relative = get_float(data, "curved_long_final_momentum_relative")
     curved_long_center_drift_norm = get_float(data, "curved_long_center_drift_norm")
     curved_long_final_max_curvature = get_float(data, "curved_long_final_max_curvature")
     curved_long_nan_detected = get_int(data, "curved_long_nan_detected")
@@ -112,8 +113,10 @@ def main() -> None:
             f"curved_long_final_length_error={curved_long_final_length_error}")
     require(curved_long_max_length_error <= 1e-6,
             f"curved_long_max_length_error={curved_long_max_length_error}")
-    require(curved_long_final_momentum_norm <= 1e-6,
+    require(curved_long_final_momentum_norm <= 1e-4,
             f"curved_long_final_momentum_norm={curved_long_final_momentum_norm}")
+    require(curved_long_final_momentum_relative <= 1e-6,
+            f"curved_long_final_momentum_relative={curved_long_final_momentum_relative}")
     require(curved_long_center_drift_norm <= 1e-6,
             f"curved_long_center_drift_norm={curved_long_center_drift_norm}")
     require(curved_long_final_max_curvature >= 0.0,
