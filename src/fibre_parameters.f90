@@ -39,6 +39,7 @@ contains
     fibre%x_old = fibre%x
     fibre%v = 0._mytype
     fibre%tension = 0._mytype
+    fibre%f_ext = 0._mytype
   end subroutine fibre_init_straight_free_free
 
 end module fibre_parameters

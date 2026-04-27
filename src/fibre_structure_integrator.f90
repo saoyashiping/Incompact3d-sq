@@ -92,7 +92,7 @@ contains
     fibre_tmp = fibre
     fibre_tmp%x = x_star
     call compute_fibre_d4_freefree(fibre_tmp, d4x_star)
-    a_non_tension = -(fibre%gamma / fibre%rho_tilde) * d4x_star
+    a_non_tension = -(fibre%gamma / fibre%rho_tilde) * d4x_star + fibre%f_ext / fibre%rho_tilde
 
     call solve_tension_freefree(fibre, dt, a_non_tension, tension, tension_residual, relative_tension_residual, solve_status)
     if (solve_status /= 0) then
@@ -102,7 +102,7 @@ contains
 
     call build_structure_advance_matrix_freefree(fibre, dt, tension, amat)
 
-    rhs = 2._mytype * x_n - x_nm1
+    rhs = 2._mytype * x_n - x_nm1 + dt * dt * (fibre%f_ext / fibre%rho_tilde)
 
     ierr = 0
     do comp = 1, 3
