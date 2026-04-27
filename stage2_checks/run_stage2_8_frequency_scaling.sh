@@ -23,4 +23,4 @@ fi
 
 "$exe"
 
-cat "$out_dir"/fibre_frequency_scaling_check.dat
+cat "$out_dir"/fibre_frequency_scaling_driver_summary.dat
