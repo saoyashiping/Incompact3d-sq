@@ -5,6 +5,9 @@ from pathlib import Path
 import sys
 
 
+SIGNAL_SMALL_MSG = "frequency signal amplitude is too small; zero-crossing would detect roundoff noise"
+
+
 def require(cond: bool, msg: str) -> None:
     if not cond:
         print(f"STAGE 2.8 CHECK FAILED: {msg}")
@@ -63,12 +66,12 @@ def estimate_frequency(times: list[float], signal: list[float], case_name: str) 
 
     crossings: list[float] = []
     for i in range(len(y) - 1):
-      y0 = y[i]
-      y1 = y[i + 1]
-      if y0 <= 0.0 and y1 > 0.0:
+        y0 = y[i]
+        y1 = y[i + 1]
+        if y0 <= 0.0 and y1 > 0.0:
             t0 = t[i]
             t1 = t[i + 1]
-            denom = (y1 - y0)
+            denom = y1 - y0
             if denom == 0.0:
                 tc = t0
             else:
@@ -92,6 +95,10 @@ def estimate_frequency(times: list[float], signal: list[float], case_name: str) 
     return freq, n_cross, n_periods
 
 
+def fail_signal_quality(extra: str) -> None:
+    require(False, f"{SIGNAL_SMALL_MSG}; {extra}")
+
+
 def main() -> None:
     out_dir = Path("stage2_outputs")
     summary_path = out_dir / "fibre_frequency_scaling_driver_summary.dat"
@@ -108,6 +115,10 @@ def main() -> None:
     require(summary_path.exists(), f"missing summary file: {summary_path}")
 
     summary = parse_kv(summary_path)
+
+    signal_initial: dict[str, float] = {}
+    signal_rms: dict[str, float] = {}
+
     for case in ("base", "gamma4", "rho4", "length2"):
         require(get_int(summary, f"{case}_nan_detected") == 0,
                 f"{case}_nan_detected={get_int(summary, f'{case}_nan_detected')}")
@@ -117,6 +128,23 @@ def main() -> None:
                 f"{case}_initial_length_error={get_float(summary, f'{case}_initial_length_error')}")
         require(get_float(summary, f"{case}_final_length_error") <= 1e-5,
                 f"{case}_final_length_error={get_float(summary, f'{case}_final_length_error')}")
+
+        signal_initial[case] = get_float(summary, f"{case}_signal_initial")
+        signal_rms[case] = get_float(summary, f"{case}_signal_rms_after_transient")
+
+    small_initial_cases = [c for c in signal_initial if abs(signal_initial[c]) <= 1e-5]
+    if small_initial_cases:
+        fail_signal_quality(
+            "signal_initial threshold failed for "
+            + ", ".join(f"{c}({signal_initial[c]:.3e})" for c in small_initial_cases)
+        )
+
+    small_rms_cases = [c for c in signal_rms if signal_rms[c] <= 1e-8]
+    if small_rms_cases:
+        fail_signal_quality(
+            "signal_rms_after_transient threshold failed for "
+            + ", ".join(f"{c}({signal_rms[c]:.3e})" for c in small_rms_cases)
+        )
 
     f_base, n_cross_base, _ = estimate_frequency(*read_time_signal(file_map["base"]), case_name="base")
     f_gamma4, n_cross_gamma4, _ = estimate_frequency(*read_time_signal(file_map["gamma4"]), case_name="gamma4")
@@ -144,6 +172,19 @@ def main() -> None:
     relerr_ratio_gamma4 = abs(ratio_gamma4_to_base - target_ratio_gamma4_to_base) / target_ratio_gamma4_to_base
     relerr_ratio_rho4 = abs(ratio_rho4_to_base - target_ratio_rho4_to_base) / target_ratio_rho4_to_base
     relerr_ratio_length2 = abs(ratio_length2_to_base - target_ratio_length2_to_base) / target_ratio_length2_to_base
+
+    n_cross_all_equal = (n_cross_base == n_cross_gamma4 == n_cross_rho4 == n_cross_length2)
+    ratios_almost_exact = (
+        abs(ratio_gamma4_to_base - target_ratio_gamma4_to_base) <= 1e-12
+        and abs(ratio_rho4_to_base - target_ratio_rho4_to_base) <= 1e-12
+        and abs(ratio_length2_to_base - target_ratio_length2_to_base) <= 1e-12
+    )
+    low_signal_amplitude = (
+        any(abs(v) <= 1e-5 for v in signal_initial.values())
+        or any(v <= 1e-8 for v in signal_rms.values())
+    )
+    if n_cross_all_equal and ratios_almost_exact and low_signal_amplitude:
+        fail_signal_quality("pseudo-perfect ratios with identical crossing counts detected")
 
     require(relerr_ratio_gamma4 <= 0.20,
             f"relerr_ratio_gamma4={relerr_ratio_gamma4}, ratio_gamma4_to_base={ratio_gamma4_to_base}")
