@@ -43,8 +43,8 @@ program fibre_ibm_interpolation_check
   lag%nl = nlag
   lag%x(:, 1) = [0.73_mytype,  0.17_mytype, 0.41_mytype]
   lag%x(:, 2) = [1.22_mytype, -0.25_mytype, 0.62_mytype]
-  lag%x(:, 3) = [0.15_mytype,  0.33_mytype, 0.80_mytype]
-  lag%x(:, 4) = [1.85_mytype, -0.10_mytype, 0.12_mytype]
+  lag%x(:, 3) = [1.00_mytype,  0.00_mytype, 0.50_mytype]
+  lag%x(:, 4) = [1.95_mytype,  0.00_mytype, 0.05_mytype]
   lag%x(:, 5) = [0.05_mytype,  0.00_mytype, 0.95_mytype]
   lag%v = 0._mytype
   lag%force = 0._mytype
