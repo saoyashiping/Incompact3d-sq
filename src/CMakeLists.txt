@@ -406,6 +406,32 @@ install(TARGETS fibre_ibm_power_consistency_check
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+
+add_executable(fibre_ibm_feedback_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_grid.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_interpolation.f90
+                    fibre_ibm_spreading.f90
+                    fibre_ibm_power_diagnostics.f90
+                    fibre_ibm_feedback.f90
+                    fibre_ibm_feedback_check.f90)
+
+target_link_libraries(fibre_ibm_feedback_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_ibm_feedback_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_ibm_feedback_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
