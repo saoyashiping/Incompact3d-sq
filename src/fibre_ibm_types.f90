@@ -1,6 +1,6 @@
 module fibre_ibm_types
 
-  use decomp_2d_constants, only : mytype
+  use fibre_parameters, only : mytype
 
   implicit none
   private

@@ -7,6 +7,7 @@ module fibre_parameters
   private
 
   public :: fibre_init_straight_free_free
+  public :: mytype
 
 contains
 

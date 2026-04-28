@@ -1,6 +1,6 @@
 module fibre_ibm_stencil
 
-  use decomp_2d_constants, only : mytype
+  use fibre_parameters, only : mytype
   use fibre_ibm_types, only : ibm_stencil_t
 
   implicit none

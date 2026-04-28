@@ -1,7 +1,7 @@
 module fibre_ibm_diagnostics
 
-  use decomp_2d_constants, only : mytype
-  use fibre_ibm_types, only : ibm_grid_t, ibm_lagrangian_points_t
+  use fibre_parameters, only : mytype
+  use fibre_ibm_types, only : ibm_grid_t, ibm_lagrangian_points_t, ibm_stencil_t
 
   implicit none
   private
@@ -9,6 +9,7 @@ module fibre_ibm_diagnostics
   public :: compute_lagrangian_weight_sum
   public :: compute_grid_basic_diagnostics
   public :: check_lagrangian_points_inside_box
+  public :: compute_stencil_total_count
 
 contains
 
@@ -68,5 +69,18 @@ contains
       end if
     end do
   end subroutine check_lagrangian_points_inside_box
+
+
+  subroutine compute_stencil_total_count(stencil, total_count)
+    type(ibm_stencil_t), intent(in) :: stencil
+    integer, intent(out) :: total_count
+
+    if (.not. allocated(stencil%count)) then
+      total_count = 0
+      return
+    end if
+
+    total_count = sum(stencil%count)
+  end subroutine compute_stencil_total_count
 
 end module fibre_ibm_diagnostics

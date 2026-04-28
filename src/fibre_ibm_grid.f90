@@ -1,6 +1,6 @@
 module fibre_ibm_grid
 
-  use decomp_2d_constants, only : mytype
+  use fibre_parameters, only : mytype
   use fibre_types, only : fibre_t
   use fibre_ibm_types, only : ibm_grid_t, ibm_lagrangian_points_t
 

@@ -1,6 +1,6 @@
 program fibre_ibm_skeleton_check
 
-  use decomp_2d_constants, only : mytype
+  use fibre_parameters, only : mytype
   use fibre_types, only : fibre_t
   use fibre_parameters, only : fibre_init_straight_free_free
   use fibre_ibm_types, only : ibm_grid_t, ibm_lagrangian_points_t, ibm_stencil_t
@@ -9,6 +9,7 @@ program fibre_ibm_skeleton_check
   use fibre_ibm_stencil, only : init_empty_ibm_stencil, destroy_ibm_stencil
   use fibre_ibm_diagnostics, only : compute_lagrangian_weight_sum
   use fibre_ibm_diagnostics, only : compute_grid_basic_diagnostics, check_lagrangian_points_inside_box
+  use fibre_ibm_diagnostics, only : compute_stencil_total_count
 
   implicit none
 
@@ -48,7 +49,7 @@ program fibre_ibm_skeleton_check
   call compute_lagrangian_weight_sum(lag, lag_weight_sum)
   call check_lagrangian_points_inside_box(grid, lag, lag_inside_count, lag_outside_count)
 
-  stencil_total_count = sum(stencil%count)
+  call compute_stencil_total_count(stencil, stencil_total_count)
   expected_fibre_length = fibre%length
   ibm_skeleton_status = 1
 
