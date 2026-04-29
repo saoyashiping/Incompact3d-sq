@@ -4,7 +4,7 @@ program fibre_ibm_stage3_smoke_check
   use fibre_parameters, only : mytype
   use fibre_types, only : fibre_t, fibre_allocate
   use fibre_geometry, only : fibre_end_to_end_distance
-  use fibre_external_force, only : set_fibre_external_force, clear_fibre_external_force
+  use fibre_external_force, only : set_fibre_external_force
   use fibre_structure_integrator, only : advance_fibre_structure_freefree
   use fibre_ibm_types, only : ibm_grid_t, ibm_lagrangian_points_t
   use fibre_ibm_grid, only : init_uniform_ibm_grid, destroy_ibm_grid
@@ -12,7 +12,6 @@ program fibre_ibm_stage3_smoke_check
   use fibre_ibm_interpolation, only : interpolate_vector_to_lag
   use fibre_ibm_feedback, only : compute_ibm_feedback_forces
   use fibre_ibm_power_diagnostics, only : compute_eulerian_power, compute_lagrangian_power
-  use fibre_ibm_power_diagnostics, only : compute_power_consistency_error
   use fibre_ibm_force_buffer, only : ibm_force_buffer_t, allocate_ibm_force_buffer
   use fibre_ibm_force_buffer, only : destroy_ibm_force_buffer, clear_ibm_force_buffer
   use fibre_ibm_force_buffer, only : accumulate_lag_force_to_buffer, compute_ibm_force_buffer_total_force
@@ -54,6 +53,7 @@ program fibre_ibm_stage3_smoke_check
 
   real(mytype) :: smoke_force_conservation_error, smoke_force_conservation_relative_error, smoke_force_buffer_max_abs
   real(mytype) :: smoke_power_eulerian, smoke_power_lagrangian, smoke_power_abs_error, smoke_power_relative_error
+  real(mytype) :: smoke_power_recomputed_abs_error, smoke_power_error_consistency_check
 
   real(mytype) :: smoke_boundary_safe_count, smoke_boundary_periodic_wrap_count
   real(mytype) :: smoke_boundary_unsafe_count, smoke_boundary_outside_count, smoke_boundary_total_unsafe_count
@@ -63,7 +63,10 @@ program fibre_ibm_stage3_smoke_check
 
   real(mytype) :: nonuniform_smoke_f_ext_norm, nonuniform_smoke_force_buffer_norm
   real(mytype) :: nonuniform_smoke_force_conservation_relative_error, nonuniform_smoke_power_relative_error
+  real(mytype) :: nonuniform_smoke_power_eulerian, nonuniform_smoke_power_lagrangian
+  real(mytype) :: nonuniform_smoke_power_recomputed_abs_error, nonuniform_smoke_power_error_consistency_check
   real(mytype) :: nonuniform_smoke_length_error
+  real(mytype) :: tmp_buffer_l2_uniform, tmp_buffer_l2_nonuniform
 
   call init_uniform_ibm_grid(grid, nx=16, ny=12, nz=10, &
                              xmin=0._mytype, xmax=2._mytype, &
@@ -134,8 +137,10 @@ program fibre_ibm_stage3_smoke_check
 
     call compute_eulerian_power(grid, ux, uy, uz, buffer%fx, buffer%fy, buffer%fz, smoke_power_eulerian)
     call compute_lagrangian_power(lag, u_lag, smoke_power_lagrangian)
-    call compute_power_consistency_error(smoke_power_eulerian, smoke_power_lagrangian, &
-                                         smoke_power_abs_error, smoke_power_relative_error)
+    smoke_power_abs_error = abs(smoke_power_eulerian - smoke_power_lagrangian)
+    smoke_power_relative_error = smoke_power_abs_error / max(abs(smoke_power_lagrangian), 1.0e-300_mytype)
+    smoke_power_recomputed_abs_error = abs(smoke_power_eulerian - smoke_power_lagrangian)
+    smoke_power_error_consistency_check = abs(smoke_power_recomputed_abs_error - smoke_power_abs_error)
 
     if (ieee_is_nan(smoke_force_conservation_error) .or. ieee_is_nan(smoke_power_abs_error)) then
       uniform_smoke_nan_detected = 1
@@ -147,7 +152,7 @@ program fibre_ibm_stage3_smoke_check
   if (uniform_smoke_final_center_velocity_x > 0._mytype) uniform_smoke_direction_check = 1
   uniform_smoke_length_error = abs(fibre_end_to_end_distance(fibre) - fibre%length)
   uniform_smoke_shape_error_max = maxval(abs(fibre%x(2:3, :) - x_initial(2:3, :)))
-  call compute_ibm_force_buffer_norms(buffer, smoke_force_buffer_max_abs, smoke_power_lagrangian)
+  call compute_ibm_force_buffer_norms(buffer, smoke_force_buffer_max_abs, tmp_buffer_l2_uniform)
 
   ! Test E: zero-slip smoke
   call reset_straight_fibre(fibre)
@@ -209,19 +214,24 @@ program fibre_ibm_stage3_smoke_check
     nonuniform_smoke_force_conservation_relative_error = &
       sqrt(sum((buffer_total_force - lag_total_force)**2)) / max(sqrt(sum(lag_total_force**2)), 1.0e-30_mytype)
 
-    call compute_eulerian_power(grid, ux, uy, uz, buffer%fx, buffer%fy, buffer%fz, smoke_power_eulerian)
-    call compute_lagrangian_power(lag, u_lag, smoke_power_lagrangian)
-    call compute_power_consistency_error(smoke_power_eulerian, smoke_power_lagrangian, &
-                                         smoke_power_abs_error, nonuniform_smoke_power_relative_error)
+    call compute_eulerian_power(grid, ux, uy, uz, buffer%fx, buffer%fy, buffer%fz, nonuniform_smoke_power_eulerian)
+    call compute_lagrangian_power(lag, u_lag, nonuniform_smoke_power_lagrangian)
+    nonuniform_smoke_power_recomputed_abs_error = abs(nonuniform_smoke_power_eulerian - nonuniform_smoke_power_lagrangian)
+    nonuniform_smoke_power_relative_error = nonuniform_smoke_power_recomputed_abs_error / &
+      max(abs(nonuniform_smoke_power_lagrangian), 1.0e-300_mytype)
+    nonuniform_smoke_power_error_consistency_check = abs(nonuniform_smoke_power_recomputed_abs_error - &
+      abs(nonuniform_smoke_power_eulerian - nonuniform_smoke_power_lagrangian))
 
     if (ieee_is_nan(nonuniform_smoke_force_conservation_relative_error) .or. &
-        ieee_is_nan(nonuniform_smoke_power_relative_error)) then
+        ieee_is_nan(nonuniform_smoke_power_relative_error) .or. &
+        ieee_is_nan(nonuniform_smoke_power_recomputed_abs_error) .or. &
+        ieee_is_nan(nonuniform_smoke_power_error_consistency_check)) then
       nonuniform_smoke_nan_detected = 1
     end if
   end do
 
   nonuniform_smoke_f_ext_norm = sqrt(sum(fibre%f_ext**2))
-  call compute_ibm_force_buffer_norms(buffer, nonuniform_smoke_force_buffer_norm, smoke_power_lagrangian)
+  call compute_ibm_force_buffer_norms(buffer, nonuniform_smoke_force_buffer_norm, tmp_buffer_l2_nonuniform)
   nonuniform_smoke_length_error = abs(fibre_end_to_end_distance(fibre) - fibre%length)
 
   stage3_smoke_status = 1
@@ -250,6 +260,8 @@ program fibre_ibm_stage3_smoke_check
   write(io_unit, '(A,ES24.16)') 'smoke_power_lagrangian = ', smoke_power_lagrangian
   write(io_unit, '(A,ES24.16)') 'smoke_power_abs_error = ', smoke_power_abs_error
   write(io_unit, '(A,ES24.16)') 'smoke_power_relative_error = ', smoke_power_relative_error
+  write(io_unit, '(A,ES24.16)') 'smoke_power_recomputed_abs_error = ', smoke_power_recomputed_abs_error
+  write(io_unit, '(A,ES24.16)') 'smoke_power_error_consistency_check = ', smoke_power_error_consistency_check
 
   write(io_unit, '(A,ES24.16)') 'zero_slip_smoke_f_ext_norm = ', zero_slip_smoke_f_ext_norm
   write(io_unit, '(A,ES24.16)') 'zero_slip_smoke_force_buffer_norm = ', zero_slip_smoke_force_buffer_norm
@@ -259,6 +271,8 @@ program fibre_ibm_stage3_smoke_check
   write(io_unit, '(A,ES24.16)') 'nonuniform_smoke_force_conservation_relative_error = ', &
                              nonuniform_smoke_force_conservation_relative_error
   write(io_unit, '(A,ES24.16)') 'nonuniform_smoke_power_relative_error = ', nonuniform_smoke_power_relative_error
+  write(io_unit, '(A,ES24.16)') 'nonuniform_smoke_power_recomputed_abs_error = ', nonuniform_smoke_power_recomputed_abs_error
+  write(io_unit, '(A,ES24.16)') 'nonuniform_smoke_power_error_consistency_check = ', nonuniform_smoke_power_error_consistency_check
   write(io_unit, '(A,ES24.16)') 'nonuniform_smoke_length_error = ', nonuniform_smoke_length_error
   write(io_unit, '(A,I0)') 'nonuniform_smoke_nan_detected = ', nonuniform_smoke_nan_detected
   write(io_unit, '(A,I0)') 'nonuniform_smoke_unsafe_count = ', nonuniform_smoke_unsafe_count

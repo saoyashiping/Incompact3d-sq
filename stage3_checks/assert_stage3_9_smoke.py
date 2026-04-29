@@ -74,6 +74,15 @@ def main() -> None:
     require(get_float(data, "smoke_power_relative_error") <= 1e-10,
             f"smoke_power_relative_error={get_float(data, 'smoke_power_relative_error')}")
 
+    require(abs(get_float(data, "smoke_power_abs_error") -
+                abs(get_float(data, "smoke_power_eulerian") - get_float(data, "smoke_power_lagrangian"))) <= 1e-12,
+            "smoke power abs-error consistency mismatch")
+    require(abs(get_float(data, "smoke_power_recomputed_abs_error") -
+                abs(get_float(data, "smoke_power_eulerian") - get_float(data, "smoke_power_lagrangian"))) <= 1e-12,
+            "smoke_power_recomputed_abs_error mismatch")
+    require(get_float(data, "smoke_power_error_consistency_check") <= 1e-12,
+            f"smoke_power_error_consistency_check={get_float(data, 'smoke_power_error_consistency_check')}")
+
     require(get_float(data, "zero_slip_smoke_f_ext_norm") <= 1e-10,
             f"zero_slip_smoke_f_ext_norm={get_float(data, 'zero_slip_smoke_f_ext_norm')}")
     require(get_float(data, "zero_slip_smoke_force_buffer_norm") <= 1e-10,
@@ -87,6 +96,9 @@ def main() -> None:
             f"nonuniform_smoke_force_conservation_relative_error={get_float(data, 'nonuniform_smoke_force_conservation_relative_error')}")
     require(get_float(data, "nonuniform_smoke_power_relative_error") <= 1e-10,
             f"nonuniform_smoke_power_relative_error={get_float(data, 'nonuniform_smoke_power_relative_error')}")
+
+    require(get_float(data, "nonuniform_smoke_power_error_consistency_check") <= 1e-12,
+            f"nonuniform_smoke_power_error_consistency_check={get_float(data, 'nonuniform_smoke_power_error_consistency_check')}")
     require(get_float(data, "nonuniform_smoke_length_error") <= 1e-8,
             f"nonuniform_smoke_length_error={get_float(data, 'nonuniform_smoke_length_error')}")
     require(get_int(data, "nonuniform_smoke_nan_detected") == 0,
