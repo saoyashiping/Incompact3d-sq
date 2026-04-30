@@ -61,16 +61,33 @@ contains
     adapter%y = y_in
     adapter%z = z_in
 
-    adapter%xmin = minval(adapter%x)
-    adapter%xmax = maxval(adapter%x)
-    adapter%ymin = minval(adapter%y)
-    adapter%ymax = maxval(adapter%y)
-    adapter%zmin = minval(adapter%z)
-    adapter%zmax = maxval(adapter%z)
-
     call axis_spacing_stats(adapter%x, adapter%dx_min, adapter%dx_max, adapter%uniform_x)
     call axis_spacing_stats(adapter%y, adapter%dy_min, adapter%dy_max, adapter%uniform_y)
     call axis_spacing_stats(adapter%z, adapter%dz_min, adapter%dz_max, adapter%uniform_z)
+
+    if (adapter%uniform_x) then
+      adapter%xmin = adapter%x(1) - 0.5_mytype * adapter%dx_min
+      adapter%xmax = adapter%x(adapter%nx) + 0.5_mytype * adapter%dx_min
+    else
+      adapter%xmin = adapter%x(1) - 0.5_mytype * (adapter%x(2) - adapter%x(1))
+      adapter%xmax = adapter%x(adapter%nx) + 0.5_mytype * (adapter%x(adapter%nx) - adapter%x(adapter%nx - 1))
+    end if
+
+    if (adapter%uniform_y) then
+      adapter%ymin = adapter%y(1) - 0.5_mytype * adapter%dy_min
+      adapter%ymax = adapter%y(adapter%ny) + 0.5_mytype * adapter%dy_min
+    else
+      adapter%ymin = adapter%y(1) - 0.5_mytype * (adapter%y(2) - adapter%y(1))
+      adapter%ymax = adapter%y(adapter%ny) + 0.5_mytype * (adapter%y(adapter%ny) - adapter%y(adapter%ny - 1))
+    end if
+
+    if (adapter%uniform_z) then
+      adapter%zmin = adapter%z(1) - 0.5_mytype * adapter%dz_min
+      adapter%zmax = adapter%z(adapter%nz) + 0.5_mytype * adapter%dz_min
+    else
+      adapter%zmin = adapter%z(1) - 0.5_mytype * (adapter%z(2) - adapter%z(1))
+      adapter%zmax = adapter%z(adapter%nz) + 0.5_mytype * (adapter%z(adapter%nz) - adapter%z(adapter%nz - 1))
+    end if
 
     adapter%uniform_ibm_compatible = adapter%uniform_x .and. adapter%uniform_y .and. adapter%uniform_z
 
