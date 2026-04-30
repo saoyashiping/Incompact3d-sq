@@ -51,8 +51,7 @@ contains
     if (periodic) then
       l = xmax - xmin
       if (l <= 0._mytype) error stop 'periodic_distance_1d: xmax must be > xmin when periodic'
-      if (d > 0.5_mytype * l) d = d - l
-      if (d < -0.5_mytype * l) d = d + l
+      d = d - anint(d / l) * l
     end if
   end function periodic_distance_1d
 
