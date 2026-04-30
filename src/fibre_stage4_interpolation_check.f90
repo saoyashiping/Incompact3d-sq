@@ -13,9 +13,9 @@ program fibre_stage4_interpolation_check
   real(mytype), parameter :: pi = 3.1415926535897932384626433832795_mytype
   real(mytype) :: x(nx), y(ny), y_nonuniform(ny), z(nz)
   real(mytype), allocatable :: ux(:,:,:), uy(:,:,:), uz(:,:,:), wsum(:), qtrue(:)
-  real(mytype), allocatable :: ux_lag(:,:), ux_lag_lin(:,:), ux_lag_poi(:,:), ux_lag_per(:,:)
+  real(mytype), allocatable :: ux_lag(:,:), ux_lag_lin(:,:), ux_lag_poi(:,:), ux_lag_per(:,:), ux_lag_equiv(:,:)
   type(stage4_grid_adapter_t) :: a_uniform, a_nonuniform, a_unknown, a_staggered
-  type(ibm_lagrangian_points_t) :: lag3, lag2
+  type(ibm_lagrangian_points_t) :: lag3, lag2, lag4
   type(ibm_grid_t) :: grid
   integer :: i,j,k,ios, status, unit_id
   real(mytype) :: eta, max_err, temp_err, y_center, h, uc, lx, lz, q
@@ -53,8 +53,16 @@ program fibre_stage4_interpolation_check
   lag2%x(:,2) = [1.95_mytype, 0.00_mytype, 0.05_mytype]
   lag2%v = 0._mytype; lag2%force=0._mytype; lag2%weight=1._mytype
 
+  lag4%nl = 4
+  allocate(lag4%x(3,4), lag4%v(3,4), lag4%force(3,4), lag4%weight(4))
+  lag4%x(:,1) = [0.05_mytype, 0.00_mytype, 0.95_mytype]
+  lag4%x(:,2) = [2.05_mytype, 0.00_mytype, 0.95_mytype]
+  lag4%x(:,3) = [0.05_mytype, 0.00_mytype, 1.95_mytype]
+  lag4%x(:,4) = [2.05_mytype, 0.00_mytype, 1.95_mytype]
+  lag4%v = 0._mytype; lag4%force=0._mytype; lag4%weight=1._mytype
+
   allocate(ux(nx,ny,nz), uy(nx,ny,nz), uz(nx,ny,nz))
-  allocate(ux_lag(3,lag3%nl), ux_lag_lin(3,lag3%nl), ux_lag_poi(3,lag3%nl), ux_lag_per(3,lag2%nl))
+  allocate(ux_lag(3,lag3%nl), ux_lag_lin(3,lag3%nl), ux_lag_poi(3,lag3%nl), ux_lag_per(3,lag2%nl), ux_lag_equiv(3,lag4%nl))
 
   ux = 0.2_mytype; uy=-0.1_mytype; uz=0.05_mytype
   call interpolate_stage4_vector_to_lag_if_supported(a_uniform, ux, uy, uz, lag3, ux_lag, const_status)
@@ -124,6 +132,10 @@ program fibre_stage4_interpolation_check
   write(unit_id,'(A,1X,I0)') 'stage4_periodic_interp_status', periodic_status
   write(unit_id,'(A,1X,ES24.16E3)') 'stage4_periodic_interp_error_max', max(abs(ux_lag_per(1,1)-(sin(2._mytype*pi*0.05_mytype/lx)+0.25_mytype*cos(2._mytype*pi*0.95_mytype/lz))), &
                                                                              abs(ux_lag_per(1,2)-(sin(2._mytype*pi*1.95_mytype/lx)+0.25_mytype*cos(2._mytype*pi*0.05_mytype/lz))))
+  call interpolate_stage4_vector_to_lag_if_supported(a_uniform, ux, uy, uz, lag4, ux_lag_equiv, status)
+  write(unit_id,'(A,1X,ES24.16E3)') 'stage4_periodic_equivalent_pair_error_max', max(abs(ux_lag_equiv(1,2)-ux_lag_equiv(1,1)), &
+                                                                                       abs(ux_lag_equiv(1,3)-ux_lag_equiv(1,1)), &
+                                                                                       abs(ux_lag_equiv(1,4)-ux_lag_equiv(1,1)))
   write(unit_id,'(A,1X,ES24.16E3)') 'stage4_periodic_weight_sum_max_error', maxval(abs(wsum-1._mytype))
   write(unit_id,'(A,1X,I0)') 'stage4_nonuniform_y_uniform_ibm_compatible', merge(1,0,a_nonuniform%uniform_ibm_compatible)
   write(unit_id,'(A,1X,I0)') 'stage4_nonuniform_y_blocked_flag', merge(1,0,nonuniform_status==0)
