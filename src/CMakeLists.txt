@@ -598,6 +598,29 @@ install(TARGETS fibre_stage4_grid_adapter_check
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+add_executable(fibre_stage4_interpolation_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_grid.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_interpolation.f90
+                    fibre_stage4_grid_adapter.f90
+                    fibre_stage4_interpolation_adapter.f90
+                    fibre_stage4_interpolation_check.f90)
+
+target_link_libraries(fibre_stage4_interpolation_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage4_interpolation_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_stage4_interpolation_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
