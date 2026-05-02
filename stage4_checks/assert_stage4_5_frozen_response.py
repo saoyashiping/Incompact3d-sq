@@ -18,6 +18,10 @@ assert v['stage4_frozen_force_conservation_relative_error']<=1e-10
 assert v['stage4_frozen_force_buffer_max_abs']>0
 assert v['stage4_frozen_power_abs_error']<=1e-10
 assert v['stage4_frozen_power_relative_error']<=1e-10
+assert abs(v['stage4_frozen_power_abs_error']-abs(v['stage4_frozen_power_eulerian']-v['stage4_frozen_power_lagrangian']))<=1e-12
+assert v['stage4_frozen_power_error_consistency_check']<=1e-12
+assert v['stage4_frozen_power_nonzero_flag']==1
+assert abs(v['stage4_frozen_power_recomputed_abs_error']-abs(v['stage4_frozen_power_eulerian']-v['stage4_frozen_power_lagrangian']))<=1e-12
 assert v['stage4_frozen_nearwall_unsafe_count']>0
 assert v['stage4_frozen_nearwall_blocked_flag']==1
 assert v['stage4_frozen_nearwall_structure_advance_called']==0
