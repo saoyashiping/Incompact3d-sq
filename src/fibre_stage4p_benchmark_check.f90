@@ -55,7 +55,7 @@ program fibre_stage4p_benchmark_check
 
   max_fext=0._mytype;max_slip=0._mytype;max_len=0._mytype;max_frel=0._mytype;max_pr=0._mytype;max_pc=0._mytype;unsafe=0;nan_flag=0;fail_count=0
   call compute_total_length_relative_error(f,lenerr); call compute_bending_energy(f,bend); call compute_kinetic_energy(f,kin)
-  if (rank0_flag==1) write(12,'(I0,1X,ES12.4,1X,3(ES12.4,1X),3(ES12.4,1X),6(ES12.4,1X),I0)') 0,0._mytype,f%x(:,(f%nl+1)/2),f%v(:,(f%nl+1)/2),lenerr,bend,kin,0._mytype,0._mytype,0._mytype,0._mytype,0
+  if (rank0_flag==1) write(12,'(I0,1X,ES12.4,1X,3(ES12.4,1X),3(ES12.4,1X),7(ES12.4,1X),I0)') 0,0._mytype,f%x(:,(f%nl+1)/2),f%v(:,(f%nl+1)/2),lenerr,bend,kin,0._mytype,0._mytype,0._mytype,0._mytype,0
 
   do m=1,nsteps
     call init_lagrangian_points_from_fibre(lag,f)
@@ -82,7 +82,7 @@ program fibre_stage4p_benchmark_check
     if (status/=0) fail_count=fail_count+1
     call compute_total_length_relative_error(f,lenerr); call compute_bending_energy(f,bend); call compute_kinetic_energy(f,kin)
     max_len=max(max_len,abs(lenerr)); if (any(f%x/=f%x)) nan_flag=1
-    if (rank0_flag==1) write(12,'(I0,1X,ES12.4,1X,3(ES12.4,1X),3(ES12.4,1X),6(ES12.4,1X),I0)') m,real(m,mytype)*dt,f%x(:,(f%nl+1)/2),f%v(:,(f%nl+1)/2),lenerr,bend,kin,fext_norm,slip_norm,frel,pr,unsafe
+    if (rank0_flag==1) write(12,'(I0,1X,ES12.4,1X,3(ES12.4,1X),3(ES12.4,1X),7(ES12.4,1X),I0)') m,real(m,mytype)*dt,f%x(:,(f%nl+1)/2),f%v(:,(f%nl+1)/2),lenerr,bend,kin,fext_norm,slip_norm,frel,pr,unsafe
   end do
   if (rank0_flag==1) close(12)
 
