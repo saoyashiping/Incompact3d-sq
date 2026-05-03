@@ -33,7 +33,7 @@ program fibre_stage4p_benchmark_check
   type(ibm_lagrangian_points_t)::lag
   type(ibm_force_buffer_t)::buf
   type(stage4_oneway_config_t)::cfg
-  integer::mpi_size,mpi_rank,rank0_flag,line_count,time_history_exists,summary_exists,power_nonzero_flag,benchmark_status
+  integer::mpi_size,mpi_rank,rank0_flag,line_count,time_history_exists,summary_exists,power_nonzero_flag,benchmark_status,max_unsafe_count
 
   call init_stage4p_runtime_config(nx,ny,nz,nl,nsteps,dt,beta_drag,config_status)
   call init_stage4p_mpi_context(mpi_size,mpi_rank)
@@ -67,7 +67,7 @@ program fibre_stage4p_benchmark_check
     end if
   end if
 
-  max_fext=0._mytype;max_slip=0._mytype;max_len=0._mytype;max_frel=0._mytype;max_pr=0._mytype;max_pc=0._mytype;unsafe=0;nan_flag=0;fail_count=0
+  max_fext=0._mytype;max_slip=0._mytype;max_len=0._mytype;max_frel=0._mytype;max_pr=0._mytype;max_pc=0._mytype;unsafe=0;nan_flag=0;fail_count=0;max_unsafe_count=0
   tiny_val = tiny(1._mytype)
   call compute_total_length_relative_error(f,lenerr); call compute_bending_energy(f,bend); call compute_kinetic_energy(f,kin)
   if (rank0_flag==1 .and. time_history_exists==1) then
@@ -78,6 +78,7 @@ program fibre_stage4p_benchmark_check
   do m=1,nsteps
     call init_lagrangian_points_from_fibre(lag,f)
     call check_stage4_fibre_boundary_policy(a,f,safe,wrap,unsafe,outside,blocked,status)
+    max_unsafe_count = max(max_unsafe_count, unsafe)
     if (blocked==1) then; fail_count=fail_count+1; exit; end if
     call compute_stage4_feedback_if_supported(a,ux,uy,uz,f,beta_drag,u_lag,fs,ff,status)
     if (status/=1) then; fail_count=fail_count+1; exit; end if
@@ -129,7 +130,7 @@ program fibre_stage4p_benchmark_check
   if (max_fext <= 0._mytype) benchmark_status = 0
   if (max_slip <= 0._mytype) benchmark_status = 0
   if (max_len > 1.0e-8_mytype) benchmark_status = 0
-  if (unsafe /= 0) benchmark_status = 0
+  if (max_unsafe_count /= 0) benchmark_status = 0
   if (nan_flag /= 0) benchmark_status = 0
   if (fail_count /= 0) benchmark_status = 0
   if (max_frel > 1.0e-10_mytype) benchmark_status = 0
@@ -157,7 +158,7 @@ program fibre_stage4p_benchmark_check
       write(11,'(A,1X,ES24.16E3)') 'stage4p_max_f_ext_norm', max_fext
       write(11,'(A,1X,ES24.16E3)') 'stage4p_max_slip_norm', max_slip
       write(11,'(A,1X,ES24.16E3)') 'stage4p_max_length_error', max_len
-      write(11,'(A,1X,I0)') 'stage4p_max_unsafe_count', unsafe
+      write(11,'(A,1X,I0)') 'stage4p_max_unsafe_count', max_unsafe_count
       write(11,'(A,1X,I0)') 'stage4p_nan_detected', nan_flag
       write(11,'(A,1X,I0)') 'stage4p_solver_failure_count', fail_count
       write(11,'(A,1X,ES24.16E3)') 'stage4p_force_conservation_relative_error_max', max_frel
@@ -227,15 +228,30 @@ contains
   subroutine init_stage4p_mpi_context(mpi_size,mpi_rank)
     integer, intent(out) :: mpi_size, mpi_rank
     logical :: ok
+    integer :: v
     mpi_size = 1; mpi_rank = 0
     call read_env_int('OMPI_COMM_WORLD_SIZE',mpi_size,mpi_size,ok)
     call read_env_int('OMPI_COMM_WORLD_RANK',mpi_rank,mpi_rank,ok)
-    if (mpi_rank==0) then
-      call read_env_int('PMIX_RANK',mpi_rank,mpi_rank,ok)
-      call read_env_int('PMI_RANK',mpi_rank,mpi_rank,ok)
-      call read_env_int('SLURM_PROCID',mpi_rank,mpi_rank,ok)
+    if (mpi_size==1) then
+      call read_env_int('PMIX_SIZE',mpi_size,v,ok); if (v>0) mpi_size = v
+      if (mpi_size==1) then
+        call read_env_int('PMI_SIZE',mpi_size,v,ok); if (v>0) mpi_size = v
+      end if
+      if (mpi_size==1) then
+        call read_env_int('SLURM_NTASKS',mpi_size,v,ok); if (v>0) mpi_size = v
+      end if
     end if
-    if (mpi_size==1) call read_env_int('SLURM_NTASKS',mpi_size,mpi_size,ok)
+    if (mpi_rank==0) then
+      call read_env_int('PMIX_RANK',mpi_rank,v,ok); if (v>=0) mpi_rank = v
+      if (mpi_rank==0) then
+        call read_env_int('PMI_RANK',mpi_rank,v,ok); if (v>=0) mpi_rank = v
+      end if
+      if (mpi_rank==0) then
+        call read_env_int('SLURM_PROCID',mpi_rank,v,ok); if (v>=0) mpi_rank = v
+      end if
+    end if
+    if (mpi_size<=0) mpi_size = 1
+    if (mpi_rank<0) mpi_rank = 0
   end subroutine
 
 end program
