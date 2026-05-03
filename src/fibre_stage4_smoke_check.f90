@@ -17,44 +17,68 @@ program fibre_stage4_smoke_check
   use fibre_ibm_power_diagnostics, only : compute_eulerian_power, compute_lagrangian_power, compute_power_consistency_error
   implicit none
   integer,parameter::nx=16,ny=12,nz=10,nsteps=20
-  real(mytype)::x(nx),y(ny),z(nz),dt,beta,uc,au,av,aw,le,tr,rr
-  real(mytype),allocatable::ux(:,:,:),uy(:,:,:),uz(:,:,:),ux0(:,:,:),uy0(:,:,:),uz0(:,:,:),u_lag(:,:),fs(:,:),ff(:,:)
+  real(mytype)::x(nx),y(ny),z(nz),dt,beta,uc,au,av,aw,le,tr,rr,vel_change
+  real(mytype),allocatable::ux(:,:,:),uy(:,:,:),uz(:,:,:),ux0(:,:,:),uy0(:,:,:),uz0(:,:,:)
+  real(mytype),allocatable::u_lag(:,:),fs(:,:),ff(:,:),u_lag_power(:,:),ff_power(:,:)
   real(mytype),allocatable::rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:),rhsx0(:,:,:),rhsy0(:,:,:),rhsz0(:,:,:)
   type(stage4_grid_adapter_t)::a,a_nu,a_u,a_s
   type(fibre_t)::f
   type(ibm_grid_t)::g
-  type(ibm_lagrangian_points_t)::lag
+  type(ibm_lagrangian_points_t)::lag,lag_power
   type(ibm_force_buffer_t)::buf
   type(stage4_oneway_config_t)::cfg
-  integer::i,m,st,safe,wrap,unsafe,outside,blocked,status,adv,interp,fb,rej,rhs_mod,rhs_dis
-  real(mytype)::center_disp,center_vel,fext_norm,vel_change,frefresh,poststale
-  real(mytype)::tf(3),bf(3),ferr,frel,bmax,bl2,pe,pl,pa,pr,pare,pc,pnz
+  integer::i,m,status,safe,wrap,unsafe,outside,blocked,interp,fb,adv,rhs_mod,rej,rhs_dis,fail_count
+  real(mytype)::center_disp,center_vel,fext_norm,frefresh,poststale
+  real(mytype)::tf(3),bf(3),ferr,frel,bmax,bl2,pe,pl,pa,pr,pare,pc
 
   open(11,file='stage4_outputs/fibre_stage4_smoke_check.dat',status='replace')
   dt=1e-5_mytype; beta=10._mytype; uc=0.2_mytype; au=0.05_mytype; av=0.02_mytype; aw=0.015_mytype
   write(11,'(A,1X,I0)') 'stage4_smoke_prior_stage_count', 9
   write(11,'(A,1X,I0)') 'stage4_smoke_prior_stage_status', 1
+
   do i=1,nx; x(i)=(real(i,mytype)-0.5_mytype)*(2._mytype/real(nx,mytype)); end do
   do i=1,ny; y(i)=-1._mytype+(real(i,mytype)-0.5_mytype)*(2._mytype/real(ny,mytype)); end do
   do i=1,nz; z(i)=(real(i,mytype)-0.5_mytype)*(1._mytype/real(nz,mytype)); end do
   call init_stage4_grid_adapter_from_arrays(a,x,y,z,.true.,.false.,.true.,1)
+
   allocate(ux(nx,ny,nz),uy(nx,ny,nz),uz(nx,ny,nz),ux0(nx,ny,nz),uy0(nx,ny,nz),uz0(nx,ny,nz))
-  call fill_stage4_frozen_channel_velocity(a,uc,au,av,aw,ux0,uy0,uz0); ux=ux0; uy=uy0; uz=uz0
+  call fill_stage4_frozen_channel_velocity(a,uc,au,av,aw,ux0,uy0,uz0)
+  ux=ux0; uy=uy0; uz=uz0
+
   call fibre_init_straight_free_free(f,33,1._mytype,1._mytype,1._mytype)
   do i=1,f%nl; f%x(:,i)=[0.5_mytype+real(i-1,mytype)/real(f%nl-1,mytype),0._mytype,0.5_mytype]; end do
   f%x_old=f%x; f%v=0._mytype; f%f_ext=0._mytype; f%tension=0._mytype
   call reset_fibre_stage4_state(f,f%v,dt)
-  allocate(u_lag(3,f%nl),fs(3,f%nl),ff(3,f%nl))
-  frefresh=0._mytype; unsafe=0; st=0
+
+  allocate(u_lag(3,f%nl),fs(3,f%nl),ff(3,f%nl),u_lag_power(3,f%nl),ff_power(3,f%nl))
+  call init_lagrangian_points_from_fibre(lag_power,f)
+  u_lag_power=0._mytype; ff_power=0._mytype
+  frefresh=0._mytype; fail_count=0; unsafe=0
+
   do m=1,nsteps
     call check_stage4_fibre_boundary_policy(a,f,safe,wrap,unsafe,outside,blocked,status)
     if (blocked==1) exit
+    call init_lagrangian_points_from_fibre(lag,f)
     call compute_stage4_feedback_if_supported(a,ux,uy,uz,f,beta,u_lag,fs,ff,status)
+    if (status/=1) then
+      fail_count=fail_count+1
+      exit
+    end if
     call apply_stage4_feedback_to_f_ext(f,fs,'set',status)
     frefresh=max(frefresh,maxval(abs(f%f_ext-fs)))
+    if (m==nsteps) then
+      if (allocated(lag_power%x)) deallocate(lag_power%x,lag_power%v,lag_power%force,lag_power%weight)
+      lag_power%nl=lag%nl
+      allocate(lag_power%x(3,lag%nl),lag_power%v(3,lag%nl),lag_power%force(3,lag%nl),lag_power%weight(lag%nl))
+      lag_power%x=lag%x; lag_power%v=lag%v; lag_power%weight=lag%weight
+      lag_power%force=ff
+      u_lag_power=u_lag
+      ff_power=ff
+    end if
     call advance_fibre_structure_freefree(f,dt,tr,rr,status)
-    if (status/=0) st=st+1
+    if (status/=0) fail_count=fail_count+1
   end do
+
   center_disp=sqrt(sum((f%x(:,(f%nl+1)/2)-[1._mytype,0._mytype,0.5_mytype])**2))
   center_vel=sqrt(sum(f%v(:,(f%nl+1)/2)**2)); fext_norm=sqrt(sum(f%f_ext**2))
   call compute_total_length_relative_error(f,le)
@@ -64,31 +88,35 @@ program fibre_stage4_smoke_check
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_safe_f_ext_norm', fext_norm
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_safe_length_error', le
   write(11,'(A,1X,I0)') 'stage4_smoke_safe_nan_detected', merge(1,0,any(f%x/=f%x))
-  write(11,'(A,1X,I0)') 'stage4_smoke_safe_solver_failure_count', st
+  write(11,'(A,1X,I0)') 'stage4_smoke_safe_solver_failure_count', fail_count
 
-  call init_lagrangian_points_from_fibre(lag,f); lag%force=ff
   g%nx=nx;g%ny=ny;g%nz=nz;g%xmin=0._mytype;g%xmax=2._mytype;g%ymin=-1._mytype;g%ymax=1._mytype;g%zmin=0._mytype;g%zmax=1._mytype
   g%dx=2._mytype/real(nx,mytype); g%dy=2._mytype/real(ny,mytype); g%dz=1._mytype/real(nz,mytype); g%cell_volume=g%dx*g%dy*g%dz
   g%periodic_x=.true.;g%periodic_y=.false.;g%periodic_z=.true.; allocate(g%x(nx),g%y(ny),g%z(nz)); g%x=x;g%y=y;g%z=z
-  call allocate_ibm_force_buffer(buf,g); call clear_ibm_force_buffer(buf); call spread_lag_force_to_eulerian(g,lag,buf%fx,buf%fy,buf%fz)
-  call compute_ibm_force_buffer_total_force(g,buf,bf); tf(1)=sum(lag%force(1,:)*lag%weight); tf(2)=sum(lag%force(2,:)*lag%weight); tf(3)=sum(lag%force(3,:)*lag%weight)
+  call allocate_ibm_force_buffer(buf,g)
+  call clear_ibm_force_buffer(buf)
+  call spread_lag_force_to_eulerian(g,lag_power,buf%fx,buf%fy,buf%fz)
+  call compute_ibm_force_buffer_total_force(g,buf,bf)
+  tf(1)=sum(ff_power(1,:)*lag_power%weight); tf(2)=sum(ff_power(2,:)*lag_power%weight); tf(3)=sum(ff_power(3,:)*lag_power%weight)
   ferr=sqrt(sum((bf-tf)**2)); frel=ferr/max(1e-300_mytype,sqrt(sum(tf**2))); call compute_ibm_force_buffer_norms(buf,bmax,bl2)
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_force_conservation_error', ferr
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_force_conservation_relative_error', frel
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_force_buffer_max_abs', bmax
 
   call compute_eulerian_power(g,ux,uy,uz,buf%fx,buf%fy,buf%fz,pe)
-  call compute_lagrangian_power(lag,u_lag,pl)
-  call compute_power_consistency_error(pe,pl,pa,pr); pare=abs(pe-pl); pc=abs(pare-pa); pnz=merge(1._mytype,0._mytype,abs(pl)>1e-12_mytype)
+  call compute_lagrangian_power(lag_power,u_lag_power,pl)
+  call compute_power_consistency_error(pe,pl,pa,pr)
+  pare=abs(pe-pl); pc=abs(pare-pa)
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_eulerian', pe
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_lagrangian', pl
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_abs_error', pa
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_relative_error', pr
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_recomputed_abs_error', pare
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_power_error_consistency_check', pc
-  write(11,'(A,1X,I0)') 'stage4_smoke_power_nonzero_flag', int(pnz)
+  write(11,'(A,1X,I0)') 'stage4_smoke_power_nonzero_flag', merge(1,0,abs(pl)>1e-12_mytype)
 
-  call compute_stage4_feedback_if_supported(a,ux,uy,uz,f,beta,u_lag,fs,ff,status); poststale=sqrt(sum((f%f_ext-fs)**2))
+  call compute_stage4_feedback_if_supported(a,ux,uy,uz,f,beta,u_lag,fs,ff,status)
+  poststale=sqrt(sum((f%f_ext-fs)**2))
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_f_ext_refresh_error_max', frefresh
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_postadvance_force_staleness_norm', poststale
   call compute_velocity_change_max(ux0,uy0,uz0,ux,uy,uz,vel_change)
@@ -113,13 +141,16 @@ program fibre_stage4_smoke_check
   call init_stage4_grid_adapter_from_arrays(a_s,x,y,z,.true.,.false.,.true.,2); call check_stage4_fibre_boundary_policy(a_s,f,safe,wrap,unsafe,outside,blocked,status)
   write(11,'(A,1X,I0)') 'stage4_smoke_staggered_layout_blocked_flag', blocked
 
-  call init_stage4_oneway_config(cfg); allocate(rhsx(nx,ny,nz),rhsy(nx,ny,nz),rhsz(nx,ny,nz),rhsx0(nx,ny,nz),rhsy0(nx,ny,nz),rhsz0(nx,ny,nz))
-  rhsx=1._mytype;rhsy=2._mytype;rhsz=3._mytype; rhsx0=rhsx;rhsy0=rhsy;rhsz0=rhsz
-  call stage4_apply_ibm_rhs_safely(cfg,buf,rhsx,rhsy,rhsz,rhs_mod,rej); call compute_rhs_change_max(rhsx0,rhsy0,rhsz0,rhsx,rhsy,rhsz,vel_change); call stage4_adapter_rhs_disabled_flag(cfg%apply_ibm_to_fluid_rhs,rhs_dis)
+  call init_stage4_oneway_config(cfg)
+  allocate(rhsx(nx,ny,nz),rhsy(nx,ny,nz),rhsz(nx,ny,nz),rhsx0(nx,ny,nz),rhsy0(nx,ny,nz),rhsz0(nx,ny,nz))
+  rhsx=1._mytype; rhsy=2._mytype; rhsz=3._mytype; rhsx0=rhsx; rhsy0=rhsy; rhsz0=rhsz
+  call stage4_apply_ibm_rhs_safely(cfg,buf,rhsx,rhsy,rhsz,rhs_mod,rej)
+  call compute_rhs_change_max(rhsx0,rhsy0,rhsz0,rhsx,rhsy,rhsz,vel_change)
+  call stage4_adapter_rhs_disabled_flag(cfg%apply_ibm_to_fluid_rhs,rhs_dis)
   write(11,'(A,1X,ES24.16E3)') 'stage4_smoke_nonzero_buffer_rhs_change_max', vel_change
   write(11,'(A,1X,I0)') 'stage4_smoke_fluid_rhs_modified', rhs_mod
   write(11,'(A,1X,I0)') 'stage4_smoke_apply_ibm_to_fluid_rhs', merge(1,0,cfg%apply_ibm_to_fluid_rhs)
   write(11,'(A,1X,I0)') 'stage4_smoke_rhs_disabled_flag', rhs_dis
   write(11,'(A,1X,I0)') 'stage4_smoke_status', 1
   close(11)
-end program
+end program fibre_stage4_smoke_check
