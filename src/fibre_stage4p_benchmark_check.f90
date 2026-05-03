@@ -19,7 +19,7 @@ program fibre_stage4p_benchmark_check
   real(mytype),parameter::dt=1e-5_mytype,beta=10._mytype,uc=0.2_mytype,au=0.05_mytype,av=0.02_mytype,aw=0.015_mytype
   integer::i,m,status,safe,wrap,unsafe,outside,blocked,fail_count,nan_flag,rhs_mod,rej,rhs_dis
   real(mytype)::x(nx),y(ny),z(nz),tr,rr,lenerr,bend,kin,fext_norm,slip_norm,center_disp,center_vel,velchg
-  real(mytype)::frel,pr,pa,pare,pc,max_fext,max_slip,max_len,max_frel,max_pr,max_pc
+  real(mytype)::frel,pr,pa,pare,pc,max_fext,max_slip,max_len,max_frel,max_pr,max_pc,total_buffer_force(3)
   real(mytype),allocatable::ux(:,:,:),uy(:,:,:),uz(:,:,:),ux0(:,:,:),uy0(:,:,:),uz0(:,:,:),u_lag(:,:),fs(:,:),ff(:,:)
   real(mytype),allocatable::rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:),rhsx0(:,:,:),rhsy0(:,:,:),rhsz0(:,:,:)
   type(stage4_grid_adapter_t)::a
@@ -69,7 +69,8 @@ program fibre_stage4p_benchmark_check
     lag%force=ff
     call clear_ibm_force_buffer(buf)
     call spread_lag_force_to_eulerian(g,lag,buf%fx,buf%fy,buf%fz)
-    call compute_ibm_force_buffer_total_force(g,buf,(/0._mytype,0._mytype,0._mytype/))
+    total_buffer_force = 0._mytype
+    call compute_ibm_force_buffer_total_force(g,buf,total_buffer_force)
     call compute_power_consistency_error(0._mytype,0._mytype,pa,pr)
     call compute_eulerian_power(g,ux,uy,uz,buf%fx,buf%fy,buf%fz,center_disp)
     call compute_lagrangian_power(lag,u_lag,center_vel)
