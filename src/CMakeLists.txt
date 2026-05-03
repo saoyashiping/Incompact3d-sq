@@ -760,6 +760,30 @@ install(TARGETS fibre_stage4_time_order_check
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+add_executable(fibre_stage4_main_contamination_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_grid.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_spreading.f90
+                    fibre_ibm_force_buffer.f90
+                    fibre_stage4_config.f90
+                    fibre_stage4_fluid_rhs_safety.f90
+                    fibre_stage4_main_contamination_check.f90)
+
+target_link_libraries(fibre_stage4_main_contamination_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage4_main_contamination_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_stage4_main_contamination_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
