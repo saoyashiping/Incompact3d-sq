@@ -794,7 +794,6 @@ add_executable(fibre_stage4_boundary_safety_check
                     fibre_ibm_delta.f90
                     fibre_ibm_boundary_safety.f90
                     fibre_stage4_grid_adapter.f90
-                    fibre_stage4_interpolation_adapter.f90
                     fibre_stage4_boundary_policy.f90
                     fibre_stage4_boundary_safety_check.f90)
 
