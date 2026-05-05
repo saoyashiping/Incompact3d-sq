@@ -22,7 +22,7 @@ program fibre_stage5_spreading_candidate_check
   type(stage4_grid_adapter_t) :: a
   real(mytype), allocatable :: x(:),y(:),z(:),ux(:,:,:),uy(:,:,:),uz(:,:,:),u_lag(:,:),ax(:,:,:),ay(:,:,:),az(:,:,:),rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:),rhsx0(:,:,:),rhsy0(:,:,:),rhsz0(:,:,:)
   real(mytype) :: totalE(3),totalL(3),f_abs,f_rel,pe,pl,pa,pr,pc,err,ex,ey,ez,pi,lag_norm,bufmax,candmax,change
-  integer :: i,m,status,safe,wrap,unsafe,outside,blocked,spread_called
+  integer :: i,j,k,m,status,safe,wrap,unsafe,outside,blocked,spread_called
 
   allocate(x(nx),y(ny),z(nz),ux(nx,ny,nz),uy(nx,ny,nz),uz(nx,ny,nz),ax(nx,ny,nz),ay(nx,ny,nz),az(nx,ny,nz),rhsx(nx,ny,nz),rhsy(nx,ny,nz),rhsz(nx,ny,nz),rhsx0(nx,ny,nz),rhsy0(nx,ny,nz),rhsz0(nx,ny,nz))
   do i=1,nx; x(i)=(real(i,mytype)-0.5_mytype)*(2._mytype/real(nx,mytype)); end do
@@ -89,10 +89,10 @@ program fibre_stage5_spreading_candidate_check
   write(11,'(A,1X,ES24.16E3)') 'stage5_rhs_candidate_component_y_error', ey
   write(11,'(A,1X,ES24.16E3)') 'stage5_rhs_candidate_component_z_error', ez
 
-  do k=1,nz; do m=1,ny; do i=1,nx
-    rhsx(i,m,k)=0.1_mytype*real(i,mytype)+0.01_mytype*real(m,mytype)
-    rhsy(i,m,k)=-0.2_mytype*real(m,mytype)+0.03_mytype*real(k,mytype)
-    rhsz(i,m,k)=0.05_mytype*real(k,mytype)-0.01_mytype*real(i,mytype)
+  do k=1,nz; do j=1,ny; do i=1,nx
+    rhsx(i,j,k)=0.1_mytype*real(i,mytype)+0.01_mytype*real(j,mytype)
+    rhsy(i,j,k)=-0.2_mytype*real(j,mytype)+0.03_mytype*real(k,mytype)
+    rhsz(i,j,k)=0.05_mytype*real(k,mytype)-0.01_mytype*real(i,mytype)
   end do; end do; end do
   rhsx0=rhsx; rhsy0=rhsy; rhsz0=rhsz
   call compute_stage5_real_rhs_noop_change(rhsx0,rhsy0,rhsz0,rhsx,rhsy,rhsz,change)
