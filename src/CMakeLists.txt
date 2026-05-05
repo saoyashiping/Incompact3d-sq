@@ -954,6 +954,7 @@ install(TARGETS fibre_stage5_rhs_wrapper_check
 add_executable(fibre_stage5_spreading_candidate_check
                     fibre_types.f90
                     fibre_parameters.f90
+                    fibre_external_force.f90
                     fibre_ibm_types.f90
                     fibre_ibm_grid.f90
                     fibre_ibm_delta.f90
