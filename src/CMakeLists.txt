@@ -1132,6 +1132,52 @@ install(TARGETS fibre_stage5_rk_substep_check
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+
+add_executable(fibre_stage5_closed_loop_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_geometry.f90
+                    fibre_boundary_freefree.f90
+                    fibre_bending_operator.f90
+                    fibre_diagnostics.f90
+                    fibre_external_force.f90
+                    fibre_tension_solver.f90
+                    fibre_implicit_bending.f90
+                    fibre_structure_integrator.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_grid.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_interpolation.f90
+                    fibre_ibm_spreading.f90
+                    fibre_ibm_power_diagnostics.f90
+                    fibre_ibm_force_buffer.f90
+                    fibre_ibm_boundary_safety.f90
+                    fibre_stage4_grid_adapter.f90
+                    fibre_stage4_interpolation_adapter.f90
+                    fibre_stage4_frozen_channel.f90
+                    fibre_stage4_boundary_policy.f90
+                    fibre_stage5_config.f90
+                    fibre_stage5_rhs_audit.f90
+                    fibre_stage5_rhs_wrapper.f90
+                    fibre_stage5_spreading_candidate.f90
+                    fibre_stage5_momentum_exchange.f90
+                    fibre_stage5_coupled_order.f90
+                    fibre_stage5_rk_substep_sync.f90
+                    fibre_stage5_closed_loop.f90
+                    fibre_stage5_closed_loop_check.f90)
+
+target_link_libraries(fibre_stage5_closed_loop_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage5_closed_loop_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_stage5_closed_loop_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
