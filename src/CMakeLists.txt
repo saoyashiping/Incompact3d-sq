@@ -1248,6 +1248,25 @@ install(TARGETS fibre_stage5_smoke_check
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+
+add_executable(fibre_stage6_config_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage6_config.f90
+                    fibre_stage6_config_check.f90)
+
+target_link_libraries(fibre_stage6_config_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage6_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_stage6_config_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
