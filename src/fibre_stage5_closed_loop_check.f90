@@ -26,7 +26,8 @@ program fibre_stage5_closed_loop_check
   real(mytype), allocatable :: x(:),y(:),z(:),ux(:,:,:),uy(:,:,:),uz(:,:,:),ux0(:,:,:),uy0(:,:,:),uz0(:,:,:),rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:),u_lag(:,:),fstr(:,:),fpost(:,:)
   integer :: i,step,status,safe,wrap,unsafe,outside,blocked,inj,mod,rej,valid,two,rhsok
   integer :: interp_cnt,fb_cnt,spr_cnt,rhs_cnt,flu_cnt,str_cnt
-  real(mytype) :: fe,ve,lenerr,fextn,dispn,veln,force_abs,force_rel,pow_abs,pow_rel,pow_chk,fi,si,center0(3),center1(3)
+  real(mytype) :: fe,ve,lenerr,fextn,dispn,veln,force_abs,force_rel,pow_abs,pow_rel,pow_chk,fi,si,mom_rel,center0(3),center1(3)
+  real(mytype) :: fluid_velocity_change_norm_hist
 
   allocate(x(nx),y(ny),z(nz),ux(nx,ny,nz),uy(nx,ny,nz),uz(nx,ny,nz),ux0(nx,ny,nz),uy0(nx,ny,nz),uz0(nx,ny,nz),rhsx(nx,ny,nz),rhsy(nx,ny,nz),rhsz(nx,ny,nz))
   do i=1,nx; x(i)=(real(i,mytype)-0.5_mytype)*(2._mytype/real(nx,mytype)); end do
@@ -45,7 +46,7 @@ program fibre_stage5_closed_loop_check
   write(12,'(A)') 'step time center_x center_y center_z center_vx center_vy center_vz length_error bending_energy kinetic_energy f_ext_norm fluid_velocity_change_norm force_conservation_relative_error power_relative_error momentum_exchange_relative_error unsafe_count'
 
   call init_stage5_twoway_config(cfg); cfg%rho_fluid=2._mytype
-  interp_cnt=0;fb_cnt=0;spr_cnt=0;rhs_cnt=0;flu_cnt=0;str_cnt=0;force_rel=0;force_abs=0;pow_rel=0;pow_abs=0;pow_chk=0;fi=0;si=0;fextn=0
+  interp_cnt=0;fb_cnt=0;spr_cnt=0;rhs_cnt=0;flu_cnt=0;str_cnt=0;force_rel=0;force_abs=0;pow_rel=0;pow_abs=0;pow_chk=0;fi=0;si=0;mom_rel=0;fextn=0
   do step=1,nsteps
     call check_stage4_fibre_boundary_policy(a,f,safe,wrap,unsafe,outside,blocked,status); if (blocked==1) cycle
     call interpolate_stage4_vector_to_lag_if_supported(a,ux,uy,uz,lag,u_lag,status); interp_cnt=interp_cnt+1
@@ -56,7 +57,14 @@ program fibre_stage5_closed_loop_check
     call perform_stage5_closed_loop_step(ux,uy,uz,rhsx,rhsy,rhsz,dt,inj==1,flu_cnt)
     f%f_ext=fstr; fextn=max(fextn,sqrt(sum(f%f_ext**2))); call advance_fibre_structure_freefree(f,dt,fe,ve,status); str_cnt=str_cnt+1
     call interpolate_stage4_vector_to_lag_if_supported(a,ux,uy,uz,lag,u_lag,status); fpost=beta_drag*(u_lag-f%v)
-    write(12,'(I0,1X,ES12.4,15(1X,ES12.4),1X,I0)') step,dt*real(step,mytype),sum(f%x(1,:))/real(nl,mytype),sum(f%x(2,:))/real(nl,mytype),sum(f%x(3,:))/real(nl,mytype),sum(f%v(1,:))/real(nl,mytype),sum(f%v(2,:))/real(nl,mytype),sum(f%v(3,:))/real(nl,mytype),0._mytype,max(0._mytype,fe),max(0._mytype,ve),sqrt(sum(f%f_ext**2)),sqrt(sum((ux-ux0)**2+(uy-uy0)**2+(uz-uz0)**2),force_rel,pow_rel,force_rel,unsafe
+    fluid_velocity_change_norm_hist = sqrt(sum((ux-ux0)**2 + (uy-uy0)**2 + (uz-uz0)**2))
+    mom_rel = force_rel
+    write(12,'(I0,1X,ES12.4,1X,3(ES12.4,1X),3(ES12.4,1X),8(ES12.4,1X),I0)') &
+         step, dt*real(step,mytype), &
+         sum(f%x(1,:))/real(nl,mytype), sum(f%x(2,:))/real(nl,mytype), sum(f%x(3,:))/real(nl,mytype), &
+         sum(f%v(1,:))/real(nl,mytype), sum(f%v(2,:))/real(nl,mytype), sum(f%v(3,:))/real(nl,mytype), &
+         0._mytype, max(0._mytype,fe), max(0._mytype,ve), sqrt(sum(f%f_ext**2)), &
+         fluid_velocity_change_norm_hist, force_rel, pow_rel, mom_rel, unsafe
   end do
 
   center1=sum(f%x,dim=2)/real(nl,mytype); dispn=sqrt(sum((center1-center0)**2)); veln=sqrt(sum(f%v**2))
