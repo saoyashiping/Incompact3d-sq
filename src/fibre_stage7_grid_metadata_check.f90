@@ -9,6 +9,8 @@ program fibre_stage7_grid_metadata_check
   real(mytype) :: dy_face_err, vol_formula_err
   integer :: dy_face_ok, vol_formula_ok
   integer :: nx,ny,nz, inv1,inv2,inv3
+  integer :: uniform_y_detected_flag_saved, uniform_y_nonuniform_flag_saved
+  real(mytype) :: uniform_y_volume_error_saved
   real(mytype), allocatable :: rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:)
   logical :: ex
   nx=16; ny=17; nz=12
@@ -62,9 +64,12 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,I0)') 'stage7_grid_wall_bounds_status', merge(1,0,abs(g%y_face(1)-g%ymin)<=1e-12_mytype .and. abs(g%y_face(g%ny+1)-g%ymax)<=1e-12_mytype)
 
   call init_stage7_uniform_channel_grid(gu,nx,ny,nz); call compute_stage7_volume_error(gu,uverr)
-  write(io,'(A,1X,I0)') 'stage7_grid_uniform_y_detected_flag', gu%y_uniform_flag
-  write(io,'(A,1X,I0)') 'stage7_grid_uniform_y_nonuniform_flag', gu%y_nonuniform_flag
-  write(io,'(A,1X,ES24.16)') 'stage7_grid_uniform_y_volume_error', uverr
+  uniform_y_detected_flag_saved=gu%y_uniform_flag
+  uniform_y_nonuniform_flag_saved=gu%y_nonuniform_flag
+  uniform_y_volume_error_saved=uverr
+  write(io,'(A,1X,I0)') 'stage7_grid_uniform_y_detected_flag', uniform_y_detected_flag_saved
+  write(io,'(A,1X,I0)') 'stage7_grid_uniform_y_nonuniform_flag', uniform_y_nonuniform_flag_saved
+  write(io,'(A,1X,ES24.16)') 'stage7_grid_uniform_y_volume_error', uniform_y_volume_error_saved
 
   call init_stage7_nonuniform_channel_grid(gu,1,ny,nz); call validate_stage7_channel_grid(gu,v,r); inv1=r
   call init_stage7_nonuniform_channel_grid(gu,nx,ny,nz); gu%y_face(3)=gu%y_face(2); gu%dy_cell(2)=0._mytype; call validate_stage7_channel_grid(gu,v,r); inv2=r
@@ -87,7 +92,25 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,I0)') 'stage7_grid_fluid_update_called_flag', fuc
   write(io,'(A,1X,I0)') 'stage7_grid_fibre_advance_called_flag', fac
 
-  final_status=merge(1,0,flags6==1 .and. flags70==1 .and. g%x_uniform_flag==1 .and. g%z_uniform_flag==1 .and. g%periodic_x==1 .and. g%periodic_z==1 .and. g%y_nonuniform_flag==1 .and. g%y_uniform_flag==0 .and. g%y_monotonic_flag==1 .and. dymin>0 .and. dymax>dymin .and. vmin>0 .and. verr<=tol_geom .and. gu%y_uniform_flag==1 .and. gu%y_nonuniform_flag==0 .and. uverr<=tol_geom .and. inv1==1 .and. inv2==1 .and. inv3==1 .and. dy_face_ok==1 .and. vol_formula_ok==1 .and. chg<=tol_noop .and. modf==0 .and. ppm==0 .and. pm==0 .and. rpc==0 .and. pdc==0 .and. fuc==0 .and. fac==0)
+  final_status=1
+  if (flags6/=1) final_status=0
+  if (s6dat_exists/=1) final_status=0
+  if (s6smoke/=1 .or. found_smoke/=1) final_status=0
+  if (s6prior/=1 .or. found_prior/=1) final_status=0
+  if (flags70/=1) final_status=0
+  if (g%x_uniform_flag/=1 .or. g%z_uniform_flag/=1) final_status=0
+  if (g%periodic_x/=1 .or. g%periodic_z/=1) final_status=0
+  if (g%y_nonuniform_flag/=1 .or. g%y_uniform_flag/=0 .or. g%y_monotonic_flag/=1) final_status=0
+  if (dymin<=0._mytype .or. dymax<=dymin) final_status=0
+  if (vmin<=0._mytype .or. vmax<vmin) final_status=0
+  if (verr>tol_geom) final_status=0
+  if (uniform_y_detected_flag_saved/=1 .or. uniform_y_nonuniform_flag_saved/=0) final_status=0
+  if (uniform_y_volume_error_saved>tol_geom) final_status=0
+  if (dy_face_ok/=1 .or. dy_face_err>tol_geom) final_status=0
+  if (vol_formula_ok/=1 .or. vol_formula_err>tol_geom) final_status=0
+  if (inv1/=1 .or. inv2/=1 .or. inv3/=1) final_status=0
+  if (chg>tol_noop .or. modf/=0) final_status=0
+  if (ppm/=0 .or. pm/=0 .or. rpc/=0 .or. pdc/=0 .or. fuc/=0 .or. fac/=0) final_status=0
   write(io,'(A,1X,I0)') 'stage7_grid_metadata_check_status', final_status
   close(io)
 end program fibre_stage7_grid_metadata_check
