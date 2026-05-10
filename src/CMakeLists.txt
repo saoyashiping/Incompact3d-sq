@@ -1504,6 +1504,26 @@ install(TARGETS fibre_stage7_config_check
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
+
+add_executable(fibre_stage7_grid_metadata_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_grid_metadata_check.f90)
+
+target_link_libraries(fibre_stage7_grid_metadata_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_grid_metadata_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+install(TARGETS fibre_stage7_grid_metadata_check
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
 install(TARGETS xcompact3d
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
