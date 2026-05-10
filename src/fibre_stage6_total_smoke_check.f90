@@ -76,16 +76,20 @@ program fibre_stage6_total_smoke_check
   write(io,'(A,1X,I0)') 'stage6_total_real_projection_called_flag', rpc
   write(io,'(A,1X,I0)') 'stage6_total_production_dns_called_flag', pdns
 
-  call write_stage6_closed_marker('stage6_outputs/STAGE6_CLOSED.md',cl_status)
-  call file_exists_int('stage6_outputs/STAGE6_CLOSED.md',cl_exists)
-  write(io,'(A,1X,I0)') 'stage6_total_closure_marker_exists', cl_exists
-  write(io,'(A,1X,I0)') 'stage6_total_closure_summary_status', cl_status
-
   final_status=merge(1,0,all_exist==1 .and. merge(1,0,cfg%production_two_way_enabled)==0 .and. rhs_allowed==0 .and. valid==1 .and. &
      re<=1e-14_mytype .and. ex<=1e-14_mytype .and. ey<=1e-14_mytype .and. ez<=1e-14_mytype .and. inj==1 .and. mod==1 .and. &
      rhs_before==1 .and. rhs_after==0 .and. pp_dir==0 .and. post_vel_mod==0 .and. rk_policy==1 .and. rk_req==1 .and. rk_stale_forbid==1 .and. &
      rk_match<=1e-14_mytype .and. rk_stale_detected==1 .and. up==1 .and. nub==1 .and. stb==1 .and. unk==1 .and. blk_count==0 .and. &
-     pppm==0 .and. pmod==0 .and. rpc==0 .and. pdns==0 .and. cl_exists==1 .and. cl_status==1)
+     pppm==0 .and. pmod==0 .and. rpc==0 .and. pdns==0)
+  if (final_status==1) then
+    call write_stage6_closed_marker('stage6_outputs/STAGE6_CLOSED.md',cl_status)
+    call file_exists_int('stage6_outputs/STAGE6_CLOSED.md',cl_exists)
+  else
+    cl_status=0
+    cl_exists=0
+  end if
+  write(io,'(A,1X,I0)') 'stage6_total_closure_marker_exists', cl_exists
+  write(io,'(A,1X,I0)') 'stage6_total_closure_summary_status', cl_status
   write(io,'(A,1X,I0)') 'stage6_total_smoke_check_status', final_status
   close(io)
 end program fibre_stage6_total_smoke_check

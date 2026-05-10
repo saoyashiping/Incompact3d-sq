@@ -5,6 +5,7 @@ program fibre_stage7_config_check
   type(stage7_config_t) :: c
   integer :: io, valid, rej, rhs_allowed, ctest, pdns, ptwo
   integer :: s6mark, dep, modf, ppm, pm, rpc, pdc, fuc, fac, final_status
+  integer :: s6dat_exists, s6smoke, s6prior, found_smoke, found_prior
   integer :: d0,d1,d2,d3,d4,d5,d6,d7,d8,d9,d10,d11,d12,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12
   integer :: f_rej,f_valid,g_rej,g_valid,h_rej,h_rhs,i_rej,i_valid,i_rhs
   real(mytype) :: chg
@@ -14,13 +15,19 @@ program fibre_stage7_config_check
   logical :: ex
 
   open(newunit=io,file='stage7_outputs/fibre_stage7_config_check.dat',status='replace',action='write')
-  inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex)
-  if (ex) then
-    s6mark=1; dep=1
+  inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex); s6mark=merge(1,0,ex)
+  inquire(file='stage6_outputs/fibre_stage6_total_smoke_check.dat',exist=ex); s6dat_exists=merge(1,0,ex)
+  call read_int_key_from_dat('stage6_outputs/fibre_stage6_total_smoke_check.dat','stage6_total_smoke_check_status',s6smoke,found_smoke)
+  call read_int_key_from_dat('stage6_outputs/fibre_stage6_total_smoke_check.dat','stage6_total_all_prior_outputs_exist',s6prior,found_prior)
+  if (s6mark==1 .and. s6dat_exists==1 .and. found_smoke==1 .and. found_prior==1 .and. s6smoke==1 .and. s6prior==1) then
+    dep=1
   else
-    s6mark=0; dep=0
+    dep=0
   end if
   write(io,'(A,1X,I0)') 'stage7_stage6_closed_marker_status', s6mark
+  write(io,'(A,1X,I0)') 'stage7_stage6_total_smoke_output_exists', s6dat_exists
+  write(io,'(A,1X,I0)') 'stage7_stage6_total_smoke_status', merge(s6smoke,0,found_smoke==1)
+  write(io,'(A,1X,I0)') 'stage7_stage6_all_prior_outputs_status', merge(s6prior,0,found_prior==1)
   write(io,'(A,1X,I0)') 'stage7_stage6_dependency_status', dep
 
   call init_stage7_default_config(c)
@@ -115,3 +122,25 @@ program fibre_stage7_config_check
   write(io,'(A,1X,I0)') 'stage7_config_check_status', final_status
   close(io)
 end program fibre_stage7_config_check
+
+subroutine read_int_key_from_dat(filename,key,value,found_flag)
+  implicit none
+  character(len=*), intent(in) :: filename, key
+  integer, intent(out) :: value, found_flag
+  integer :: io, ios
+  character(len=512) :: line
+  found_flag=0
+  value=0
+  open(newunit=io,file=filename,status='old',action='read',iostat=ios)
+  if (ios/=0) return
+  do
+    read(io,'(A)',iostat=ios) line
+    if (ios/=0) exit
+    if (index(adjustl(line),trim(key)//' ')==1) then
+      read(line(len_trim(key)+1:),*,iostat=ios) value
+      if (ios==0) found_flag=1
+      exit
+    end if
+  end do
+  close(io)
+end subroutine read_int_key_from_dat

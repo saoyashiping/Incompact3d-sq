@@ -4,6 +4,7 @@ program fibre_stage7_grid_metadata_check
   implicit none
   type(stage7_channel_grid_t) :: g, gu
   integer :: io, flags6, flags70, v, r, modf, ppm, pm, rpc, pdc, fuc, fac, final_status
+  integer :: s6dat_exists, s6smoke, s6prior, found_smoke, found_prior
   real(mytype) :: dymin, dymax, vmin, vmax, tv, ev, verr, uverr, chg, tol_geom, tol_noop
   real(mytype) :: dy_face_err, vol_formula_err
   integer :: dy_face_ok, vol_formula_ok
@@ -14,8 +15,15 @@ program fibre_stage7_grid_metadata_check
   tol_geom=1.0e-12_mytype; tol_noop=1.0e-14_mytype
   open(newunit=io,file='stage7_outputs/fibre_stage7_grid_metadata_check.dat',status='replace',action='write')
   inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex); flags6=merge(1,0,ex)
+  inquire(file='stage6_outputs/fibre_stage6_total_smoke_check.dat',exist=ex); s6dat_exists=merge(1,0,ex)
+  call read_int_key_from_dat('stage6_outputs/fibre_stage6_total_smoke_check.dat','stage6_total_smoke_check_status',s6smoke,found_smoke)
+  call read_int_key_from_dat('stage6_outputs/fibre_stage6_total_smoke_check.dat','stage6_total_all_prior_outputs_exist',s6prior,found_prior)
+  if (.not.(flags6==1 .and. s6dat_exists==1 .and. found_smoke==1 .and. found_prior==1 .and. s6smoke==1 .and. s6prior==1)) flags6=0
   inquire(file='stage7_outputs/fibre_stage7_config_check.dat',exist=ex); flags70=merge(1,0,ex)
   write(io,'(A,1X,I0)') 'stage7_grid_stage6_closed_marker_status', flags6
+  write(io,'(A,1X,I0)') 'stage7_grid_stage6_total_smoke_output_exists', s6dat_exists
+  write(io,'(A,1X,I0)') 'stage7_grid_stage6_total_smoke_status', merge(s6smoke,0,found_smoke==1)
+  write(io,'(A,1X,I0)') 'stage7_grid_stage6_all_prior_outputs_status', merge(s6prior,0,found_prior==1)
   write(io,'(A,1X,I0)') 'stage7_grid_stage7_0_dependency_status', flags70
 
   call init_stage7_nonuniform_channel_grid(g,nx,ny,nz)
@@ -83,3 +91,25 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,I0)') 'stage7_grid_metadata_check_status', final_status
   close(io)
 end program fibre_stage7_grid_metadata_check
+
+subroutine read_int_key_from_dat(filename,key,value,found_flag)
+  implicit none
+  character(len=*), intent(in) :: filename, key
+  integer, intent(out) :: value, found_flag
+  integer :: io, ios
+  character(len=512) :: line
+  found_flag=0
+  value=0
+  open(newunit=io,file=filename,status='old',action='read',iostat=ios)
+  if (ios/=0) return
+  do
+    read(io,'(A)',iostat=ios) line
+    if (ios/=0) exit
+    if (index(adjustl(line),trim(key)//' ')==1) then
+      read(line(len_trim(key)+1:),*,iostat=ios) value
+      if (ios==0) found_flag=1
+      exit
+    end if
+  end do
+  close(io)
+end subroutine read_int_key_from_dat

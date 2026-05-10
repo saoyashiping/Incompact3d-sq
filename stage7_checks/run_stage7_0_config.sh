@@ -6,7 +6,7 @@ mkdir -p stage7_outputs
 if [[ ! -f stage6_outputs/STAGE6_CLOSED.md ]]; then
   echo "Missing stage6_outputs/STAGE6_CLOSED.md. Run Stage 6.10 total smoke first."
 fi
-cmake -S . -B build_stage7 -DFIBRE_STAGE_CHECKS_ONLY=ON
+cmake -S . -B build_stage7
 cmake --build build_stage7 --target fibre_stage7_config_check
 EXE="build_stage7/bin/fibre_stage7_config_check"
 if [[ ! -x "$EXE" ]]; then
