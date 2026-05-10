@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+ROOT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT_DIR"
 mkdir -p stage7_outputs
+if [[ ! -f stage6_outputs/STAGE6_CLOSED.md ]]; then
+  echo "Missing stage6_outputs/STAGE6_CLOSED.md. Run Stage 6.10 total smoke first."
+fi
 cmake -S . -B build_stage7 -DFIBRE_STAGE_CHECKS_ONLY=ON
 cmake --build build_stage7 --target fibre_stage7_config_check
 EXE="build_stage7/bin/fibre_stage7_config_check"

@@ -14,7 +14,12 @@ program fibre_stage7_config_check
   logical :: ex
 
   open(newunit=io,file='stage7_outputs/fibre_stage7_config_check.dat',status='replace',action='write')
-  inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex); s6mark=merge(1,0,ex); dep=s6mark
+  inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex)
+  if (ex) then
+    s6mark=1; dep=1
+  else
+    s6mark=0; dep=0
+  end if
   write(io,'(A,1X,I0)') 'stage7_stage6_closed_marker_status', s6mark
   write(io,'(A,1X,I0)') 'stage7_stage6_dependency_status', dep
 
