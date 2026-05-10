@@ -4,11 +4,14 @@ program fibre_stage7_grid_metadata_check
   implicit none
   type(stage7_channel_grid_t) :: g, gu
   integer :: io, flags6, flags70, v, r, modf, ppm, pm, rpc, pdc, fuc, fac, final_status
-  real(mytype) :: dymin, dymax, vmin, vmax, tv, ev, verr, uverr, chg
+  real(mytype) :: dymin, dymax, vmin, vmax, tv, ev, verr, uverr, chg, tol_geom, tol_noop
+  real(mytype) :: dy_face_err, vol_formula_err
+  integer :: dy_face_ok, vol_formula_ok
   integer :: nx,ny,nz, inv1,inv2,inv3
   real(mytype), allocatable :: rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:)
   logical :: ex
   nx=16; ny=17; nz=12
+  tol_geom=1.0e-12_mytype; tol_noop=1.0e-14_mytype
   open(newunit=io,file='stage7_outputs/fibre_stage7_grid_metadata_check.dat',status='replace',action='write')
   inquire(file='stage6_outputs/STAGE6_CLOSED.md',exist=ex); flags6=merge(1,0,ex)
   inquire(file='stage7_outputs/fibre_stage7_config_check.dat',exist=ex); flags70=merge(1,0,ex)
@@ -36,6 +39,15 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,ES24.16)') 'stage7_grid_total_volume', tv
   write(io,'(A,1X,ES24.16)') 'stage7_grid_expected_total_volume', ev
   write(io,'(A,1X,ES24.16)') 'stage7_grid_total_volume_error', verr
+
+  dy_face_err=maxval(abs(g%dy_cell-(g%y_face(2:g%ny+1)-g%y_face(1:g%ny))))
+  vol_formula_err=maxval(abs(g%volume_y-g%dx*g%dy_cell*g%dz))
+  dy_face_ok=merge(1,0,dy_face_err<=tol_geom)
+  vol_formula_ok=merge(1,0,vol_formula_err<=tol_geom)
+  write(io,'(A,1X,ES24.16)') 'stage7_grid_dy_face_consistency_error_max', dy_face_err
+  write(io,'(A,1X,I0)') 'stage7_grid_dy_face_consistency_status', dy_face_ok
+  write(io,'(A,1X,ES24.16)') 'stage7_grid_volume_formula_error_max', vol_formula_err
+  write(io,'(A,1X,I0)') 'stage7_grid_volume_formula_status', vol_formula_ok
 
   write(io,'(A,1X,I0)') 'stage7_grid_ymin_correct_flag', merge(1,0,abs(g%y_face(1)-g%ymin)<=1e-12_mytype)
   write(io,'(A,1X,I0)') 'stage7_grid_ymax_correct_flag', merge(1,0,abs(g%y_face(g%ny+1)-g%ymax)<=1e-12_mytype)
@@ -67,7 +79,7 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,I0)') 'stage7_grid_fluid_update_called_flag', fuc
   write(io,'(A,1X,I0)') 'stage7_grid_fibre_advance_called_flag', fac
 
-  final_status=merge(1,0,flags6==1 .and. flags70==1 .and. g%x_uniform_flag==1 .and. g%z_uniform_flag==1 .and. g%periodic_x==1 .and. g%periodic_z==1 .and. g%y_nonuniform_flag==1 .and. g%y_uniform_flag==0 .and. g%y_monotonic_flag==1 .and. dymin>0 .and. dymax>dymin .and. vmin>0 .and. verr<=1e-12_mytype .and. gu%y_uniform_flag==1 .and. gu%y_nonuniform_flag==0 .and. uverr<=1e-12_mytype .and. inv1==1 .and. inv2==1 .and. inv3==1 .and. chg<=1e-14_mytype .and. modf==0 .and. ppm==0 .and. pm==0 .and. rpc==0 .and. pdc==0 .and. fuc==0 .and. fac==0)
+  final_status=merge(1,0,flags6==1 .and. flags70==1 .and. g%x_uniform_flag==1 .and. g%z_uniform_flag==1 .and. g%periodic_x==1 .and. g%periodic_z==1 .and. g%y_nonuniform_flag==1 .and. g%y_uniform_flag==0 .and. g%y_monotonic_flag==1 .and. dymin>0 .and. dymax>dymin .and. vmin>0 .and. verr<=tol_geom .and. gu%y_uniform_flag==1 .and. gu%y_nonuniform_flag==0 .and. uverr<=tol_geom .and. inv1==1 .and. inv2==1 .and. inv3==1 .and. dy_face_ok==1 .and. vol_formula_ok==1 .and. chg<=tol_noop .and. modf==0 .and. ppm==0 .and. pm==0 .and. rpc==0 .and. pdc==0 .and. fuc==0 .and. fac==0)
   write(io,'(A,1X,I0)') 'stage7_grid_metadata_check_status', final_status
   close(io)
 end program fibre_stage7_grid_metadata_check
