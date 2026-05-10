@@ -5,6 +5,8 @@ program fibre_stage6_io_safety_check
   implicit none
   type(stage6_config_t) :: config
   integer :: io, valid, rejected, rhs_allowed, controlled, prod_enabled
+  integer :: a_prod_default,a_rhs_allowed,a_main_hook,a_safe,b_test_only,b_valid,b_rhs_allowed,b_prod_enabled
+  integer :: c_invalid_rej,c_invalid_rhs,c_prod_rej,c_prod_rhs,final_status
   integer :: f0,f1,f2,f3,f4,f5,f6,f7,f8,all_prev,summary_status,summary_exists,keys
   integer :: s5closed, s5dep, s5pres, s5closed_pres
   integer :: pppm, pproj, prproj, pdns
@@ -13,28 +15,40 @@ program fibre_stage6_io_safety_check
 
   call init_stage6_default_config(config)
   call validate_stage6_config(config,valid,rejected,rhs_allowed,controlled,prod_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_production_two_way_enabled_by_default', merge(1,0,.not.config%production_two_way_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_default_rhs_allowed_flag', rhs_allowed
-  write(io,'(A,1X,I0)') 'stage6_io_default_main_hook_enabled_flag', merge(1,0,config%enable_main_rhs_hook)
-  write(io,'(A,1X,I0)') 'stage6_io_default_config_safe_flag', merge(1,0,valid==1 .and. rejected==0)
+  a_prod_default=merge(1,0,config%production_two_way_enabled)
+  a_rhs_allowed=rhs_allowed
+  a_main_hook=merge(1,0,config%enable_main_rhs_hook)
+  a_safe=merge(1,0,valid==1 .and. rejected==0)
+  write(io,'(A,1X,I0)') 'stage6_io_production_two_way_enabled_by_default', a_prod_default
+  write(io,'(A,1X,I0)') 'stage6_io_default_rhs_allowed_flag', a_rhs_allowed
+  write(io,'(A,1X,I0)') 'stage6_io_default_main_hook_enabled_flag', a_main_hook
+  write(io,'(A,1X,I0)') 'stage6_io_default_config_safe_flag', a_safe
 
   call init_stage6_controlled_test_config(config)
   call validate_stage6_config(config,valid,rejected,rhs_allowed,controlled,prod_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_controlled_test_only_flag', merge(1,0,config%enable_controlled_rhs_test .and. .not.config%production_two_way_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_controlled_config_valid_flag', valid
-  write(io,'(A,1X,I0)') 'stage6_io_controlled_rhs_allowed_flag', rhs_allowed
-  write(io,'(A,1X,I0)') 'stage6_io_controlled_production_enabled_flag', merge(1,0,config%production_two_way_enabled)
+  b_test_only=merge(1,0,config%enable_controlled_rhs_test .and. .not.config%production_two_way_enabled)
+  b_valid=valid
+  b_rhs_allowed=rhs_allowed
+  b_prod_enabled=merge(1,0,config%production_two_way_enabled)
+  write(io,'(A,1X,I0)') 'stage6_io_controlled_test_only_flag', b_test_only
+  write(io,'(A,1X,I0)') 'stage6_io_controlled_config_valid_flag', b_valid
+  write(io,'(A,1X,I0)') 'stage6_io_controlled_rhs_allowed_flag', b_rhs_allowed
+  write(io,'(A,1X,I0)') 'stage6_io_controlled_production_enabled_flag', b_prod_enabled
 
   config%enable_stage6=.true.; config%enable_main_rhs_hook=.true.; config%enable_controlled_rhs_test=.false.
   config%production_two_way_enabled=.false.; config%allow_stage5_hook_in_main_path=.true.; config%reject_invalid_config=.true.; config%rho_fluid=1._mytype
   call validate_stage6_config(config,valid,rejected,rhs_allowed,controlled,prod_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_invalid_config_rejected_flag', rejected
-  write(io,'(A,1X,I0)') 'stage6_io_invalid_config_rhs_allowed_flag', rhs_allowed
+  c_invalid_rej=rejected
+  c_invalid_rhs=rhs_allowed
+  write(io,'(A,1X,I0)') 'stage6_io_invalid_config_rejected_flag', c_invalid_rej
+  write(io,'(A,1X,I0)') 'stage6_io_invalid_config_rhs_allowed_flag', c_invalid_rhs
 
   call init_stage6_controlled_test_config(config); config%production_two_way_enabled=.true.
   call validate_stage6_config(config,valid,rejected,rhs_allowed,controlled,prod_enabled)
-  write(io,'(A,1X,I0)') 'stage6_io_production_enabled_rejected_flag', rejected
-  write(io,'(A,1X,I0)') 'stage6_io_production_enabled_rhs_allowed_flag', rhs_allowed
+  c_prod_rej=rejected
+  c_prod_rhs=rhs_allowed
+  write(io,'(A,1X,I0)') 'stage6_io_production_enabled_rejected_flag', c_prod_rej
+  write(io,'(A,1X,I0)') 'stage6_io_production_enabled_rhs_allowed_flag', c_prod_rhs
 
   call file_exists_int('stage5_checks/STAGE5_CLOSED.md', s5closed)
   s5dep = s5closed
@@ -79,7 +93,24 @@ program fibre_stage6_io_safety_check
   write(io,'(A,1X,I0)') 'stage6_io_projection_modified_flag', pproj
   write(io,'(A,1X,I0)') 'stage6_io_real_projection_called_flag', prproj
   write(io,'(A,1X,I0)') 'stage6_io_production_dns_called_flag', pdns
-  write(io,'(A,1X,I0)') 'stage6_io_safety_check_status', 1
+
+  if (merge(1,0,config%production_two_way_enabled)==0 .and. rhs_allowed==0 .and. merge(1,0,config%enable_main_rhs_hook)==0 .and. &
+      merge(1,0,valid==1 .and. rejected==0)==1 .and. &
+      merge(1,0,.not.config%production_two_way_enabled)==0 .and. &
+      all_prev==1 .and. summary_exists==1 .and. summary_status==1 .and. keys==1 .and. s5pres==1 .and. s5closed_pres==1 .and. &
+      pppm==0 .and. pproj==0 .and. prproj==0 .and. pdns==0) then
+    ! no-op placeholder; exact consolidated status set below via explicit required flags from written values
+  end if
+
+  final_status = merge(1,0, &
+       a_prod_default==0 .and. a_rhs_allowed==0 .and. a_main_hook==0 .and. a_safe==1 .and. &
+       b_test_only==1 .and. b_valid==1 .and. b_rhs_allowed==1 .and. b_prod_enabled==0 .and. &
+       c_invalid_rej==1 .and. c_invalid_rhs==0 .and. c_prod_rej==1 .and. c_prod_rhs==0 .and. &
+       s5closed==1 .and. s5dep==1 .and. &
+       f0==1 .and. f1==1 .and. f2==1 .and. f3==1 .and. f4==1 .and. f5==1 .and. f6==1 .and. f7==1 .and. f8==1 .and. all_prev==1 .and. &
+       summary_exists==1 .and. summary_status==1 .and. keys==1 .and. s5pres==1 .and. s5closed_pres==1 .and. &
+       pppm==0 .and. pproj==0 .and. prproj==0 .and. pdns==0)
+  write(io,'(A,1X,I0)') 'stage6_io_safety_check_status', final_status
 
   close(io)
 end program fibre_stage6_io_safety_check
