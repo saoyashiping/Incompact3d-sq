@@ -1,7 +1,8 @@
 module fibre_stage7_grid_metadata
-  use fibre_parameters, only : mytype, pi
+  use fibre_parameters, only : mytype
   use fibre_stage7_config
   implicit none
+  real(mytype), parameter :: stage7_pi = 3.141592653589793238462643383279502884197_mytype
   type stage7_channel_grid_t
     integer :: nx, ny, nz, periodic_x, periodic_y, periodic_z
     integer :: x_uniform_flag, y_uniform_flag, y_nonuniform_flag, z_uniform_flag, y_monotonic_flag, grid_valid_flag
@@ -15,7 +16,10 @@ contains
     integer :: j, valid, rej
     real(mytype) :: eta, a
     a=1.5_mytype
-    grid%nx=nx; grid%ny=ny; grid%nz=nz; grid%xmin=0; grid%xmax=2*pi; grid%zmin=0; grid%zmax=pi; grid%ymin=-1; grid%ymax=1
+    grid%nx=nx; grid%ny=ny; grid%nz=nz
+    grid%xmin=0.0_mytype; grid%xmax=2.0_mytype*stage7_pi
+    grid%zmin=0.0_mytype; grid%zmax=stage7_pi
+    grid%ymin=-1.0_mytype; grid%ymax=1.0_mytype
     grid%dx=(grid%xmax-grid%xmin)/real(nx,mytype); grid%dz=(grid%zmax-grid%zmin)/real(nz,mytype)
     grid%periodic_x=1; grid%periodic_y=0; grid%periodic_z=1
     allocate(grid%y_center(ny),grid%y_face(ny+1),grid%dy_cell(ny),grid%volume_y(ny))
@@ -33,7 +37,10 @@ contains
     type(stage7_channel_grid_t), intent(out) :: grid
     integer, intent(in) :: nx, ny, nz
     integer :: j, valid, rej
-    grid%nx=nx; grid%ny=ny; grid%nz=nz; grid%xmin=0; grid%xmax=2*pi; grid%zmin=0; grid%zmax=pi; grid%ymin=-1; grid%ymax=1
+    grid%nx=nx; grid%ny=ny; grid%nz=nz
+    grid%xmin=0.0_mytype; grid%xmax=2.0_mytype*stage7_pi
+    grid%zmin=0.0_mytype; grid%zmax=stage7_pi
+    grid%ymin=-1.0_mytype; grid%ymax=1.0_mytype
     grid%dx=(grid%xmax-grid%xmin)/real(nx,mytype); grid%dz=(grid%zmax-grid%zmin)/real(nz,mytype)
     grid%periodic_x=1; grid%periodic_y=0; grid%periodic_z=1
     allocate(grid%y_center(ny),grid%y_face(ny+1),grid%dy_cell(ny),grid%volume_y(ny))
