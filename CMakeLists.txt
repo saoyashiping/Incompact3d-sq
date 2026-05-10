@@ -46,7 +46,15 @@ else (CMAKE_BUILD_TYPE MATCHES "NONE")
 endif (CMAKE_BUILD_TYPE MATCHES "NONE")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/compilers" "${CMAKE_SOURCE_DIR}/cmake/fft")
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
+if(FIBRE_STAGE_CHECKS_ONLY)
+  add_library(decomp2d STATIC src/fibre_stage_decomp2d_constants_stub.f90)
+  set_target_properties(decomp2d PROPERTIES
+      Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fibre_stage_stub_mod
+  )
+  target_include_directories(decomp2d PUBLIC
+      ${CMAKE_BINARY_DIR}/fibre_stage_stub_mod
+  )
+else()
   find_package(DECOMP2D REQUIRED)
 endif()
 

@@ -1448,9 +1448,7 @@ add_executable(fibre_stage6_io_safety_check
                     fibre_stage6_io_safety.f90
                     fibre_stage6_io_safety_check.f90)
 
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage6_io_safety_check PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage6_io_safety_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage6_io_safety_check PRIVATE MPI::MPI_Fortran)
@@ -1475,9 +1473,7 @@ add_executable(fibre_stage6_total_smoke_check
                     fibre_stage6_total_smoke.f90
                     fibre_stage6_total_smoke_check.f90)
 
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage6_total_smoke_check PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage6_total_smoke_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage6_total_smoke_check PRIVATE MPI::MPI_Fortran)
@@ -1496,9 +1492,7 @@ add_executable(fibre_stage7_config_check
                     fibre_stage7_config.f90
                     fibre_stage7_config_check.f90)
 
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage7_config_check PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage7_config_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_config_check PRIVATE MPI::MPI_Fortran)
@@ -1518,9 +1512,7 @@ add_executable(fibre_stage7_grid_metadata_check
                     fibre_stage7_grid_metadata.f90
                     fibre_stage7_grid_metadata_check.f90)
 
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage7_grid_metadata_check PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage7_grid_metadata_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_grid_metadata_check PRIVATE MPI::MPI_Fortran)
@@ -1534,36 +1526,28 @@ install(TARGETS fibre_stage7_grid_metadata_check
 
 
 add_executable(fibre_stage7_feedback_sign_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_feedback_sign_audit.f90)
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_feedback_sign_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_executable(fibre_stage7_rho_convention_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_rho_convention_audit.f90)
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_rho_convention_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_executable(fibre_stage7_structure_high_gamma_check fibre_types.f90 fibre_parameters.f90 fibre_stage7_structure_high_gamma_check.f90)
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_structure_high_gamma_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 add_executable(fibre_stage5_closed_loop_diagnostics_audit fibre_types.f90 fibre_parameters.f90 fibre_stage5_closed_loop_diagnostics_audit.f90)
-if(NOT FIBRE_STAGE_CHECKS_ONLY)
-  target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE decomp2d)
-endif()
+target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
