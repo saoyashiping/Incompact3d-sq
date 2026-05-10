@@ -28,7 +28,9 @@ contains
       grid%y_face(j)=tanh(a*eta)/tanh(a)
     end do
     do j=1,ny
-      grid%dy_cell(j)=grid%y_face(j+1)-grid%y_face(j); grid%y_center(j)=0.5_mytype*(grid%y_face(j)+grid%y_face(j+1)); grid%volume_y(j)=grid%dx*grid%dy_cell(j)*grid%dz
+      grid%dy_cell(j) = grid%y_face(j+1) - grid%y_face(j)
+      grid%y_center(j) = 0.5_mytype * (grid%y_face(j) + grid%y_face(j+1))
+      grid%volume_y(j) = grid%dx * grid%dy_cell(j) * grid%dz
     end do
     grid%x_uniform_flag=1; grid%z_uniform_flag=1; grid%y_uniform_flag=0; grid%y_nonuniform_flag=1
     call validate_stage7_channel_grid(grid,valid,rej)
@@ -48,7 +50,9 @@ contains
       grid%y_face(j)=grid%ymin + (grid%ymax-grid%ymin)*real(j-1,mytype)/real(ny,mytype)
     end do
     do j=1,ny
-      grid%dy_cell(j)=grid%y_face(j+1)-grid%y_face(j); grid%y_center(j)=0.5_mytype*(grid%y_face(j)+grid%y_face(j+1)); grid%volume_y(j)=grid%dx*grid%dy_cell(j)*grid%dz
+      grid%dy_cell(j) = grid%y_face(j+1) - grid%y_face(j)
+      grid%y_center(j) = 0.5_mytype * (grid%y_face(j) + grid%y_face(j+1))
+      grid%volume_y(j) = grid%dx * grid%dy_cell(j) * grid%dz
     end do
     grid%x_uniform_flag=1; grid%z_uniform_flag=1; grid%y_uniform_flag=1; grid%y_nonuniform_flag=0
     call validate_stage7_channel_grid(grid,valid,rej)
