@@ -2,6 +2,8 @@ set(cmake_minimum_version 3.20)
 cmake_minimum_required(VERSION ${cmake_minimum_version})
 cmake_policy(SET CMP0074 NEW)
 
+option(FIBRE_STAGE_CHECKS_ONLY "Build fibre/stage standalone check targets without production external dependencies" OFF)
+
 project(Xcompact3d LANGUAGES Fortran)
 set(version 5.0)
 if (IO_BACKEND MATCHES "adios2")
@@ -44,7 +46,17 @@ else (CMAKE_BUILD_TYPE MATCHES "NONE")
 endif (CMAKE_BUILD_TYPE MATCHES "NONE")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/compilers" "${CMAKE_SOURCE_DIR}/cmake/fft")
-find_package(DECOMP2D REQUIRED)
+if(FIBRE_STAGE_CHECKS_ONLY)
+  add_library(decomp2d STATIC src/fibre_stage_decomp2d_constants_stub.f90)
+  set_target_properties(decomp2d PROPERTIES
+      Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/fibre_stage_stub_mod
+  )
+  target_include_directories(decomp2d PUBLIC
+      ${CMAKE_BINARY_DIR}/fibre_stage_stub_mod
+  )
+else()
+  find_package(DECOMP2D REQUIRED)
+endif()
 
 # Despite IO is handled by 2DECOMP&FFT we need to set it
 set (IO_BACKEND "mpi" CACHE STRING "Default IO backend (mpi (default) or adios2)")
