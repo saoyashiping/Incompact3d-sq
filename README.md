@@ -46,7 +46,12 @@ from the small turbulent scales that are not resolved.
 Documentation
 =============
 
-[Readthedocs](https://xcompact3d.readthedocs.io/en/latest/)
+- Online documentation: [Read the Docs](https://xcompact3d.readthedocs.io/en/latest/)
+- Build the docs locally:
 
+  ```bash
+  pip install -r docs/requirements.txt
+  sphinx-build -b html docs docs/_build/html
+  ```
 
 
