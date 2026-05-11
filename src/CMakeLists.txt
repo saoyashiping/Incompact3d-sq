@@ -1546,7 +1546,15 @@ if (MPI_FOUND)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_structure_high_gamma_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage5_closed_loop_diagnostics_audit fibre_types.f90 fibre_parameters.f90 fibre_stage5_closed_loop_diagnostics_audit.f90)
+add_executable(fibre_stage5_closed_loop_diagnostics_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_interpolation.f90
+                    fibre_ibm_spreading.f90
+                    fibre_ibm_power_diagnostics.f90
+                    fibre_stage5_closed_loop_diagnostics_audit.f90)
 target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE MPI::MPI_Fortran)
