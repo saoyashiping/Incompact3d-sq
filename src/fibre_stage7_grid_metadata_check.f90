@@ -2,13 +2,11 @@ program fibre_stage7_grid_metadata_check
   use fibre_parameters, only : mytype
   use fibre_stage7_grid_metadata
   implicit none
-  type(stage7_channel_grid_t) :: g, gu
+  type(stage7_channel_grid_t) :: g, gu, gbad
   integer :: io, flags6, flags70, v, r, modf, ppm, pm, rpc, pdc, fuc, fac, final_status
   integer :: s6dat_exists, s6smoke, s6prior, found_smoke, found_prior
   real(mytype) :: dymin, dymax, vmin, vmax, tv, ev, verr, uverr, chg, tol_geom, tol_noop
-  real(mytype) :: dy_face_err, vol_formula_err
-  integer :: dy_face_ok, vol_formula_ok
-  integer :: nx,ny,nz, inv1,inv2,inv3
+  integer :: nx,ny,nz, inv1,inv2,inv3,inv4
   integer :: uniform_y_detected_flag_saved, uniform_y_nonuniform_flag_saved
   real(mytype) :: uniform_y_volume_error_saved
   real(mytype), allocatable :: rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:)
@@ -50,14 +48,10 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,ES24.16)') 'stage7_grid_expected_total_volume', ev
   write(io,'(A,1X,ES24.16)') 'stage7_grid_total_volume_error', verr
 
-  dy_face_err=maxval(abs(g%dy_cell-(g%y_face(2:g%ny+1)-g%y_face(1:g%ny))))
-  vol_formula_err=maxval(abs(g%volume_y-g%dx*g%dy_cell*g%dz))
-  dy_face_ok=merge(1,0,dy_face_err<=tol_geom)
-  vol_formula_ok=merge(1,0,vol_formula_err<=tol_geom)
-  write(io,'(A,1X,ES24.16)') 'stage7_grid_dy_face_consistency_error_max', dy_face_err
-  write(io,'(A,1X,I0)') 'stage7_grid_dy_face_consistency_status', dy_face_ok
-  write(io,'(A,1X,ES24.16)') 'stage7_grid_volume_formula_error_max', vol_formula_err
-  write(io,'(A,1X,I0)') 'stage7_grid_volume_formula_status', vol_formula_ok
+  write(io,'(A,1X,ES24.16)') 'stage7_grid_dy_face_consistency_error_max', g%dy_face_consistency_error_max
+  write(io,'(A,1X,I0)') 'stage7_grid_dy_face_consistency_status', g%dy_face_consistency_status
+  write(io,'(A,1X,ES24.16)') 'stage7_grid_volume_formula_error_max', g%volume_formula_error_max
+  write(io,'(A,1X,I0)') 'stage7_grid_volume_formula_status', g%volume_formula_status
 
   write(io,'(A,1X,I0)') 'stage7_grid_ymin_correct_flag', merge(1,0,abs(g%y_face(1)-g%ymin)<=1e-12_mytype)
   write(io,'(A,1X,I0)') 'stage7_grid_ymax_correct_flag', merge(1,0,abs(g%y_face(g%ny+1)-g%ymax)<=1e-12_mytype)
@@ -72,11 +66,13 @@ program fibre_stage7_grid_metadata_check
   write(io,'(A,1X,ES24.16)') 'stage7_grid_uniform_y_volume_error', uniform_y_volume_error_saved
 
   call init_stage7_nonuniform_channel_grid(gu,1,ny,nz); call validate_stage7_channel_grid(gu,v,r); inv1=r
-  call init_stage7_nonuniform_channel_grid(gu,nx,ny,nz); gu%y_face(3)=gu%y_face(2); gu%dy_cell(2)=0._mytype; call validate_stage7_channel_grid(gu,v,r); inv2=r
+  call init_stage7_nonuniform_channel_grid(gu,nx,ny,nz); gu%dy_cell(3)=gu%dy_cell(3)*1.25_mytype; call validate_stage7_channel_grid(gu,v,r); inv2=r
   call init_stage7_nonuniform_channel_grid(gu,nx,ny,nz); gu%periodic_y=1; call validate_stage7_channel_grid(gu,v,r); inv3=r
+  call init_stage7_nonuniform_channel_grid(gbad,nx,ny,nz); gbad%volume_y(3)=gbad%volume_y(3)*1.25_mytype; call validate_stage7_channel_grid(gbad,v,r); inv4=r
   write(io,'(A,1X,I0)') 'stage7_grid_invalid_size_rejected_flag', inv1
   write(io,'(A,1X,I0)') 'stage7_grid_invalid_dy_rejected_flag', inv2
   write(io,'(A,1X,I0)') 'stage7_grid_invalid_boundary_rejected_flag', inv3
+  write(io,'(A,1X,I0)') 'stage7_grid_invalid_volume_formula_rejected_flag', inv4
 
   allocate(rhsx(8,6,5),rhsy(8,6,5),rhsz(8,6,5))
   rhsx=1; rhsy=2; rhsz=3
@@ -106,9 +102,9 @@ program fibre_stage7_grid_metadata_check
   if (verr>tol_geom) final_status=0
   if (uniform_y_detected_flag_saved/=1 .or. uniform_y_nonuniform_flag_saved/=0) final_status=0
   if (uniform_y_volume_error_saved>tol_geom) final_status=0
-  if (dy_face_ok/=1 .or. dy_face_err>tol_geom) final_status=0
-  if (vol_formula_ok/=1 .or. vol_formula_err>tol_geom) final_status=0
-  if (inv1/=1 .or. inv2/=1 .or. inv3/=1) final_status=0
+  if (g%dy_face_consistency_status/=1 .or. g%dy_face_consistency_error_max>tol_geom) final_status=0
+  if (g%volume_formula_status/=1 .or. g%volume_formula_error_max>tol_geom) final_status=0
+  if (inv1/=1 .or. inv2/=1 .or. inv3/=1 .or. inv4/=1) final_status=0
   if (chg>tol_noop .or. modf/=0) final_status=0
   if (ppm/=0 .or. pm/=0 .or. rpc/=0 .or. pdc/=0 .or. fuc/=0 .or. fac/=0) final_status=0
   write(io,'(A,1X,I0)') 'stage7_grid_metadata_check_status', final_status

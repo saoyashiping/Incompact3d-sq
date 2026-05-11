@@ -6,7 +6,9 @@ module fibre_stage7_grid_metadata
   type stage7_channel_grid_t
     integer :: nx, ny, nz, periodic_x, periodic_y, periodic_z
     integer :: x_uniform_flag, y_uniform_flag, y_nonuniform_flag, z_uniform_flag, y_monotonic_flag, grid_valid_flag
+    integer :: dy_face_consistency_status, volume_formula_status
     real(mytype) :: xmin, xmax, ymin, ymax, zmin, zmax, dx, dz
+    real(mytype) :: dy_face_consistency_error_max, volume_formula_error_max
     real(mytype), allocatable :: y_center(:), y_face(:), dy_cell(:), volume_y(:)
   end type
 contains
@@ -61,19 +63,52 @@ contains
     type(stage7_channel_grid_t), intent(inout) :: grid
     integer, intent(out) :: valid, rejected_flag
     integer :: j
+    real(mytype), parameter :: tol_geom = 1.0e-12_mytype
+    real(mytype) :: dy_min, dy_max, tol_uniform, dy_from_face, volume_expected
     valid=1
     if (grid%nx<=1 .or. grid%ny<=1 .or. grid%nz<=1) valid=0
     if (grid%dx<=0 .or. grid%dz<=0) valid=0
     do j=1,grid%ny
       if (grid%dy_cell(j)<=0 .or. grid%volume_y(j)<=0) valid=0
     end do
+    grid%y_monotonic_flag=1
     do j=1,grid%ny
-      if (grid%y_face(j+1)<=grid%y_face(j)) valid=0
+      if (grid%y_face(j+1)<=grid%y_face(j)) then
+        grid%y_monotonic_flag=0
+        valid=0
+      end if
     end do
-    if (abs(grid%y_face(1)-grid%ymin)>1e-12_mytype) valid=0
-    if (abs(grid%y_face(grid%ny+1)-grid%ymax)>1e-12_mytype) valid=0
+    if (abs(grid%y_face(1)-grid%ymin)>tol_geom) valid=0
+    if (abs(grid%y_face(grid%ny+1)-grid%ymax)>tol_geom) valid=0
     if (grid%periodic_x/=1 .or. grid%periodic_z/=1 .or. grid%periodic_y/=0) valid=0
-    grid%y_monotonic_flag=merge(1,0,valid==1)
+
+    dy_min=minval(grid%dy_cell)
+    dy_max=maxval(grid%dy_cell)
+    tol_uniform=tol_geom*max(1.0_mytype,abs(dy_max))
+    if (abs(dy_max-dy_min)<=tol_uniform) then
+      grid%y_uniform_flag=1
+      grid%y_nonuniform_flag=0
+    else
+      grid%y_uniform_flag=0
+      grid%y_nonuniform_flag=1
+    end if
+
+    grid%dy_face_consistency_error_max=0.0_mytype
+    do j=1,grid%ny
+      dy_from_face=grid%y_face(j+1)-grid%y_face(j)
+      grid%dy_face_consistency_error_max=max(grid%dy_face_consistency_error_max,abs(grid%dy_cell(j)-dy_from_face))
+    end do
+    grid%dy_face_consistency_status=merge(1,0,grid%dy_face_consistency_error_max<=tol_geom)
+    if (grid%dy_face_consistency_status/=1) valid=0
+
+    grid%volume_formula_error_max=0.0_mytype
+    do j=1,grid%ny
+      volume_expected=grid%dx*grid%dy_cell(j)*grid%dz
+      grid%volume_formula_error_max=max(grid%volume_formula_error_max,abs(grid%volume_y(j)-volume_expected))
+    end do
+    grid%volume_formula_status=merge(1,0,grid%volume_formula_error_max<=tol_geom)
+    if (grid%volume_formula_status/=1) valid=0
+
     rejected_flag=merge(0,1,valid==1)
     grid%grid_valid_flag=valid
   end subroutine
