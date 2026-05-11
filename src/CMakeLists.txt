@@ -1525,7 +1525,12 @@ install(TARGETS fibre_stage7_grid_metadata_check
 )
 
 
-add_executable(fibre_stage7_feedback_sign_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_feedback_sign_audit.f90)
+add_executable(fibre_stage7_feedback_sign_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_feedback.f90
+                    fibre_stage7_feedback_sign_audit.f90)
 target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE MPI::MPI_Fortran)
