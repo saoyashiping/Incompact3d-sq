@@ -1537,7 +1537,13 @@ if (MPI_FOUND)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_feedback_sign_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage7_rho_convention_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_rho_convention_audit.f90)
+add_executable(fibre_stage7_rho_convention_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage6_config.f90
+                    fibre_stage6_rhs_audit.f90
+                    fibre_stage6_controlled_rhs_hook.f90
+                    fibre_stage7_rho_convention_audit.f90)
 target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE MPI::MPI_Fortran)
