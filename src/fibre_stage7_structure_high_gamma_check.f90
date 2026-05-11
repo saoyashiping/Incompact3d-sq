@@ -1,29 +1,119 @@
 program fibre_stage7_structure_high_gamma_check
-  use fibre_parameters, only: mytype, pi
+  use, intrinsic :: ieee_arithmetic
+  use fibre_parameters, only : mytype, fibre_init_straight_free_free
+  use fibre_types, only : fibre_t
+  use fibre_structure_integrator, only : advance_fibre_structure_freefree
+  use fibre_tension_solver, only : solve_tension_freefree
+  use fibre_bending_operator, only : compute_fibre_bending_force_freefree
+  use fibre_boundary_freefree, only : fibre_boundary_residual_t, fibre_compute_freefree_boundary_residual
+  use fibre_diagnostics, only : compute_total_discrete_length, compute_total_length_relative_error, compute_curvature_diagnostics, &
+                                compute_total_structure_energy, compute_linear_momentum
   implicit none
+
   integer, parameter :: nl=33, nsteps=20
-  real(mytype), parameter :: L=1._mytype, A=0.01_mytype, dt=1e-4_mytype
-  real(mytype) :: x(nl),y(nl),z(nl), len0, len, lerr, serr, gamma
-  integer :: i,n,io,nanflag
-  gamma=100._mytype
+  real(mytype), parameter :: L=1._mytype, A=0.01_mytype, dt=1.0e-5_mytype, gamma_high=10._mytype
+  real(mytype), parameter :: tol_len=1.0e-8_mytype, tol_stretch=1.0e-8_mytype
+
+  type(fibre_t) :: fibre
+  type(fibre_boundary_residual_t) :: boundary_residual
+  real(mytype), allocatable :: fb(:,:), a_non_tension(:,:), tension(:), seg_length(:)
+  real(mytype) :: tr, rr, total_length, length_error, stretch_error
+  real(mytype) :: max_length_error, max_stretch_error, final_energy, max_curvature, rms_curvature
+  real(mytype) :: momentum(3), max_velocity_norm, initial_length, final_length
+  integer :: i, step, ierr, io
+  integer :: nan_detected, solver_failure_count
+  integer :: real_structure_solver_called_flag, real_tension_solver_called_flag
+  integer :: real_bending_path_called_flag, freefree_boundary_path_called_flag
+  integer :: energy_finite_flag, curvature_finite_flag, momentum_finite_flag, status
+
+  call fibre_init_straight_free_free(fibre, nl, L, 1.0_mytype, gamma_high)
   do i=1,nl
-    x(i)=L*real(i-1,mytype)/real(nl-1,mytype)
-    y(i)=A*sin(2._mytype*pi*x(i)/L); z(i)=0._mytype
+    fibre%x(2,i) = A * sin(2._mytype*acos(-1._mytype)*real(i-1,mytype)/real(nl-1,mytype))
   end do
-  len0=sum(sqrt((x(2:nl)-x(1:nl-1))**2 + (y(2:nl)-y(1:nl-1))**2))
-  do n=1,nsteps
-    y=y*exp(-gamma*dt*1e-3_mytype)
+  fibre%x_old = fibre%x
+  fibre%v = 0._mytype
+  fibre%f_ext = 0._mytype
+
+  allocate(fb(3,nl), a_non_tension(3,nl), tension(nl-1), seg_length(nl-1))
+
+  real_structure_solver_called_flag = 0
+  real_tension_solver_called_flag = 0
+  real_bending_path_called_flag = 0
+  freefree_boundary_path_called_flag = 0
+  solver_failure_count = 0
+  nan_detected = 0
+  max_length_error = 0._mytype
+  max_stretch_error = 0._mytype
+  max_velocity_norm = 0._mytype
+
+  call compute_total_discrete_length(fibre, initial_length)
+
+  do step=1,nsteps
+    call compute_fibre_bending_force_freefree(fibre, fb)
+    real_bending_path_called_flag = 1
+    a_non_tension = (fb + fibre%f_ext) / fibre%rho_tilde
+
+    call solve_tension_freefree(fibre, dt, a_non_tension, tension, tr, rr, ierr)
+    real_tension_solver_called_flag = 1
+    if (ierr /= 0) solver_failure_count = solver_failure_count + 1
+
+    call fibre_compute_freefree_boundary_residual(fibre, boundary_residual)
+    freefree_boundary_path_called_flag = 1
+
+    call advance_fibre_structure_freefree(fibre, dt, tr, rr, ierr)
+    real_structure_solver_called_flag = 1
+    if (ierr /= 0) solver_failure_count = solver_failure_count + 1
+
+    do i=1,nl-1
+      seg_length(i)=sqrt(sum((fibre%x(:,i+1)-fibre%x(:,i))**2))
+    end do
+    stretch_error = maxval(abs(seg_length/fibre%ds - 1._mytype))
+    call compute_total_length_relative_error(fibre, length_error)
+    max_stretch_error = max(max_stretch_error, stretch_error)
+    max_length_error = max(max_length_error, abs(length_error))
+    max_velocity_norm = max(max_velocity_norm, sqrt(maxval(sum(fibre%v**2,dim=1))))
+
+    if (.not.all(ieee_is_finite(fibre%x)) .or. .not.all(ieee_is_finite(fibre%v)) .or. .not.all(ieee_is_finite(fibre%tension))) then
+      nan_detected = 1
+    end if
   end do
-  len=sum(sqrt((x(2:nl)-x(1:nl-1))**2 + (y(2:nl)-y(1:nl-1))**2)); lerr=abs(len-len0); serr=maxval(abs(y))
-  nanflag=merge(1,0,(len/=len) .or. (serr/=serr))
+
+  call compute_total_discrete_length(fibre, final_length)
+  call compute_total_structure_energy(fibre, final_energy)
+  call compute_curvature_diagnostics(fibre, max_curvature, rms_curvature)
+  call compute_linear_momentum(fibre, momentum)
+
+  energy_finite_flag = merge(1,0,ieee_is_finite(final_energy))
+  curvature_finite_flag = merge(1,0,ieee_is_finite(max_curvature) .and. ieee_is_finite(rms_curvature))
+  momentum_finite_flag = merge(1,0,all(ieee_is_finite(momentum)))
+
+  status = merge(1,0, real_structure_solver_called_flag==1 .and. real_tension_solver_called_flag==1 .and. &
+      real_bending_path_called_flag==1 .and. freefree_boundary_path_called_flag==1 .and. &
+      nan_detected==0 .and. solver_failure_count==0 .and. max_length_error<=tol_len .and. max_stretch_error<=tol_stretch .and. &
+      energy_finite_flag==1 .and. curvature_finite_flag==1 .and. momentum_finite_flag==1)
+
   open(newunit=io,file='stage7_outputs/fibre_stage7_structure_high_gamma_check.dat',status='replace',action='write')
-  write(io,'(A,1X,I0)') 'stage7_highgamma_nan_detected', nanflag
-  write(io,'(A,1X,I0)') 'stage7_highgamma_solver_failure_count', 0
-  write(io,'(A,1X,ES24.16)') 'stage7_highgamma_length_error_max', lerr
-  write(io,'(A,1X,ES24.16)') 'stage7_highgamma_stretch_error_max', lerr
-  write(io,'(A,1X,I0)') 'stage7_highgamma_energy_finite_flag', merge(1,0,nanflag==0)
-  write(io,'(A,1X,I0)') 'stage7_highgamma_curvature_finite_flag', merge(1,0,nanflag==0)
-  write(io,'(A,1X,I0)') 'stage7_highgamma_momentum_finite_flag', merge(1,0,nanflag==0)
-  write(io,'(A,1X,I0)') 'stage7_highgamma_structure_check_status', merge(1,0,nanflag==0 .and. lerr<=1e-8_mytype)
+  write(io,'(A,1X,I0)') 'stage7_highgamma_real_structure_solver_called_flag', real_structure_solver_called_flag
+  write(io,'(A,1X,I0)') 'stage7_highgamma_real_tension_solver_called_flag', real_tension_solver_called_flag
+  write(io,'(A,1X,I0)') 'stage7_highgamma_real_bending_path_called_flag', real_bending_path_called_flag
+  write(io,'(A,1X,I0)') 'stage7_highgamma_freefree_boundary_path_called_flag', freefree_boundary_path_called_flag
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_gamma_value', gamma_high
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_dt', dt
+  write(io,'(A,1X,I0)') 'stage7_highgamma_nsteps', nsteps
+  write(io,'(A,1X,I0)') 'stage7_highgamma_nl', nl
+  write(io,'(A,1X,I0)') 'stage7_highgamma_nan_detected', nan_detected
+  write(io,'(A,1X,I0)') 'stage7_highgamma_solver_failure_count', solver_failure_count
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_length_error_max', max_length_error
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_stretch_error_max', max_stretch_error
+  write(io,'(A,1X,I0)') 'stage7_highgamma_energy_finite_flag', energy_finite_flag
+  write(io,'(A,1X,I0)') 'stage7_highgamma_curvature_finite_flag', curvature_finite_flag
+  write(io,'(A,1X,I0)') 'stage7_highgamma_momentum_finite_flag', momentum_finite_flag
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_initial_length', initial_length
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_final_length', final_length
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_final_energy', final_energy
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_max_curvature', max_curvature
+  write(io,'(A,1X,ES24.16E3)') 'stage7_highgamma_max_velocity_norm', max_velocity_norm
+  write(io,'(A,1X,I0)') 'stage7_highgamma_structure_check_status', status
   close(io)
-end program
+
+end program fibre_stage7_structure_high_gamma_check
