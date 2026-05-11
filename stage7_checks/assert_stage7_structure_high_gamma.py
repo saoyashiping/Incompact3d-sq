@@ -27,5 +27,6 @@ for key in expected_zero:
 assert vals['stage7_highgamma_solver_failure_count'] == 0.0
 assert vals['stage7_highgamma_length_error_max'] <= 1e-8
 assert vals['stage7_highgamma_stretch_error_max'] <= 1e-8
+assert vals['stage7_highgamma_initial_segment_error_max'] <= 1e-14
 
 print('STAGE 7 STRUCTURE HIGH-GAMMA CHECK PASSED')
