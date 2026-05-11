@@ -1550,7 +1550,17 @@ if (MPI_FOUND)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_rho_convention_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage7_structure_high_gamma_check fibre_types.f90 fibre_parameters.f90 fibre_stage7_structure_high_gamma_check.f90)
+add_executable(fibre_stage7_structure_high_gamma_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_geometry.f90
+                    fibre_boundary_freefree.f90
+                    fibre_bending_operator.f90
+                    fibre_implicit_bending.f90
+                    fibre_tension_solver.f90
+                    fibre_diagnostics.f90
+                    fibre_structure_integrator.f90
+                    fibre_stage7_structure_high_gamma_check.f90)
 target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE MPI::MPI_Fortran)
