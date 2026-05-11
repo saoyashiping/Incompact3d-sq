@@ -2,6 +2,8 @@ set(cmake_minimum_version 3.20)
 cmake_minimum_required(VERSION ${cmake_minimum_version})
 cmake_policy(SET CMP0074 NEW)
 
+option(FIBRE_STAGE_CHECKS_ONLY "Deprecated: stage checks now use external decomp2d" OFF)
+
 project(Xcompact3d LANGUAGES Fortran)
 set(version 5.0)
 if (IO_BACKEND MATCHES "adios2")
@@ -44,6 +46,9 @@ else (CMAKE_BUILD_TYPE MATCHES "NONE")
 endif (CMAKE_BUILD_TYPE MATCHES "NONE")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" "${CMAKE_SOURCE_DIR}/cmake/compilers" "${CMAKE_SOURCE_DIR}/cmake/fft")
+if(FIBRE_STAGE_CHECKS_ONLY)
+  message(FATAL_ERROR "FIBRE_STAGE_CHECKS_ONLY=ON is no longer supported. Stage checks must use external decomp2d/2decomp-fft.")
+endif()
 find_package(DECOMP2D REQUIRED)
 
 # Despite IO is handled by 2DECOMP&FFT we need to set it
