@@ -33,20 +33,28 @@ contains
     integer, intent(in)::n,periodic_flag
     integer, intent(out)::idx(4),valid
     real(mytype), intent(out)::wx(4)
-    integer :: i0,a,b
-    real(mytype) :: xc(4),den
+    integer :: i0,a,b,p0,pidx
+    real(mytype) :: xc(4),den,ldom,xmod,q
     valid=0; wx=0
     if (dx<=0._mytype .or. n<4) return
-    i0=floor((x-xmin)/dx)+1
-    idx=(/i0-1,i0,i0+1,i0+2/)
-    do a=1,4
-      if (periodic_flag==1) then
-        idx(a)=wrap_periodic_index(idx(a),n)
-      else
+    if (periodic_flag==1) then
+      ldom=real(n,mytype)*dx
+      xmod=xmin + modulo(x-xmin,ldom)
+      q=(xmod-xmin)/dx
+      p0=floor(q)-1
+      do a=1,4
+        pidx=p0+a-1
+        idx(a)=modulo(pidx,n)+1
+        xc(a)=xmin + real(pidx,mytype)*dx
+      end do
+    else
+      i0=floor((x-xmin)/dx)+1
+      idx=(/i0-1,i0,i0+1,i0+2/)
+      do a=1,4
         if (idx(a)<1 .or. idx(a)>n) return
-      end if
-      xc(a)=xmin + real(idx(a)-1,mytype)*dx
-    end do
+        xc(a)=xmin + real(idx(a)-1,mytype)*dx
+      end do
+    end if
     do a=1,4
       wx(a)=1._mytype
       do b=1,4

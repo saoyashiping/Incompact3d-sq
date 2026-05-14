@@ -8,9 +8,9 @@ program fibre_stage7_scalar_interpolation_check
   integer, parameter :: nx=16,ny=17,nz=12,np=6
   real(mytype), allocatable :: phi(:,:,:),rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:)
   real(mytype) :: xp(np),yp(np),zp(np),pl,expv,err
-  real(mytype) :: werr_max,cerr_max,lerr_max,perr_max,poerr_max,noop_change
+  real(mytype) :: werr_max,cerr_max,lerr_max,perr_max,poerr_max,noop_change,val0,val1
   integer :: i,j,k,p,valid,rej,unsafe_count,valid_cnt,nearwall_unsafe_count
-  integer :: dep6,dep70,dep71,wstat,cstat,lstat,pstat,pxstat,pzstat,nwblock
+  integer :: dep6,dep70,dep71,wstat,cstat,lstat,pstat,pxstat,pzstat,nwblock,wrapx_hit,wrapz_hit
   integer :: noop_mod,pp,proj,rp,dns,flu,fib,status
 
   call init_stage7_nonuniform_channel_grid(grid,nx,ny,nz)
@@ -65,12 +65,23 @@ program fibre_stage7_scalar_interpolation_check
     phi(i,j,k)=sin(2._mytype*stage7_pi*(grid%xmin+real(i-1,mytype)*grid%dx-grid%xmin)/(grid%xmax-grid%xmin)) + &
                cos(2._mytype*stage7_pi*(grid%zmin+real(k-1,mytype)*grid%dz-grid%zmin)/(grid%zmax-grid%zmin)) + 0.25_mytype*grid%y_center(j)
   end do; end do; end do
-  do p=3,4
-    call build_stage7_scalar_interp_weight(grid,xp(p),yp(p),zp(p),wt); call interpolate_stage7_scalar(phi,wt,pl)
-    expv=sin(2._mytype*stage7_pi*(xp(p)-grid%xmin)/(grid%xmax-grid%xmin)) + cos(2._mytype*stage7_pi*(zp(p)-grid%zmin)/(grid%zmax-grid%zmin)) + 0.25_mytype*yp(p)
-    perr_max=max(perr_max,abs(pl-expv))
-  end do
-  pxstat=merge(1,0,perr_max<=1e-10_mytype); pzstat=pxstat
+  wrapx_hit=0; wrapz_hit=0
+  call build_stage7_scalar_interp_weight(grid,grid%xmin+0.1_mytype*grid%dx,yp(3),zp(3),wt)
+  call interpolate_stage7_scalar(phi,wt,val0)
+  if (any(wt%i(1:wt%n)==grid%nx) .and. any(wt%i(1:wt%n)==1)) wrapx_hit=1
+  call build_stage7_scalar_interp_weight(grid,grid%xmin+0.1_mytype*grid%dx+(grid%xmax-grid%xmin),yp(3),zp(3),wt)
+  call interpolate_stage7_scalar(phi,wt,val1)
+  perr_max=max(perr_max,abs(val0-val1))
+
+  call build_stage7_scalar_interp_weight(grid,xp(3),yp(3),grid%zmin+0.1_mytype*grid%dz,wt)
+  call interpolate_stage7_scalar(phi,wt,val0)
+  if (any(wt%k(1:wt%n)==grid%nz) .and. any(wt%k(1:wt%n)==1)) wrapz_hit=1
+  call build_stage7_scalar_interp_weight(grid,xp(3),yp(3),grid%zmin+0.1_mytype*grid%dz+(grid%zmax-grid%zmin),wt)
+  call interpolate_stage7_scalar(phi,wt,val1)
+  perr_max=max(perr_max,abs(val0-val1))
+
+  pxstat=merge(1,0,perr_max<=1e-12_mytype .and. wrapx_hit==1)
+  pzstat=merge(1,0,perr_max<=1e-12_mytype .and. wrapz_hit==1)
 
   nearwall_unsafe_count=0
   call build_stage7_scalar_interp_weight(grid,xp(1),grid%y_center(1),zp(1),wt)
@@ -123,16 +134,23 @@ contains
   integer function check_dat(path,key,val)
     character(*),intent(in)::path,key
     real(mytype),intent(in)::val
-    character(len=256)::line,k
+    character(len=512)::line,rest
     real(mytype)::v
-    integer::u,ios
+    integer::u,ios,pos
     check_dat=0
     if (.not.file_exists(path)) return
     open(newunit=u,file=path,status='old',iostat=ios); if (ios/=0) return
     do
       read(u,'(A)',iostat=ios) line; if (ios/=0) exit
-      read(line,*,iostat=ios) k,v
-      if (ios==0 .and. trim(k)==trim(key) .and. abs(v-val)<=1e-12_mytype) then; check_dat=1; exit; end if
+      line=adjustl(line)
+      if (index(line,trim(key))==1) then
+        rest=adjustl(line(len_trim(key)+1:))
+        if (len_trim(rest)>0 .and. rest(1:1)=='=') rest=adjustl(rest(2:))
+        read(rest,*,iostat=ios) v
+        if (ios==0 .and. abs(v-val)<=1e-12_mytype) then
+          check_dat=1; exit
+        end if
+      end if
     end do
     close(u)
   end function

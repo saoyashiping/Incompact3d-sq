@@ -19,7 +19,7 @@ assert vals['stage7_interp_weight_sum_error_max']<=1e-12
 assert vals['stage7_interp_constant_error_max']<=1e-12
 assert vals['stage7_interp_linear_error_max']<=1e-11
 assert vals['stage7_interp_poiseuille_error_max']<=1e-11
-assert vals['stage7_interp_periodic_wrap_error_max']<=1e-10
+assert vals['stage7_interp_periodic_wrap_error_max']<=1e-12
 assert vals['stage7_interp_noop_rhs_change_max']<=1e-14
 assert vals['stage7_interp_valid_weight_count']>=5
 assert vals['stage7_interp_nearwall_unsafe_count']>0
