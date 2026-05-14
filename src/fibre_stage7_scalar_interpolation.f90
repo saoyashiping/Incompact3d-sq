@@ -39,20 +39,20 @@ contains
     if (dx<=0._mytype .or. n<4) return
     if (periodic_flag==1) then
       ldom=real(n,mytype)*dx
-      xmod=xmin + modulo(x-xmin,ldom)
-      q=(xmod-xmin)/dx
+      q=modulo(x-xmin,ldom)/dx
       p0=floor(q)-1
       do a=1,4
         pidx=p0+a-1
         idx(a)=modulo(pidx,n)+1
-        xc(a)=xmin + real(pidx,mytype)*dx
+        xc(a)=real(pidx,mytype)
       end do
     else
-      i0=floor((x-xmin)/dx)+1
+      q=(x-xmin)/dx
+      i0=floor(q)+1
       idx=(/i0-1,i0,i0+1,i0+2/)
       do a=1,4
         if (idx(a)<1 .or. idx(a)>n) return
-        xc(a)=xmin + real(idx(a)-1,mytype)*dx
+        xc(a)=real(idx(a)-1,mytype)
       end do
     end if
     do a=1,4
@@ -61,7 +61,7 @@ contains
         if (b/=a) then
           den=xc(a)-xc(b)
           if (abs(den)<=tiny(1._mytype)) return
-          wx(a)=wx(a)*(x-xc(b))/den
+          wx(a)=wx(a)*(q-xc(b))/den
         end if
       end do
     end do
