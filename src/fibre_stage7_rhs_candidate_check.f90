@@ -5,7 +5,7 @@ program fibre_stage7_rhs_candidate_check
   use fibre_stage7_grid_metadata
   use fibre_stage7_velocity_interpolation
   use fibre_stage7_channel_grid_adapter
-  use fibre_stage7_rhs_candidate
+  use fibre_stage7_rhs_candidate, only: build_stage7_force_density_candidate, apply_stage7_candidate_to_rhs_controlled, compute_stage7_eulerian_force_total, compute_stage7_lagrangian_force_total
   implicit none
   type(stage7_channel_grid_t)::gref,g
   type(stage7_velocity_layout_t)::layout
@@ -95,15 +95,5 @@ contains
   subroutine dependency_status(s6,s70,s71,s72,s73,s74,s75,s76,s77,s78)
     integer,intent(out)::s6,s70,s71,s72,s73,s74,s75,s76,s77,s78
     s6=1;s70=1;s71=1;s72=1;s73=1;s74=1;s75=1;s76=1;s77=1;s78=1
-  end subroutine
-  subroutine compute_stage7_lagrangian_force_total(nlag,lag_force,seg_len,total)
-    integer,intent(in)::nlag
-    real(mytype),intent(in)::lag_force(3,nlag),seg_len(nlag)
-    real(mytype),intent(out)::total(3)
-    integer::l
-    total=0._mytype
-    do l=1,nlag
-      total(:)=total(:)+lag_force(:,l)*seg_len(l)
-    end do
   end subroutine
 end program
