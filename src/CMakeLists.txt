@@ -1525,28 +1525,179 @@ install(TARGETS fibre_stage7_grid_metadata_check
 )
 
 
-add_executable(fibre_stage7_feedback_sign_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_feedback_sign_audit.f90)
+add_executable(fibre_stage7_feedback_sign_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_feedback.f90
+                    fibre_stage7_feedback_sign_audit.f90)
 target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_feedback_sign_audit PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_feedback_sign_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage7_rho_convention_audit fibre_types.f90 fibre_parameters.f90 fibre_stage7_rho_convention_audit.f90)
+add_executable(fibre_stage7_rho_convention_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage6_config.f90
+                    fibre_stage6_rhs_audit.f90
+                    fibre_stage6_controlled_rhs_hook.f90
+                    fibre_stage7_rho_convention_audit.f90)
 target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_rho_convention_audit PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_rho_convention_audit RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage7_structure_high_gamma_check fibre_types.f90 fibre_parameters.f90 fibre_stage7_structure_high_gamma_check.f90)
+add_executable(fibre_stage7_scalar_interpolation_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_scalar_interpolation_check.f90)
+target_link_libraries(fibre_stage7_scalar_interpolation_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_scalar_interpolation_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_scalar_interpolation_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_scalar_interpolation_robustness_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_scalar_interpolation_robustness_check.f90)
+target_link_libraries(fibre_stage7_scalar_interpolation_robustness_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_scalar_interpolation_robustness_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_scalar_interpolation_robustness_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_velocity_interpolation_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_velocity_interpolation_check.f90)
+target_link_libraries(fibre_stage7_velocity_interpolation_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_velocity_interpolation_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_velocity_interpolation_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_force_spreading_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_force_spreading_check.f90)
+target_link_libraries(fibre_stage7_force_spreading_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_force_spreading_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_force_spreading_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_power_consistency_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_power_consistency_check.f90)
+target_link_libraries(fibre_stage7_power_consistency_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_power_consistency_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_power_consistency_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_boundary_safety_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_boundary_safety.f90
+                    fibre_stage7_boundary_safety_check.f90)
+target_link_libraries(fibre_stage7_boundary_safety_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_boundary_safety_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_boundary_safety_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_channel_grid_adapter_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_boundary_safety.f90
+                    fibre_stage7_channel_grid_adapter.f90
+                    fibre_stage7_channel_grid_adapter_check.f90)
+target_link_libraries(fibre_stage7_channel_grid_adapter_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_channel_grid_adapter_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_channel_grid_adapter_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_rhs_candidate_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage6_config.f90
+                    fibre_stage6_controlled_rhs_hook.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_boundary_safety.f90
+                    fibre_stage7_channel_grid_adapter.f90
+                    fibre_stage7_rhs_candidate.f90
+                    fibre_stage7_rhs_candidate_check.f90)
+target_link_libraries(fibre_stage7_rhs_candidate_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_rhs_candidate_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_rhs_candidate_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+add_executable(fibre_stage7_structure_high_gamma_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_geometry.f90
+                    fibre_boundary_freefree.f90
+                    fibre_bending_operator.f90
+                    fibre_implicit_bending.f90
+                    fibre_tension_solver.f90
+                    fibre_diagnostics.f90
+                    fibre_structure_integrator.f90
+                    fibre_stage7_structure_high_gamma_check.f90)
 target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage7_structure_high_gamma_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_structure_high_gamma_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-add_executable(fibre_stage5_closed_loop_diagnostics_audit fibre_types.f90 fibre_parameters.f90 fibre_stage5_closed_loop_diagnostics_audit.f90)
+add_executable(fibre_stage5_closed_loop_diagnostics_audit
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_ibm_types.f90
+                    fibre_ibm_delta.f90
+                    fibre_ibm_interpolation.f90
+                    fibre_ibm_spreading.f90
+                    fibre_ibm_power_diagnostics.f90
+                    fibre_stage5_closed_loop_diagnostics_audit.f90)
 target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE decomp2d)
 if (MPI_FOUND)
   target_link_libraries(fibre_stage5_closed_loop_diagnostics_audit PRIVATE MPI::MPI_Fortran)
