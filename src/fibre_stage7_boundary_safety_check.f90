@@ -38,7 +38,14 @@ program fibre_stage7_boundary_safety_check
   invalid_y=ieee_value(0._mytype,ieee_quiet_nan); call classify_stage7_boundary_point(grid,layout,x(1),invalid_y,z(1),1,res); invcoord=res%invalid_coord_blocked_flag; invstatus=merge(1,0,invcoord==1)
   call init_stage7_collocated_velocity_layout(layout_bad); layout_bad%collocated_flag=0; layout_bad%component_specific_flag=0; layout_bad%u_layout_valid_flag=0; layout_bad%v_layout_valid_flag=0; layout_bad%w_layout_valid_flag=0; layout_bad%layout_valid_flag=0
   call classify_stage7_boundary_point(grid,layout_bad,x(1),y(1),z(1),1,res); invlay=res%invalid_layout_blocked_flag; invlay_status=merge(1,0,invlay==1)
-  call classify_stage7_boundary_point(grid,layout,x(1)+lx,y(1),z(1)-lz,1,res); px=res%periodic_x_allowed_flag; pz=res%periodic_z_allowed_flag; pstat=merge(1,0,px==1 .and. pz==1 .and. res%safe_flag==1)
+  px=1; pz=1
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx,y(1),grid%zmin+0.2_mytype*grid%dz,1,res); px=min(px,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_x_allowed_flag==1))
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx+lx,y(1),grid%zmin+0.2_mytype*grid%dz,1,res); px=min(px,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_x_allowed_flag==1))
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx-lx,y(1),grid%zmin+0.2_mytype*grid%dz,1,res); px=min(px,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_x_allowed_flag==1))
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx,y(1),grid%zmin+0.2_mytype*grid%dz,1,res); pz=min(pz,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_z_allowed_flag==1))
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx,y(1),grid%zmin+0.2_mytype*grid%dz+lz,1,res); pz=min(pz,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_z_allowed_flag==1))
+  call classify_stage7_boundary_point(grid,layout,grid%xmin+0.2_mytype*grid%dx,y(1),grid%zmin+0.2_mytype*grid%dz-lz,1,res); pz=min(pz,merge(1,0,res%safe_flag==1 .and. res%blocked_flag==0 .and. res%periodic_z_allowed_flag==1))
+  pstat=merge(1,0,px==1 .and. pz==1)
   block_no_write=merge(1,0,chg1<=1e-14_mytype); chg2=chg1
   rhsx=1;rhsy=2;rhsz=3; call stage7_grid_noop_rhs_guard(rhsx,rhsy,rhsz,noop,noop_mod); call stage7_grid_pressure_status(pp,proj,rp,dns,flu,fib)
   status=merge(1,0,dep6*dep70*dep71*dep72*dep73*dep74*dep75*dep76==1 .and. safe_ok==1 .and. nw_ok==1 .and. yout==1 .and. invstatus==1 .and. invlay_status==1 .and. pstat==1 .and. block_no_write==1 .and. noop_mod==0 .and. pp==0 .and. proj==0 .and. dns==0 .and. flu==0 .and. fib==0 .and. noop<=1e-14_mytype)

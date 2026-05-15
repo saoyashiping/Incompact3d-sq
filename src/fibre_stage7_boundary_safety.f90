@@ -22,6 +22,8 @@ contains
     if (.not.ieee_is_finite(x) .or. .not.ieee_is_finite(y) .or. .not.ieee_is_finite(z)) then
       res%blocked_flag=1;res%unsafe_flag=1;res%invalid_coord_blocked_flag=1;res%status_code=STAGE7_POINT_INVALID_COORD_BLOCKED;return
     end if
+    res%periodic_x_allowed_flag=1
+    res%periodic_z_allowed_flag=1
     if (y<grid%ymin .or. y>grid%ymax) then
       res%blocked_flag=1;res%unsafe_flag=1;res%y_outside_blocked_flag=1;res%status_code=STAGE7_POINT_Y_OUTSIDE_BLOCKED;return
     end if
@@ -36,8 +38,6 @@ contains
       res%safe_flag=1;res%status_code=STAGE7_POINT_SAFE
     end if
     lx=grid%xmax-grid%xmin; lz=grid%zmax-grid%zmin
-    if (abs(abs(x-grid%xmin)-lx)<2*grid%dx .or. abs(abs(x-grid%xmax)-lx)<2*grid%dx .or. (x>=grid%xmin .and. x<=grid%xmax)) res%periodic_x_allowed_flag=1
-    if (abs(abs(z-grid%zmin)-lz)<2*grid%dz .or. abs(abs(z-grid%zmax)-lz)<2*grid%dz .or. (z>=grid%zmin .and. z<=grid%zmax)) res%periodic_z_allowed_flag=1
     call free_stage7_interp_weight(w)
   end subroutine
 end module
