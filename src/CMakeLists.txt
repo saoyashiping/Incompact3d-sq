@@ -1656,6 +1656,7 @@ add_executable(fibre_stage7_rhs_candidate_check
                     fibre_types.f90
                     fibre_parameters.f90
                     fibre_stage6_config.f90
+                    fibre_stage6_rhs_audit.f90
                     fibre_stage6_controlled_rhs_hook.f90
                     fibre_stage7_config.f90
                     fibre_stage7_grid_metadata.f90
