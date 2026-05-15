@@ -22,5 +22,9 @@ assert abs(need('stage7_rhs_candidate_force_conservation_relative_error'))<=1e-1
 assert need('stage7_rhs_force_density_max')>1e-14
 assert need('stage7_rhs_double_division_error_rho2')>1e-12
 assert need('stage7_rhs_double_division_error_rho4')>1e-12
+assert need('stage7_rhs_blocked_candidate_count')>0
+assert abs(need('stage7_rhs_blocked_force_buffer_change_max'))<=1e-14
+assert abs(need('stage7_rhs_blocked_rhs_change_max'))<=1e-14
+assert abs(need('stage7_rhs_default_rhs_change_max'))<=1e-14
 
 print('STAGE 7.9 RHS CANDIDATE CHECK PASSED')
