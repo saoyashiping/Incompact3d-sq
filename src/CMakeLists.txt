@@ -1635,6 +1635,23 @@ if (MPI_FOUND)
 endif (MPI_FOUND)
 install(TARGETS fibre_stage7_boundary_safety_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
+add_executable(fibre_stage7_channel_grid_adapter_check
+                    fibre_types.f90
+                    fibre_parameters.f90
+                    fibre_stage7_config.f90
+                    fibre_stage7_grid_metadata.f90
+                    fibre_stage7_scalar_interpolation.f90
+                    fibre_stage7_velocity_interpolation.f90
+                    fibre_stage7_force_spreading.f90
+                    fibre_stage7_boundary_safety.f90
+                    fibre_stage7_channel_grid_adapter.f90
+                    fibre_stage7_channel_grid_adapter_check.f90)
+target_link_libraries(fibre_stage7_channel_grid_adapter_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage7_channel_grid_adapter_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_stage7_channel_grid_adapter_check RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
 add_executable(fibre_stage7_structure_high_gamma_check
                     fibre_types.f90
                     fibre_parameters.f90
