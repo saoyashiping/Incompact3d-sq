@@ -14,7 +14,13 @@ for k in ['stage7_rhs_stage6_dependency_status','stage7_rhs_stage7_0_dependency_
 for k in ['stage7_rhs_default_injected_flag','stage7_rhs_default_modified_flag','stage7_rhs_controlled_candidate_blocked_count','stage7_rhs_controlled_candidate_unsafe_count','stage7_rhs_double_division_detected_flag','stage7_rhs_blocked_injected_flag','stage7_rhs_production_injected_flag','stage7_rhs_pressure_poisson_modified_flag','stage7_rhs_projection_modified_flag','stage7_rhs_real_projection_called_flag','stage7_rhs_production_dns_called_flag','stage7_rhs_fluid_update_called_flag','stage7_rhs_fibre_advance_called_flag']:
  assert need(k)==0.0,k
 
-assert abs(need('stage7_rhs_candidate_force_conservation_error'))<=1e-12, 'force conservation abs error too large'
-assert abs(need('stage7_rhs_candidate_force_conservation_relative_error'))<=1e-12, 'force conservation relative error too large'
+assert abs(need('stage7_rhs_rho2_increment_error_max'))<=1e-12
+assert abs(need('stage7_rhs_rho4_increment_error_max'))<=1e-12
+assert abs(need('stage7_rhs_rho_scaling_error_max'))<=1e-12
+assert abs(need('stage7_rhs_candidate_force_conservation_error'))<=1e-12
+assert abs(need('stage7_rhs_candidate_force_conservation_relative_error'))<=1e-12
+assert need('stage7_rhs_force_density_max')>1e-14
+assert need('stage7_rhs_double_division_error_rho2')>1e-12
+assert need('stage7_rhs_double_division_error_rho4')>1e-12
 
 print('STAGE 7.9 RHS CANDIDATE CHECK PASSED')
