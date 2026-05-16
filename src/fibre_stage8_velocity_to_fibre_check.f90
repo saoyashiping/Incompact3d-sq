@@ -1,5 +1,5 @@
 program fibre_stage8_velocity_to_fibre_check
-  use fibre_parameters, only: mytype, pi
+  use fibre_parameters, only: mytype
   use fibre_stage7_grid_metadata
   use fibre_stage7_velocity_interpolation, only: stage7_velocity_layout_t, init_stage7_collocated_velocity_layout
   use fibre_stage8_runtime_grid_bridge
@@ -15,6 +15,7 @@ program fibre_stage8_velocity_to_fibre_check
   integer :: s7m,s7o,s7s,s7c,s80o,s80s,s81o,s81s,s82o,s82s,dep,final
   integer :: cst_ok,lin_ok,poi_ok,perx_ok,perz_ok,per_ok,nw_ok,oy_ok,badl_ok,other0_ok,clr_ok,noop_ok
   real(mytype) :: x0,y0,z0,length,dl,err,lin_err,poi_err,perx_err,perz_err,nw_werr,oy_werr,bad_werr,vf_err,sl_err,fo_err,cv_err,rhschg
+  real(mytype), parameter :: pi_stage8 = 4.0_mytype * atan(1.0_mytype)
   call ensure_dir('stage8_outputs')
   call file_exists_int('stage7_outputs/STAGE7_CLOSED.md',s7m); call file_exists_int('stage7_outputs/fibre_stage7_total_smoke_check.dat',s7o)
   call get_int('stage7_outputs/fibre_stage7_total_smoke_check.dat','stage7_total_smoke_check_status',s7s); call get_int('stage7_outputs/fibre_stage7_total_smoke_check.dat','stage7_total_closed_marker_status',s7c)
@@ -55,9 +56,9 @@ program fibre_stage8_velocity_to_fibre_check
   do l=1,nlag; expv(:,l)=0; expv(1,l)=1._mytype-state%x(2,l)**2; end do
   call compute_stage8_velocity_state_error(state,expv,poi_err); poi_ok=merge(1,0,poi_err<=1e-11_mytype)
   do k=1,nz; do j=1,ny; do i=1,nx
-    ux(i,j,k)=sin(2*pi*(real(i-1,mytype))/real(nx,mytype))+0.2_mytype*gbridge%y_center(j)
-    uy(i,j,k)=cos(2*pi*(real(k-1,mytype))/real(nz,mytype))-0.1_mytype*gbridge%y_center(j)
-    uz(i,j,k)=sin(2*pi*(real(i-1,mytype))/real(nx,mytype))+cos(2*pi*(real(k-1,mytype))/real(nz,mytype))
+    ux(i,j,k)=sin(2.0_mytype*pi_stage8*(real(i-1,mytype))/real(nx,mytype))+0.2_mytype*gbridge%y_center(j)
+    uy(i,j,k)=cos(2.0_mytype*pi_stage8*(real(k-1,mytype))/real(nz,mytype))-0.1_mytype*gbridge%y_center(j)
+    uz(i,j,k)=sin(2.0_mytype*pi_stage8*(real(i-1,mytype))/real(nx,mytype))+cos(2.0_mytype*pi_stage8*(real(k-1,mytype))/real(nz,mytype))
   end do; end do; end do
   call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc)
   dl=gbridge%xmax-gbridge%xmin; state%x(1,1)=state%x(1,1)+dl; state%x(1,2)=state%x(1,2)-dl
@@ -66,13 +67,13 @@ program fibre_stage8_velocity_to_fibre_check
   perx_err=maxval(abs(state%u_fluid_lag(:,1)-state%u_fluid_lag(:,2))); perz_err=maxval(abs(state%u_fluid_lag(:,3)-state%u_fluid_lag(:,4)))
   perx_ok=merge(1,0,perx_err<=1e-12_mytype); perz_ok=merge(1,0,perz_err<=1e-12_mytype); per_ok=merge(1,0,perx_ok==1.and.perz_ok==1)
   call build_stage8_straight_fibre_state(state,gbridge,x0,gbridge%y_center(1),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); nw_werr=maxval(abs(state%u_fluid_lag),mask=state%point_blocked_flag==1)
+  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); nw_werr=max_u_fluid_on_blocked_points(state)
   nw_ok=merge(1,0,bc>0.and.uc>0.and.nw_werr<=1e-14_mytype)
   call build_stage8_straight_fibre_state(state,gbridge,x0,gbridge%ymin-0.1_mytype*(gbridge%ymax-gbridge%ymin),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); oy_werr=maxval(abs(state%u_fluid_lag),mask=state%point_blocked_flag==1)
+  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); oy_werr=max_u_fluid_on_blocked_points(state)
   oy_ok=merge(1,0,bc>0.and.oy_werr<=1e-14_mytype)
   call build_stage8_straight_fibre_state(state,gbridge,x0,0.5_mytype*(gbridge%ymin+gbridge%ymax),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call interpolate_stage8_velocity_to_state(gbridge,layout_bad,ux,uy,uz,state,vc,bc,uc); bad_werr=maxval(abs(state%u_fluid_lag)); badl_ok=merge(1,0,bc>0.and.bad_werr<=1e-14_mytype)
+  call interpolate_stage8_velocity_to_state(gbridge,layout_bad,ux,uy,uz,state,vc,bc,uc); bad_werr=max_u_fluid_on_blocked_points(state); badl_ok=merge(1,0,bc>0.and.bad_werr<=1e-14_mytype)
   vf_err=maxval(abs(state%v_fibre)); sl_err=maxval(abs(state%slip)); fo_err=max(maxval(abs(state%force_structure)),maxval(abs(state%force_fluid)))
   other0_ok=merge(1,0,vf_err<=1e-14_mytype.and.sl_err<=1e-14_mytype.and.fo_err<=1e-14_mytype)
   allocate(xkeep(3,nlag),dskeep(nlag)); xkeep=state%x; dskeep=state%ds
@@ -109,5 +110,23 @@ contains
     val=0; inquire(file=path,exist=ex); if(.not.ex)return; open(newunit=u,file=path,status='old',action='read',iostat=ios); if(ios/=0)return
     do; read(u,*,iostat=ios) k,x; if(ios/=0)exit; if(trim(k)==trim(key)) then; val=nint(x); exit; end if; end do; close(u)
   end
+
+  function max_u_fluid_on_blocked_points(state) result(err)
+    use fibre_parameters, only: mytype
+    use fibre_stage8_lagrangian_state, only: stage8_lagrangian_state_t
+    type(stage8_lagrangian_state_t), intent(in) :: state
+    real(mytype) :: err
+    integer :: l
+
+    err = 0.0_mytype
+    if (.not. allocated(state%u_fluid_lag)) return
+    if (.not. allocated(state%point_blocked_flag)) return
+
+    do l = 1, state%nlag
+      if (state%point_blocked_flag(l) == 1) then
+        err = max(err, maxval(abs(state%u_fluid_lag(:,l))))
+      end if
+    end do
+  end function max_u_fluid_on_blocked_points
   subroutine init_rhs(a); real(mytype),intent(out)::a(4,3,2); integer::i,j,k; do k=1,2;do j=1,3;do i=1,4; a(i,j,k)=real(i+j+k,mytype); end do;end do;end do; end
 end program
