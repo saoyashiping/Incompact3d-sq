@@ -15,6 +15,8 @@ expected_one = [
     'stage5_closed_loop_used_spreading_buffer_flag',
     'stage5_closed_loop_used_lagrangian_force_flag',
     'stage5_closed_loop_used_interpolated_velocity_flag',
+    'stage5_closed_loop_real_spreading_module_called_flag',
+    'stage5_closed_loop_real_interpolation_module_called_flag',
     'stage5_closed_loop_no_tautological_force_flag',
     'stage5_closed_loop_no_tautological_power_flag',
     'stage5_closed_loop_diagnostics_audit_status',
