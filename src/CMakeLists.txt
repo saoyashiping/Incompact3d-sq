@@ -1700,6 +1700,7 @@ install(TARGETS fibre_stage8_config_check RUNTIME DESTINATION ${CMAKE_INSTALL_BI
 add_executable(fibre_stage8_runtime_grid_bridge_check
                     fibre_types.f90
                     fibre_parameters.f90
+                    fibre_stage7_config.f90
                     fibre_stage7_grid_metadata.f90
                     fibre_stage7_channel_grid_adapter.f90
                     fibre_stage7_scalar_interpolation.f90
