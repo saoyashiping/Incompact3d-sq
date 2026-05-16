@@ -9,12 +9,12 @@ program fibre_stage8_velocity_to_fibre_check
   type(stage7_channel_grid_t) :: gref,gbridge
   type(stage8_runtime_grid_bridge_status_t) :: st
   type(stage7_velocity_layout_t) :: layout,layout_bad
-  type(stage8_lagrangian_state_t) :: state
+  type(stage8_lagrangian_state_t) :: state,state_base,state_xshift,state_zshift
   real(mytype), allocatable :: yface(:),ycenter(:),ux(:,:,:),uy(:,:,:),uz(:,:,:),expv(:,:),rhs0(:,:,:),rhs1(:,:,:),xkeep(:,:),dskeep(:)
-  integer :: nx,ny,nz,nlag,io,i,j,k,l,v,r,vc,bc,uc
+  integer :: nx,ny,nz,nlag,io,i,j,k,l,v,r,vc,bc,uc,vcx,bcx,ucx,vcz,bcz,ucz
   integer :: s7m,s7o,s7s,s7c,s80o,s80s,s81o,s81s,s82o,s82s,dep,final
   integer :: cst_ok,lin_ok,poi_ok,perx_ok,perz_ok,per_ok,nw_ok,oy_ok,badl_ok,other0_ok,clr_ok,noop_ok
-  real(mytype) :: x0,y0,z0,length,dl,err,lin_err,poi_err,perx_err,perz_err,nw_werr,oy_werr,bad_werr,vf_err,sl_err,fo_err,cv_err,rhschg
+  real(mytype) :: x0,y0,z0,length,dl,err,lin_err,poi_err,perx_err,perz_err,nw_werr,oy_werr,bad_werr,vf_err,sl_err,fo_err,cv_err,rhschg,lx,lz
   real(mytype), parameter :: pi_stage8 = 4.0_mytype * atan(1.0_mytype)
   call ensure_dir('stage8_outputs')
   call file_exists_int('stage7_outputs/STAGE7_CLOSED.md',s7m); call file_exists_int('stage7_outputs/fibre_stage7_total_smoke_check.dat',s7o)
@@ -55,17 +55,30 @@ program fibre_stage8_velocity_to_fibre_check
   call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc)
   do l=1,nlag; expv(:,l)=0; expv(1,l)=1._mytype-state%x(2,l)**2; end do
   call compute_stage8_velocity_state_error(state,expv,poi_err); poi_ok=merge(1,0,poi_err<=1e-11_mytype)
+  lx=gbridge%xmax-gbridge%xmin; lz=gbridge%zmax-gbridge%zmin
+  x0=gbridge%xmin+0.37_mytype*lx; y0=0.5_mytype*(gbridge%ymin+gbridge%ymax); z0=gbridge%zmin+0.41_mytype*lz
+  length=0.2_mytype*min(lx,lz)
+  call init_stage8_lagrangian_state(state_base); call allocate_stage8_lagrangian_state(state_base,nlag,v,r)
+  call build_stage8_straight_fibre_state(state_base,gbridge,x0,y0,z0,length,[0._mytype,0._mytype,1._mytype],v,r)
+  call init_stage8_lagrangian_state(state_xshift); call allocate_stage8_lagrangian_state(state_xshift,nlag,v,r)
+  state_xshift%x=state_base%x; state_xshift%ds=state_base%ds; state_xshift%v_fibre=state_base%v_fibre
+  state_xshift%x(1,:)=state_base%x(1,:)+lx
+  call init_stage8_lagrangian_state(state_zshift); call allocate_stage8_lagrangian_state(state_zshift,nlag,v,r)
+  state_zshift%x=state_base%x; state_zshift%ds=state_base%ds; state_zshift%v_fibre=state_base%v_fibre
+  state_zshift%x(3,:)=state_base%x(3,:)+lz
   do k=1,nz; do j=1,ny; do i=1,nx
-    ux(i,j,k)=sin(2.0_mytype*pi_stage8*(real(i-1,mytype))/real(nx,mytype))+0.2_mytype*gbridge%y_center(j)
-    uy(i,j,k)=cos(2.0_mytype*pi_stage8*(real(k-1,mytype))/real(nz,mytype))-0.1_mytype*gbridge%y_center(j)
-    uz(i,j,k)=sin(2.0_mytype*pi_stage8*(real(i-1,mytype))/real(nx,mytype))+cos(2.0_mytype*pi_stage8*(real(k-1,mytype))/real(nz,mytype))
+    ux(i,j,k)=sin(2.0_mytype*pi_stage8*((gbridge%xmin+real(i-1,mytype)*gbridge%dx)-gbridge%xmin)/lx)+0.2_mytype*gbridge%y_center(j)
+    uy(i,j,k)=cos(2.0_mytype*pi_stage8*((gbridge%zmin+real(k-1,mytype)*gbridge%dz)-gbridge%zmin)/lz)-0.1_mytype*gbridge%y_center(j)
+    uz(i,j,k)=sin(2.0_mytype*pi_stage8*((gbridge%xmin+real(i-1,mytype)*gbridge%dx)-gbridge%xmin)/lx)+cos(2.0_mytype*pi_stage8*((gbridge%zmin+real(k-1,mytype)*gbridge%dz)-gbridge%zmin)/lz)
   end do; end do; end do
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc)
-  dl=gbridge%xmax-gbridge%xmin; state%x(1,1)=state%x(1,1)+dl; state%x(1,2)=state%x(1,2)-dl
-  dl=gbridge%zmax-gbridge%zmin; state%x(3,3)=state%x(3,3)+dl; state%x(3,4)=state%x(3,4)-dl
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc)
-  perx_err=maxval(abs(state%u_fluid_lag(:,1)-state%u_fluid_lag(:,2))); perz_err=maxval(abs(state%u_fluid_lag(:,3)-state%u_fluid_lag(:,4)))
-  perx_ok=merge(1,0,perx_err<=1e-12_mytype); perz_ok=merge(1,0,perz_err<=1e-12_mytype); per_ok=merge(1,0,perx_ok==1.and.perz_ok==1)
+  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state_base,vc,bc,uc)
+  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state_xshift,vcx,bcx,ucx)
+  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state_zshift,vcz,bcz,ucz)
+  perx_err=max_state_velocity_difference(state_base,state_xshift)
+  perz_err=max_state_velocity_difference(state_base,state_zshift)
+  perx_ok=merge(1,0,vc==nlag.and.vcx==nlag.and.bc==0.and.bcx==0.and.uc==0.and.ucx==0.and.perx_err<=1e-12_mytype)
+  perz_ok=merge(1,0,vc==nlag.and.vcz==nlag.and.bc==0.and.bcz==0.and.uc==0.and.ucz==0.and.perz_err<=1e-12_mytype)
+  per_ok=merge(1,0,perx_ok==1.and.perz_ok==1)
   call build_stage8_straight_fibre_state(state,gbridge,x0,gbridge%y_center(1),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
   call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); nw_werr=max_u_fluid_on_blocked_points(state)
   nw_ok=merge(1,0,bc>0.and.uc>0.and.nw_werr<=1e-14_mytype)
@@ -128,5 +141,16 @@ contains
       end if
     end do
   end function max_u_fluid_on_blocked_points
+
+  function max_state_velocity_difference(state_a,state_b) result(err)
+    type(stage8_lagrangian_state_t), intent(in) :: state_a,state_b
+    real(mytype) :: err
+    integer :: l
+
+    err = 0.0_mytype
+    do l = 1, min(state_a%nlag,state_b%nlag)
+      err = max(err, maxval(abs(state_a%u_fluid_lag(:,l)-state_b%u_fluid_lag(:,l))))
+    end do
+  end function max_state_velocity_difference
   subroutine init_rhs(a); real(mytype),intent(out)::a(4,3,2); integer::i,j,k; do k=1,2;do j=1,3;do i=1,4; a(i,j,k)=real(i+j+k,mytype); end do;end do;end do; end
 end program
