@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+from pathlib import Path
+vals={}
+for ln in Path('stage8_outputs/fibre_stage8_feedback_candidate_check.dat').read_text().splitlines():
+ s=ln.split()
+ if len(s)>=2: vals[s[0]]=float(s[1])
+ones='''stage8_feedback_stage7_closed_marker_exists stage8_feedback_stage7_total_smoke_output_exists stage8_feedback_stage7_total_smoke_status stage8_feedback_stage7_closed_marker_status stage8_feedback_stage8_0_output_exists stage8_feedback_stage8_0_status stage8_feedback_stage8_1_output_exists stage8_feedback_stage8_1_status stage8_feedback_stage8_2_output_exists stage8_feedback_stage8_2_status stage8_feedback_stage8_3_output_exists stage8_feedback_stage8_3_status stage8_feedback_dependency_status stage8_feedback_constant_status stage8_feedback_zero_slip_status stage8_feedback_action_reaction_status stage8_feedback_structure_force_slip_dot_positive_flag stage8_feedback_fluid_force_slip_dot_negative_flag stage8_feedback_sign_status stage8_feedback_pair_power_dissipative_flag stage8_feedback_pair_power_status stage8_feedback_galilean_status stage8_feedback_blocked_status stage8_feedback_zero_beta_rejected_flag stage8_feedback_negative_beta_rejected_flag stage8_feedback_nan_beta_rejected_flag stage8_feedback_invalid_beta_status stage8_feedback_clear_geometry_preserved_flag stage8_feedback_clear_velocity_preserved_flag stage8_feedback_clear_status stage8_feedback_noop_safety_status stage8_feedback_candidate_check_status'''.split()
+zeros='''stage8_feedback_constant_blocked_count stage8_feedback_constant_unsafe_count stage8_feedback_noop_rhs_modified_flag stage8_feedback_pressure_poisson_modified_flag stage8_feedback_projection_modified_flag stage8_feedback_real_projection_called_flag stage8_feedback_production_dns_called_flag stage8_feedback_fluid_update_called_flag stage8_feedback_fibre_advance_called_flag'''.split()
+for k in ones: assert vals.get(k,0)==1,k
+for k in zeros: assert vals.get(k,1)==0,k
+assert vals['stage8_feedback_constant_valid_count']>=2
+assert vals['stage8_feedback_constant_slip_error_max']<=1e-12
+assert vals['stage8_feedback_constant_force_error_max']<=1e-12
+assert vals['stage8_feedback_zero_slip_error_max']<=1e-14
+assert vals['stage8_feedback_zero_force_error_max']<=1e-14
+assert vals['stage8_feedback_action_reaction_error_max']<=1e-12
+assert vals['stage8_feedback_pair_power_error']<=1e-12
+assert vals['stage8_feedback_galilean_slip_error_max']<=1e-12
+assert vals['stage8_feedback_galilean_force_error_max']<=1e-12
+assert vals['stage8_feedback_blocked_count']>0
+assert vals['stage8_feedback_blocked_slip_write_error_max']<=1e-14
+assert vals['stage8_feedback_blocked_force_write_error_max']<=1e-14
+assert vals['stage8_feedback_clear_slip_force_error_max']<=1e-14
+assert vals['stage8_feedback_noop_rhs_change_max']<=1e-14
+print('STAGE 8.4 FEEDBACK CANDIDATE CHECK PASSED')
