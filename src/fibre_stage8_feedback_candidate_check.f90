@@ -11,9 +11,9 @@ program fibre_stage8_feedback_candidate_check
   type(stage7_channel_grid_t) :: gref,gbridge
   type(stage8_runtime_grid_bridge_status_t) :: st
   type(stage7_velocity_layout_t) :: layout
-  type(stage8_lagrangian_state_t) :: state,sbase,sshift
+  type(stage8_lagrangian_state_t) :: state,state_base,state_shift,state_blocked
   real(mytype), allocatable :: yface(:),ycenter(:),ux(:,:,:),uy(:,:,:),uz(:,:,:),rhs0(:,:,:),rhs1(:,:,:),xkeep(:,:),dskeep(:),vfkeep(:,:),ufkeep(:,:)
-  integer :: nx,ny,nz,nlag,io,i,j,k,v,r,vc,bc,uc,fv,fr,fvc,fbc,fuc
+  integer :: nx,ny,nz,nlag,io,i,j,k,l,v,r,vc,bc,uc,fv,fr,fvc,fbc,fuc,vsafe,rsafe,scount,bcount,ucount
   integer :: s7m,s7o,s7s,s7c,s80o,s80s,s81o,s81s,s82o,s82s,s83o,s83s,dep,final
   integer :: cst_ok,zero_ok,ar_ok,sgn_ok,pow_ok,gal_ok,blk_ok,ib_ok,clr_ok,noop_ok
   integer :: zbrej,nbrej,nanrej
@@ -55,20 +55,47 @@ program fibre_stage8_feedback_candidate_check
   ar_ok=merge(1,0,err_ar<=1e-12_mytype); sgn_ok=merge(1,0,dot_s>0._mytype.and.dot_f<0._mytype)
   exp_pow=-beta*sum((state%slip(1,:)**2+state%slip(2,:)**2+state%slip(3,:)**2)*state%ds); pow_err=abs(pair_pow-exp_pow)
   pow_ok=merge(1,0,pair_pow<=0._mytype.and.pow_err<=1e-12_mytype)
-  call init_stage8_lagrangian_state(sbase); call allocate_stage8_lagrangian_state(sbase,nlag,v,r)
-  call build_stage8_straight_fibre_state(sbase,gbridge,x0,y0,z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,sbase,vc,bc,uc); sbase%v_fibre=0.2_mytype
-  call assemble_stage8_slip_velocity(sbase,vc,bc,uc); call assemble_stage8_linear_feedback_candidate(sbase,beta,fv,fr,fvc,fbc,fuc)
-  call init_stage8_lagrangian_state(sshift); call allocate_stage8_lagrangian_state(sshift,nlag,v,r)
-  sshift=sbase; sshift%u_fluid_lag=sbase%u_fluid_lag+reshape([0.8_mytype,-0.4_mytype,0.25_mytype],[3,1]); sshift%v_fibre=sbase%v_fibre+reshape([0.8_mytype,-0.4_mytype,0.25_mytype],[3,1])
-  call assemble_stage8_slip_velocity(sshift,vc,bc,uc); call assemble_stage8_linear_feedback_candidate(sshift,beta,fv,fr,fvc,fbc,fuc)
-  gal_slip_err=maxval(abs(sshift%slip-sbase%slip)); gal_force_err=max(maxval(abs(sshift%force_structure-sbase%force_structure)),maxval(abs(sshift%force_fluid-sbase%force_fluid)))
+  call init_stage8_lagrangian_state(state_base); call allocate_stage8_lagrangian_state(state_base,nlag,v,r)
+  call build_stage8_straight_fibre_state(state_base,gbridge,x0,y0,z0,length,[1._mytype,0._mytype,0._mytype],v,r)
+  do l=1,nlag
+    state_base%point_valid_flag(l)=1; state_base%point_blocked_flag(l)=0; state_base%point_unsafe_flag(l)=0
+    state_base%u_fluid_lag(1,l)=1._mytype+0.1_mytype*real(l,mytype)
+    state_base%u_fluid_lag(2,l)=-0.5_mytype+0.03_mytype*real(l,mytype)
+    state_base%u_fluid_lag(3,l)=0.25_mytype-0.02_mytype*real(l,mytype)
+    state_base%v_fibre(1,l)=0.2_mytype-0.04_mytype*real(l,mytype)
+    state_base%v_fibre(2,l)=-0.1_mytype+0.02_mytype*real(l,mytype)
+    state_base%v_fibre(3,l)=0.05_mytype+0.01_mytype*real(l,mytype)
+  end do
+  call clear_stage8_slip_and_feedback(state_base)
+  call assemble_stage8_slip_velocity(state_base,vc,bc,uc)
+  call assemble_stage8_linear_feedback_candidate(state_base,beta,fv,fr,fvc,fbc,fuc)
+
+  call init_stage8_lagrangian_state(state_shift); call allocate_stage8_lagrangian_state(state_shift,nlag,v,r)
+  state_shift%x=state_base%x; state_shift%ds=state_base%ds
+  state_shift%point_valid_flag=state_base%point_valid_flag
+  state_shift%point_blocked_flag=state_base%point_blocked_flag
+  state_shift%point_unsafe_flag=state_base%point_unsafe_flag
+  do l=1,nlag
+    state_shift%u_fluid_lag(:,l)=state_base%u_fluid_lag(:,l)+[0.8_mytype,-0.4_mytype,0.25_mytype]
+    state_shift%v_fibre(:,l)=state_base%v_fibre(:,l)+[0.8_mytype,-0.4_mytype,0.25_mytype]
+  end do
+  call clear_stage8_slip_and_feedback(state_shift)
+  call assemble_stage8_slip_velocity(state_shift,vc,bc,uc)
+  call assemble_stage8_linear_feedback_candidate(state_shift,beta,fv,fr,fvc,fbc,fuc)
+  gal_slip_err=maxval(abs(state_shift%slip-state_base%slip))
+  gal_force_err=max(maxval(abs(state_shift%force_structure-state_base%force_structure)),maxval(abs(state_shift%force_fluid-state_base%force_fluid)))
   gal_ok=merge(1,0,gal_slip_err<=1e-12_mytype.and.gal_force_err<=1e-12_mytype)
-  call build_stage8_straight_fibre_state(state,gbridge,x0,gbridge%y_center(1),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call interpolate_stage8_velocity_to_state(gbridge,layout,ux,uy,uz,state,vc,bc,uc); state%u_fluid_lag=3._mytype; state%v_fibre=1._mytype
-  call assemble_stage8_slip_velocity(state,vc,bc,uc); call assemble_stage8_linear_feedback_candidate(state,beta,fv,fr,fvc,fbc,fuc)
-  blk_slip_err=max_on_blocked(state%slip,state); blk_force_err=max(max_on_blocked(state%force_structure,state),max_on_blocked(state%force_fluid,state))
-  blk_ok=merge(1,0,bc>0.and.blk_slip_err<=1e-14_mytype.and.blk_force_err<=1e-14_mytype)
+
+  call init_stage8_lagrangian_state(state_blocked); call allocate_stage8_lagrangian_state(state_blocked,nlag,v,r)
+  call build_stage8_straight_fibre_state(state_blocked,gbridge,x0,gbridge%y_center(1),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
+  call validate_stage8_lagrangian_state(state_blocked,gbridge,layout,vsafe,rsafe,scount,bcount,ucount)
+  state_blocked%u_fluid_lag=3._mytype; state_blocked%v_fibre=1._mytype
+  call assemble_stage8_slip_velocity(state_blocked,vc,bc,uc)
+  call assemble_stage8_linear_feedback_candidate(state_blocked,beta,fv,fr,fvc,fbc,fuc)
+  blk_slip_err=max_on_blocked(state_blocked%slip,state_blocked)
+  blk_force_err=max(max_on_blocked(state_blocked%force_structure,state_blocked),max_on_blocked(state_blocked%force_fluid,state_blocked))
+  blk_ok=merge(1,0,bcount>0.and.blk_slip_err<=1e-14_mytype.and.blk_force_err<=1e-14_mytype)
+  bc=bcount
   zbrej=0; nbrej=0; nanrej=0
   call assemble_stage8_linear_feedback_candidate(state,0._mytype,fv,fr,fvc,fbc,fuc); zbrej=merge(1,0,fv==0.and.fr==1)
   call assemble_stage8_linear_feedback_candidate(state,-1._mytype,fv,fr,fvc,fbc,fuc); nbrej=merge(1,0,fv==0.and.fr==1)
@@ -121,7 +148,7 @@ program fibre_stage8_feedback_candidate_check
   write(io,'(A,1X,ES24.16E3)') 'stage8_feedback_galilean_slip_error_max',gal_slip_err
   write(io,'(A,1X,ES24.16E3)') 'stage8_feedback_galilean_force_error_max',gal_force_err
   write(io,'(A,1X,I0)') 'stage8_feedback_galilean_status',gal_ok
-  write(io,'(A,1X,I0)') 'stage8_feedback_blocked_count',bc
+  write(io,'(A,1X,I0)') 'stage8_feedback_blocked_count',bcount
   write(io,'(A,1X,ES24.16E3)') 'stage8_feedback_blocked_slip_write_error_max',blk_slip_err
   write(io,'(A,1X,ES24.16E3)') 'stage8_feedback_blocked_force_write_error_max',blk_force_err
   write(io,'(A,1X,I0)') 'stage8_feedback_blocked_status',blk_ok
