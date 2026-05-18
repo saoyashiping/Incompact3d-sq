@@ -10,14 +10,16 @@ program fibre_stage8_twoway_force_density_check
   type(stage7_channel_grid_t) :: gref,gbridge
   type(stage8_runtime_grid_bridge_status_t) :: st
   type(stage7_velocity_layout_t) :: layout
-  type(stage8_lagrangian_state_t) :: s,sb,sx,sz,blk
+  type(stage8_lagrangian_state_t) :: s,sb,sx,sz,state_blocked
   real(mytype), allocatable :: yface(:),ycenter(:),ux(:,:,:),uy(:,:,:),uz(:,:,:),fx(:,:,:),fy(:,:,:),fz(:,:,:),fx2(:,:,:),fy2(:,:,:),fz2(:,:,:),rhs0(:,:,:),rhs1(:,:,:)
   integer :: nx,ny,nz,nlag,io,i,j,k,l,v,r,ok,rej,vc,bc,uc
   integer :: s7m,s7o,s7s,s7c,s80o,s80s,s81o,s81s,s82o,s82s,s83o,s83s,s84o,s84s,s85o,s85s,dep,final
   real(mytype)::beta,x0,y0,z0,length,lx,lz,nrm,abse,rel,errx,erry,errz,urho,perx,perz,bnrm,bwerr,znrm,zerr,rhschg
   real(mytype)::fe(3),fl(3),few(3),mean_dy
   integer :: cons_ok,cmp_ok,norho_ok,vol_ok,per_ok,blk_ok,zero_ok,norhs_ok,noop_ok
-  integer :: nonuni_flag,conv_flag,norho_flag,px_ok,pz_ok,sv,sbct,suct,bvc,bbc,buc,blk_safe,blk_blocked,blk_unsafe
+  integer :: nonuni_flag,conv_flag,norho_flag,px_ok,pz_ok,sv,sbct,suct,bvc,bbc,buc
+  integer :: blocked_valid,blocked_rejected,cls_safe_count,cls_blocked_count,cls_unsafe_count
+  integer :: build_valid_count,build_blocked_count,build_unsafe_count
   call ensure_dir('stage8_outputs')
   call file_exists_int('stage7_outputs/STAGE7_CLOSED.md',s7m); call file_exists_int('stage7_outputs/fibre_stage7_total_smoke_check.dat',s7o)
   call get_int('stage7_outputs/fibre_stage7_total_smoke_check.dat','stage7_total_smoke_check_status',s7s); call get_int('stage7_outputs/fibre_stage7_total_smoke_check.dat','stage7_total_closed_marker_status',s7c)
@@ -46,18 +48,22 @@ program fibre_stage8_twoway_force_density_check
   sb=s; sx=s; sz=s; sx%x(1,:)=sx%x(1,:)+lx; sz%x(3,:)=sz%x(3,:)+lz
   call build_stage8_twoway_force_density_candidate(gbridge,layout,sx,fx2,fy2,fz2,ok,rej,bvc,bbc,buc); call compute_stage8_eulerian_total_force(gbridge,fx2,fy2,fz2,few); perx=sqrt(sum((few-fe)**2)); px_ok=merge(1,0,perx<=1e-12_mytype)
   call build_stage8_twoway_force_density_candidate(gbridge,layout,sz,fx2,fy2,fz2,ok,rej,bvc,bbc,buc); call compute_stage8_eulerian_total_force(gbridge,fx2,fy2,fz2,few); perz=sqrt(sum((few-fe)**2)); pz_ok=merge(1,0,perz<=1e-12_mytype); per_ok=merge(1,0,px_ok==1.and.pz_ok==1)
-  call init_stage8_lagrangian_state(blk); call allocate_stage8_lagrangian_state(blk,nlag,v,r)
-  call build_stage8_straight_fibre_state(blk,gbridge,x0,gbridge%ymin-0.1_mytype*(gbridge%ymax-gbridge%ymin),z0,length,[1._mytype,0._mytype,0._mytype],v,r)
-  call validate_stage8_lagrangian_state(blk,gbridge,layout,ok,rej,blk_safe,blk_blocked,blk_unsafe)
-  do l=1,blk%nlag
-    blk%force_fluid(1,l)=1._mytype+0.1_mytype*real(l,mytype)
-    blk%force_fluid(2,l)=-0.5_mytype+0.03_mytype*real(l,mytype)
-    blk%force_fluid(3,l)=0.25_mytype-0.02_mytype*real(l,mytype)
+  call init_stage8_lagrangian_state(state_blocked); call allocate_stage8_lagrangian_state(state_blocked,nlag,v,r)
+  state_blocked%x(:,:)=s%x(:,:)
+  state_blocked%ds(:)=s%ds(:)
+  state_blocked%x(2,:)=gbridge%ymin-0.1_mytype*(gbridge%ymax-gbridge%ymin)
+  call validate_stage8_lagrangian_state(state_blocked,gbridge,layout,blocked_valid,blocked_rejected,cls_safe_count,cls_blocked_count,cls_unsafe_count)
+  do l=1,state_blocked%nlag
+    state_blocked%force_fluid(1,l)=1._mytype+0.1_mytype*real(l,mytype)
+    state_blocked%force_fluid(2,l)=-0.5_mytype+0.03_mytype*real(l,mytype)
+    state_blocked%force_fluid(3,l)=0.25_mytype-0.02_mytype*real(l,mytype)
   end do
-  call build_stage8_twoway_force_density_candidate(gbridge,layout,blk,fx2,fy2,fz2,ok,rej,bvc,bbc,buc)
+  fx2=0; fy2=0; fz2=0
+  call build_stage8_twoway_force_density_candidate(gbridge,layout,state_blocked,fx2,fy2,fz2,ok,rej,build_valid_count,build_blocked_count,build_unsafe_count)
+  bbc=build_blocked_count; bvc=build_valid_count; buc=build_unsafe_count
   call compute_stage8_force_density_norm(fx2,fy2,fz2,bnrm)
   bwerr=max(maxval(abs(fx2)),max(maxval(abs(fy2)),maxval(abs(fz2))))
-  blk_ok=merge(1,0,bbc>0.and.bvc<nlag.and.bnrm<=1e-14_mytype.and.bwerr<=1e-14_mytype)
+  blk_ok=merge(1,0,cls_blocked_count>0.and.build_blocked_count>0.and.build_valid_count==0.and.bnrm<=1e-14_mytype.and.bwerr<=1e-14_mytype)
   s%force_fluid=0; call build_stage8_twoway_force_density_candidate(gbridge,layout,s,fx2,fy2,fz2,ok,rej,bvc,bbc,buc); call compute_stage8_force_density_norm(fx2,fy2,fz2,znrm); call compute_stage8_eulerian_total_force(gbridge,fx2,fy2,fz2,few); zerr=sqrt(sum(few**2)); zero_ok=merge(1,0,znrm<=1e-14_mytype.and.zerr<=1e-14_mytype)
   norhs_ok=1; call init_rhs(rhs0); rhs1=rhs0; rhschg=maxval(abs(rhs1-rhs0)); noop_ok=merge(1,0,rhschg<=1e-14_mytype)
   final=merge(1,0,dep==1.and.cons_ok==1.and.cmp_ok==1.and.norho_ok==1.and.vol_ok==1.and.per_ok==1.and.blk_ok==1.and.bbc>0.and.zero_ok==1.and.norhs_ok==1.and.noop_ok==1)
@@ -73,6 +79,8 @@ program fibre_stage8_twoway_force_density_check
   write(io,'(A,1X,I0)') 'stage8_twoway_nonuniform_volume_used_flag',nonuni_flag; write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_uniform_volume_difference_norm',sqrt(sum((fe-few)**2)); write(io,'(A,1X,I0)') 'stage8_twoway_volume_scaling_status',vol_ok
   write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_periodic_x_force_error',perx; write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_periodic_z_force_error',perz; write(io,'(A,1X,I0)') 'stage8_twoway_periodic_x_status',px_ok; write(io,'(A,1X,I0)') 'stage8_twoway_periodic_z_status',pz_ok; write(io,'(A,1X,I0)') 'stage8_twoway_periodic_status',per_ok
   write(io,'(A,1X,I0)') 'stage8_twoway_blocked_count',bbc; write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_blocked_force_buffer_norm_max',bnrm; write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_blocked_force_buffer_write_error_max',bwerr; write(io,'(A,1X,I0)') 'stage8_twoway_blocked_status',blk_ok
+  write(io,'(A,1X,I0)') 'stage8_twoway_blocked_classification_count',cls_blocked_count; write(io,'(A,1X,I0)') 'stage8_twoway_blocked_builder_count',build_blocked_count
+  write(io,'(A,1X,I0)') 'stage8_twoway_blocked_valid_count',build_valid_count; write(io,'(A,1X,I0)') 'stage8_twoway_blocked_unsafe_count',build_unsafe_count
   write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_zero_force_buffer_norm_max',znrm; write(io,'(A,1X,ES24.16E3)') 'stage8_twoway_zero_force_conservation_error',zerr; write(io,'(A,1X,I0)') 'stage8_twoway_zero_force_status',zero_ok
   write(io,'(A,1X,I0)') 'stage8_twoway_rhs_hook_called_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_rhs_modified_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_pressure_poisson_modified_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_projection_modified_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_real_projection_called_flag',0
   write(io,'(A,1X,I0)') 'stage8_twoway_production_dns_called_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_fluid_update_called_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_fibre_advance_called_flag',0; write(io,'(A,1X,I0)') 'stage8_twoway_no_rhs_no_projection_status',norhs_ok

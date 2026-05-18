@@ -21,6 +21,12 @@ assert vals['stage8_twoway_periodic_z_force_error']<=1e-12
 assert vals['stage8_twoway_blocked_count']>0
 assert vals['stage8_twoway_blocked_force_buffer_norm_max']<=1e-14
 assert vals['stage8_twoway_blocked_force_buffer_write_error_max']<=1e-14
+if 'stage8_twoway_blocked_classification_count' in vals:
+ assert vals['stage8_twoway_blocked_classification_count']>0
+if 'stage8_twoway_blocked_builder_count' in vals:
+ assert vals['stage8_twoway_blocked_builder_count']>0
+if 'stage8_twoway_blocked_valid_count' in vals:
+ assert vals['stage8_twoway_blocked_valid_count']==0
 assert vals['stage8_twoway_zero_force_buffer_norm_max']<=1e-14
 assert vals['stage8_twoway_zero_force_conservation_error']<=1e-14
 assert vals['stage8_twoway_noop_rhs_change_max']<=1e-14
