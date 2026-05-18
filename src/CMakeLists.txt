@@ -1899,4 +1899,32 @@ if(MPI_FOUND)
 endif()
 install(TARGETS fibre_stage8_rk_sync_check DESTINATION bin)
 
+add_executable(fibre_stage8_boundary_safe_workflow_check
+  fibre_types.f90
+  fibre_parameters.f90
+  fibre_stage7_config.f90
+  fibre_stage7_grid_metadata.f90
+  fibre_stage7_channel_grid_adapter.f90
+  fibre_stage7_scalar_interpolation.f90
+  fibre_stage7_velocity_interpolation.f90
+  fibre_stage7_force_spreading.f90
+  fibre_stage7_boundary_safety.f90
+  fibre_stage8_config.f90
+  fibre_stage8_runtime_grid_bridge.f90
+  fibre_stage8_lagrangian_state.f90
+  fibre_stage8_velocity_to_fibre.f90
+  fibre_stage8_feedback_candidate.f90
+  fibre_stage8_oneway_forcing.f90
+  fibre_stage8_twoway_force_density.f90
+  fibre_stage8_rk_sync.f90
+  fibre_stage8_boundary_safe_workflow.f90
+  fibre_stage8_boundary_safe_workflow_check.f90
+)
+target_link_libraries(fibre_stage8_boundary_safe_workflow_check PRIVATE decomp2d)
+if(MPI_FOUND)
+  target_link_libraries(fibre_stage8_boundary_safe_workflow_check PRIVATE MPI::MPI_Fortran)
+endif()
+install(TARGETS fibre_stage8_boundary_safe_workflow_check DESTINATION bin)
+
+
 
