@@ -25,4 +25,6 @@ assert vals['stage8_integrated_blocked_force_buffer_norm_max']<=1e-14
 assert vals['stage8_integrated_blocked_power_abs_max']<=1e-14
 assert vals['stage8_integrated_noop_rhs_change_max']<=1e-14
 if vals['stage8_integrated_controlled_rhs_hook_available_flag']==1.0: assert vals['stage8_integrated_controlled_rhs_hook_called_flag']==1.0
+if 'stage8_integrated_rho2_injected_flag' in vals: assert vals['stage8_integrated_rho2_injected_flag']==1.0
+if 'stage8_integrated_rho4_injected_flag' in vals: assert vals['stage8_integrated_rho4_injected_flag']==1.0
 print('STAGE 8.9 INTEGRATED AUDIT CHECK PASSED')
