@@ -1957,4 +1957,14 @@ if(MPI_FOUND)
 endif()
 install(TARGETS fibre_stage8_integrated_audit_check DESTINATION bin)
 
+add_executable(fibre_stage8_total_smoke_check
+  fibre_types.f90
+  fibre_parameters.f90
+  fibre_stage8_total_smoke_check.f90
+)
+target_link_libraries(fibre_stage8_total_smoke_check PRIVATE decomp2d)
+if(MPI_FOUND)
+  target_link_libraries(fibre_stage8_total_smoke_check PRIVATE MPI::MPI_Fortran)
+endif()
+install(TARGETS fibre_stage8_total_smoke_check DESTINATION bin)
 
