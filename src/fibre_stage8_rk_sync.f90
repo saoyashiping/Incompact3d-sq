@@ -13,6 +13,8 @@ module fibre_stage8_rk_sync
     integer :: rhs_hook_called_flag=0,rhs_modified_flag=0,pressure_poisson_called_flag=0,projection_called_flag=0,production_dns_called_flag=0,fluid_update_called_flag=0,fibre_advance_called_flag=0
     integer :: clear_buffer_event_index=0,velocity_event_index=0,slip_event_index=0,feedback_event_index=0,force_density_event_index=0,hypothetical_rhs_gate_event_index=0,hypothetical_projection_gate_event_index=0
     integer :: event_order_status=0,rk_sync_status=0
+    integer :: last_valid_count=0,last_blocked_count=0,last_unsafe_count=0
+    integer :: last_valid_flag=0,last_rejected_flag=0
   end type
 contains
   subroutine init_stage8_rk_sync_status(st,nsubstep)
@@ -41,6 +43,8 @@ contains
     call assemble_stage8_slip_velocity(state,vc,bc,uc); st%slip_assembly_count=st%slip_assembly_count+1; e=e+1; st%slip_event_index=e
     call assemble_stage8_linear_feedback_candidate(state,beta,fv,fr,fvc,fbc,fuc); st%feedback_candidate_count=st%feedback_candidate_count+1; e=e+1; st%feedback_event_index=e
     call build_stage8_twoway_force_density_candidate(grid,layout,state,fx,fy,fz,fv,fr,fvc,fbc,fuc); st%force_density_candidate_count=st%force_density_candidate_count+1; e=e+1; st%force_density_event_index=e
+    st%last_valid_count=fvc; st%last_blocked_count=fbc; st%last_unsafe_count=fuc
+    st%last_valid_flag=fv; st%last_rejected_flag=fr
     e=e+1; st%hypothetical_rhs_gate_event_index=e; e=e+1; st%hypothetical_projection_gate_event_index=e
     st%event_order_status=merge(1,0,st%clear_buffer_event_index<st%velocity_event_index.and.st%velocity_event_index<st%slip_event_index.and.st%slip_event_index<st%feedback_event_index.and.st%feedback_event_index<st%force_density_event_index.and.st%force_density_event_index<st%hypothetical_rhs_gate_event_index.and.st%hypothetical_rhs_gate_event_index<st%hypothetical_projection_gate_event_index)
     if(fv==1.and.fr==0.and.fvc>0.and.fbc==0.and.fuc==0.and.st%rhs_hook_called_flag==0.and.st%projection_called_flag==0.and.st%production_dns_called_flag==0) then; valid=1; rejected=0; endif
