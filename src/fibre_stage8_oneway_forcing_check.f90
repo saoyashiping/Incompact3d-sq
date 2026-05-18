@@ -5,6 +5,8 @@ program fibre_stage8_oneway_forcing_check
   use fibre_stage7_velocity_interpolation, only: stage7_velocity_layout_t, init_stage7_collocated_velocity_layout
   use fibre_stage8_runtime_grid_bridge
   use fibre_stage8_lagrangian_state
+  use fibre_stage8_velocity_to_fibre, only: clear_stage8_fluid_velocity_lag
+  use fibre_stage8_feedback_candidate, only: clear_stage8_slip_and_feedback
   use fibre_stage8_oneway_forcing
   implicit none
   type(stage7_channel_grid_t) :: gref,gbridge
