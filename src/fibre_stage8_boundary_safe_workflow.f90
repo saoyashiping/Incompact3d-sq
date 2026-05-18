@@ -1,4 +1,5 @@
 module fibre_stage8_boundary_safe_workflow
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
   use fibre_parameters, only: mytype
   use fibre_stage7_grid_metadata, only: stage7_channel_grid_t
   use fibre_stage7_boundary_safety, only: stage7_boundary_safety_result_t, classify_stage7_boundary_point
@@ -23,9 +24,27 @@ contains
     type(stage7_channel_grid_t),intent(in)::grid; type(stage7_velocity_layout_t),intent(in)::layout
     real(mytype),intent(in)::ux(:,:,:),uy(:,:,:),uz(:,:,:),beta; type(stage8_lagrangian_state_t),intent(inout)::state
     real(mytype),intent(inout)::fx(:,:,:),fy(:,:,:),fz(:,:,:); type(stage8_boundary_workflow_status_t),intent(inout)::st
-    integer,intent(out)::valid,rejected; type(stage7_boundary_safety_result_t)::res; integer::l,vc,bc,uc,fv,fr,fvc,fbc,fuc
+    integer,intent(out)::valid,rejected; type(stage7_boundary_safety_result_t)::res; integer::l,vc,bc,uc,fv,fr,fvc,fbc,fuc,invalid_coord_found
     call init_stage8_boundary_workflow_status(st); fx=0; fy=0; fz=0; valid=0; rejected=1
     if(state%allocated_flag/=1) then; st%rejected_flag=1; return; endif
+    invalid_coord_found=0
+    do l=1,state%nlag
+      if (.not. ieee_is_finite(state%x(1,l)) .or. &
+          .not. ieee_is_finite(state%x(2,l)) .or. &
+          .not. ieee_is_finite(state%x(3,l))) then
+        invalid_coord_found=1
+        state%point_valid_flag(l)=0; state%point_blocked_flag(l)=1; state%point_unsafe_flag(l)=1; state%point_status_code(l)=-999
+      end if
+    end do
+    if(invalid_coord_found==1) then
+      call clear_stage8_fluid_velocity_lag(state); call clear_stage8_slip_and_feedback(state)
+      fx=0._mytype; fy=0._mytype; fz=0._mytype
+      st%boundary_classification_called_flag=1
+      st%safe_count=0; st%blocked_count=count(state%point_blocked_flag==1); st%unsafe_count=count(state%point_unsafe_flag==1)
+      st%valid_count=0; st%rejected_flag=1; st%workflow_status=0
+      valid=0; rejected=1
+      return
+    end if
     st%boundary_classification_called_flag=1
     do l=1,state%nlag
       call classify_stage7_boundary_point(grid,layout,state%x(1,l),state%x(2,l),state%x(3,l),1,res)
