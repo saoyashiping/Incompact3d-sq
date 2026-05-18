@@ -16,6 +16,7 @@ program fibre_stage8_oneway_forcing_check
   integer :: s7m,s7o,s7s,s7c,s80o,s80s,s81o,s81s,s82o,s82s,s83o,s83s,s84o,s84s,dep,final
   integer :: cst_ok,zs_ok,lin_ok,poi_ok,gal_ok,pow_ok,blk_ok,ib_ok,ns_ok,noop_ok
   real(mytype)::beta,x0,y0,z0,length,lx,vel_err,slip_err,force_err,zs_slip,zs_force,lin_v,lin_s,lin_f,poi_v,poi_f,gal_s,gal_f,pow,pow_e,pow_err,blk_u,blk_s,blk_f,rhschg
+  real(mytype) :: ushift(3), ux_shift, uy_shift, uz_shift
   integer :: zf,nf,nanf,bcnt,safe,blocked,unsafe
   call ensure_dir('stage8_outputs')
   call file_exists_int('stage7_outputs/STAGE7_CLOSED.md',s7m); call file_exists_int('stage7_outputs/fibre_stage7_total_smoke_check.dat',s7o)
@@ -61,8 +62,14 @@ program fibre_stage8_oneway_forcing_check
   call init_stage8_lagrangian_state(sbase); call allocate_stage8_lagrangian_state(sbase,nlag,v,r); call build_stage8_straight_fibre_state(sbase,gbridge,x0,y0,z0,length,[1._mytype,0._mytype,0._mytype],v,r)
   sbase%v_fibre=0.2_mytype; ux=1.25_mytype; uy=-0.5_mytype; uz=0.75_mytype
   call apply_stage8_oneway_fluid_to_fibre_forcing(gbridge,layout,ux,uy,uz,beta,sbase,ok,rej,vc,bc,uc)
-  call init_stage8_lagrangian_state(sshift); call allocate_stage8_lagrangian_state(sshift,nlag,v,r); sshift=sbase; sshift%v_fibre=sbase%v_fibre+[0.8_mytype,-0.4_mytype,0.25_mytype]
-  ux=ux+0.8_mytype; uy=uy-0.4_mytype; uz=uz+0.25_mytype
+  call init_stage8_lagrangian_state(sshift); call allocate_stage8_lagrangian_state(sshift,nlag,v,r); sshift=sbase
+  call clear_stage8_fluid_velocity_lag(sshift); call clear_stage8_slip_and_feedback(sshift)
+  ushift=(/0.8_mytype,-0.4_mytype,0.25_mytype/)
+  do l=1,nlag
+    sshift%v_fibre(:,l)=sbase%v_fibre(:,l)+ushift(:)
+  end do
+  ux_shift=1.25_mytype+ushift(1); uy_shift=-0.5_mytype+ushift(2); uz_shift=0.75_mytype+ushift(3)
+  ux=ux_shift; uy=uy_shift; uz=uz_shift
   call apply_stage8_oneway_fluid_to_fibre_forcing(gbridge,layout,ux,uy,uz,beta,sshift,ok,rej,vc,bc,uc)
   gal_s=maxval(abs(sshift%slip-sbase%slip)); gal_f=maxval(abs(sshift%force_structure-sbase%force_structure)); gal_ok=merge(1,0,gal_s<=1e-12_mytype.and.gal_f<=1e-12_mytype)
   call compute_stage8_oneway_structure_power(state,pow); pow_e=sum((state%force_structure(1,:)*state%v_fibre(1,:)+state%force_structure(2,:)*state%v_fibre(2,:)+state%force_structure(3,:)*state%v_fibre(3,:))*state%ds); pow_err=abs(pow-pow_e); pow_ok=merge(1,0,pow_err<=1e-12_mytype)
