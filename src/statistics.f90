@@ -242,7 +242,7 @@ contains
   !
   subroutine read_or_write_one_stat(flag_read, filename, array)
 
-    use decomp_2d, only : xstS, xenS
+    use decomp_2d_io, only : xstS, xenS
     use decomp_2d_io, only : decomp_2d_read_one, decomp_2d_write_one
 
     implicit none
@@ -373,7 +373,8 @@ contains
   !
   subroutine update_average_scalar(um, ux, ep)
 
-    use decomp_2d, only : xsize, xstS, xenS, fine_to_coarseS
+    use decomp_2d, only : xsize
+    use decomp_2d_io, only : xstS, xenS, fine_to_coarseS
     use param, only : itime, initstat,istatfreq
     use var, only : di1, tmean
 
@@ -396,7 +397,8 @@ contains
   !
   subroutine update_average_vector(um, vm, wm, ux, uy, uz, ep)
 
-    use decomp_2d, only : xsize, xstS, xenS
+    use decomp_2d, only : xsize
+    use decomp_2d_io, only : xstS, xenS
 
     implicit none
 
@@ -415,7 +417,8 @@ contains
   !
   subroutine update_variance_vector(uum, vvm, wwm, uvm, uwm, vwm, ux, uy, uz, ep)
 
-    use decomp_2d, only : xsize, xstS, xenS
+    use decomp_2d, only : xsize
+    use decomp_2d_io, only : xstS, xenS
     use var, only: ta1
 
     implicit none

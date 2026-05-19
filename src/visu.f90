@@ -216,6 +216,7 @@ contains
 
     use var, only : pp1, ta1, di1, nxmsize
     use var, only : pp2, ppi2, dip2, ph2, nymsize
+    use decomp_2d_io, only : fine_to_coarseV
     use var, only : ppi3, dip3, ph3, nzmsize
     use var, only : npress
 

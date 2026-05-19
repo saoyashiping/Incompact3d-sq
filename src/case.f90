@@ -23,7 +23,7 @@ module case
   use pipe
   use ptbl
 
-  use var, only : nzmsize
+  use var, only : nzmsize, ph1
 
   implicit none
 
@@ -231,11 +231,11 @@ contains
   !##################################################################
   subroutine preprocessing(rho1, ux1, uy1, uz1, pp3, phi1, ep1)
 
-    use decomp_2d, only : xsize, ph1
+    use decomp_2d, only : xsize
     use visu, only  : write_snapshot
     use stats, only : overall_statistic
 
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use var, only : itime
     use var, only : numscalar, nrhotime, npress
 
@@ -254,8 +254,8 @@ contains
   !##################################################################
   subroutine postprocessing(rho1, ux1, uy1, uz1, pp3, phi1, ep1)
 
-    use decomp_2d, only : xsize, ph1
-    use var, only : nzmsize, numscalar, nrhotime, npress, abl_T
+    use decomp_2d, only : xsize
+    use var, only : nzmsize, ph1, numscalar, nrhotime, npress, abl_T
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in) :: ux1, uy1, uz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar), intent(in) :: phi1
@@ -280,11 +280,11 @@ contains
   !##################################################################
   subroutine run_postprocessing(rho1, ux1, uy1, uz1, pp3, phi1, ep1)
 
-    use decomp_2d, only : xsize, ph1
+    use decomp_2d, only : xsize
     use visu, only  : write_snapshot, end_snapshot
     use stats, only : overall_statistic
 
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use var, only : itime
     use var, only : numscalar, nrhotime, npress
 
@@ -325,7 +325,7 @@ contains
   subroutine postprocess_case(rho,ux,uy,uz,pp,phi,ep)
 
     use forces
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use param, only : npress
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)) :: ux,uy,uz
@@ -460,7 +460,7 @@ contains
   !##################################################################
   subroutine visu_case(rho1,ux1,uy1,uz1,pp3,phi1,ep1,num)
 
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use param, only : npress
     use particle, only : visu_particle
 
