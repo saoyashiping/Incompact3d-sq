@@ -6,6 +6,7 @@ integer::s7m,s7o,s7s,s7c,dep7
 integer::e80,e81,e82,e83,e84,e85,e86,e87,e88,e89,all_outputs
 integer::s80,s81,s82,s83,s84,s85,s86,s87,s88,s89,all_status
 integer::cfg_default_off,cfg_controlled,cfg_invalid_prod,cfg_summary
+integer::ctrl_rhs_allowed_raw,default_rhs_allowed_raw
 integer::ctrl_enable_status,ctrl_test_enabled_status,ctrl_valid_status,ctrl_not_rejected_status,ctrl_rhs_allowed_status,ctrl_config_status
 integer::num_grid,num_state,num_v,num_fb,num_ow,num_tw,num_rk,num_bd,num_int,num_summary
 integer::cons_f,cons_comp,cons_ar,cons_pair,cons_fp,cons_fd,cons_rho,cons_nodbl,cons_summary
@@ -49,7 +50,9 @@ call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_e
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_controlled_test_enabled',tmpi); ctrl_test_enabled_status=merge(1,0,tmpi==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_valid_flag',tmpi); ctrl_valid_status=merge(1,0,tmpi==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_rejected_flag',tmpi); ctrl_not_rejected_status=merge(1,0,tmpi==0)
-call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_rhs_allowed_flag',tmpi); ctrl_rhs_allowed_status=merge(1,0,tmpi==1)
+call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_rhs_allowed_flag',ctrl_rhs_allowed_raw)
+call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_default_rhs_allowed_flag',default_rhs_allowed_raw)
+ctrl_rhs_allowed_status=merge(1,0,ctrl_rhs_allowed_raw==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_config_status',tmpi); ctrl_config_status=merge(1,0,tmpi==1)
 cfg_controlled=merge(1,0,ctrl_enable_status*ctrl_test_enabled_status*ctrl_valid_status*ctrl_not_rejected_status*ctrl_rhs_allowed_status*ctrl_config_status==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_invalid_production_dns_rejected_flag',cfg_invalid_prod)
