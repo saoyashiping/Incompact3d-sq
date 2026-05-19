@@ -13,7 +13,7 @@
 
 module probes
 
-  USE decomp_2d, only : ph1
+  USE var, only : ph1
   use decomp_2d_mpi, only : nrank
   use decomp_2d_constants, only : mytype
   USE decomp_2d, only : xstart, xend, ystart, yend, zstart, zend

@@ -310,10 +310,10 @@ module mhd
   !+-------------------------------------------------------------------+
   function solve_mhd_potential_poisson(ux1,uy1,uz1) result(jcurrent)
 
-    use decomp_2d, only : zsize, ph1
+    use decomp_2d, only : zsize
     use decomp_2d_mpi, only: nrank
     use decomp_2d_poisson, only : poisson
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use param, only : ntime, nrhotime, npress,ilmn, ivarcoeff, zero, one 
     use navier,only : gradp
 
@@ -386,8 +386,8 @@ module mhd
   !
   subroutine test_magnetic
     !
-    use decomp_2d, only : zsize, ph1
-    use var, only : nzmsize,itime,ilist,ifirst,ilast
+    use decomp_2d, only : zsize
+    use var, only : nzmsize,itime,ilist,ifirst,ilast,ph1
     use param, only : ntime
 
     ! FIXME
@@ -702,10 +702,10 @@ module mhd
   ! TODO Check if already allocated arrays can be re-used
   subroutine solve_poisson_mhd
     !
-    use decomp_2d, only : zsize, ph1
+    use decomp_2d, only : zsize
     use decomp_2d_mpi, only : nrank
     use decomp_2d_poisson, only : poisson
-    use var, only : nzmsize
+    use var, only : nzmsize, ph1
     use param, only : ntime, nrhotime, npress,ilmn, ivarcoeff, zero, one 
     use navier,only : gradp
 

@@ -6,6 +6,7 @@ module var
 
   use decomp_2d_constants
   use decomp_2d
+  use decomp_2d_io, only : xstS, xenS, xstV, xenV
   use decomp_2d_mpi
   USE variables
   USE param
@@ -50,6 +51,8 @@ module var
   real(mytype), save, allocatable, dimension(:,:,:) :: ta3,tb3,tc3,td3,&
        te3,tf3,tg3,th3,ti3,di3
   real(mytype), save, allocatable, dimension(:,:,:) :: pgz3,ppi3,dip3,dipp3,duxydxyp3,uzp3
+
+  type(DECOMP_INFO), save :: ph1, ph2, ph3, ph4, phG
 
   integer, save :: nxmsize, nymsize, nzmsize
 
