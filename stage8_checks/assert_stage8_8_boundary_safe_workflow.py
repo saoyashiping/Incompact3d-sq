@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+from pathlib import Path
+vals={}
+for ln in Path('stage8_outputs/fibre_stage8_boundary_safe_workflow_check.dat').read_text().splitlines():
+ s=ln.split();
+ if len(s)>=2: vals[s[0]]=float(s[1])
+ones='''stage8_boundary_stage7_closed_marker_exists stage8_boundary_stage7_total_smoke_output_exists stage8_boundary_stage7_total_smoke_status stage8_boundary_stage7_closed_marker_status stage8_boundary_stage8_0_output_exists stage8_boundary_stage8_0_status stage8_boundary_stage8_1_output_exists stage8_boundary_stage8_1_status stage8_boundary_stage8_2_output_exists stage8_boundary_stage8_2_status stage8_boundary_stage8_3_output_exists stage8_boundary_stage8_3_status stage8_boundary_stage8_4_output_exists stage8_boundary_stage8_4_status stage8_boundary_stage8_5_output_exists stage8_boundary_stage8_5_status stage8_boundary_stage8_6_output_exists stage8_boundary_stage8_6_status stage8_boundary_stage8_7_output_exists stage8_boundary_stage8_7_status stage8_boundary_dependency_status stage8_boundary_safe_velocity_called_flag stage8_boundary_safe_slip_called_flag stage8_boundary_safe_feedback_called_flag stage8_boundary_safe_force_density_called_flag stage8_boundary_safe_workflow_status stage8_boundary_nearwall_status stage8_boundary_outside_y_status stage8_boundary_invalid_coord_rejected_flag stage8_boundary_invalid_coord_status stage8_boundary_invalid_layout_rejected_flag stage8_boundary_invalid_layout_status stage8_boundary_periodic_x_allowed_flag stage8_boundary_periodic_z_allowed_flag stage8_boundary_periodic_status stage8_boundary_mixed_status stage8_boundary_no_rhs_no_projection_status stage8_boundary_noop_safety_status stage8_boundary_safe_workflow_check_status'''.split()
+zeros='''stage8_boundary_safe_blocked_count stage8_boundary_safe_unsafe_count stage8_boundary_rhs_hook_called_flag stage8_boundary_rhs_modified_flag stage8_boundary_pressure_poisson_modified_flag stage8_boundary_projection_modified_flag stage8_boundary_real_projection_called_flag stage8_boundary_production_dns_called_flag stage8_boundary_fluid_update_called_flag stage8_boundary_fibre_advance_called_flag stage8_boundary_noop_rhs_modified_flag'''.split()
+for k in ones: assert vals.get(k,0)==1,k
+for k in zeros: assert vals.get(k,1)==0,k
+assert vals['stage8_boundary_safe_point_count']>=2
+assert vals['stage8_boundary_safe_force_buffer_norm_max']>1e-14
+assert vals['stage8_boundary_safe_force_conservation_error']<=1e-12
+assert vals['stage8_boundary_nearwall_blocked_count']>0 and vals['stage8_boundary_nearwall_unsafe_count']>0
+assert vals['stage8_boundary_nearwall_velocity_write_error_max']<=1e-14
+assert vals['stage8_boundary_nearwall_slip_write_error_max']<=1e-14
+assert vals['stage8_boundary_nearwall_force_write_error_max']<=1e-14
+assert vals['stage8_boundary_nearwall_force_buffer_norm_max']<=1e-14
+assert vals['stage8_boundary_outside_y_blocked_count']>0
+assert vals['stage8_boundary_outside_y_velocity_write_error_max']<=1e-14
+assert vals['stage8_boundary_outside_y_slip_write_error_max']<=1e-14
+assert vals['stage8_boundary_outside_y_force_write_error_max']<=1e-14
+assert vals['stage8_boundary_outside_y_force_buffer_norm_max']<=1e-14
+assert vals['stage8_boundary_invalid_coord_force_buffer_norm_max']<=1e-14
+assert vals['stage8_boundary_invalid_layout_velocity_write_error_max']<=1e-14
+assert vals['stage8_boundary_invalid_layout_force_buffer_norm_max']<=1e-14
+assert vals['stage8_boundary_periodic_x_force_error']<=1e-12
+assert vals['stage8_boundary_periodic_z_force_error']<=1e-12
+assert vals['stage8_boundary_mixed_safe_count']>0 and vals['stage8_boundary_mixed_blocked_count']>0
+assert vals['stage8_boundary_mixed_blocked_velocity_write_error_max']<=1e-14
+assert vals['stage8_boundary_mixed_blocked_slip_write_error_max']<=1e-14
+assert vals['stage8_boundary_mixed_blocked_force_write_error_max']<=1e-14
+assert vals['stage8_boundary_mixed_safe_force_conservation_error']<=1e-12
+assert vals['stage8_boundary_noop_rhs_change_max']<=1e-14
+print('STAGE 8.8 BOUNDARY-SAFE WORKFLOW CHECK PASSED')
