@@ -50,7 +50,7 @@ call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_e
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_controlled_test_enabled',tmpi); ctrl_test_enabled_status=merge(1,0,tmpi==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_valid_flag',tmpi); ctrl_valid_status=merge(1,0,tmpi==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_rejected_flag',tmpi); ctrl_not_rejected_status=merge(1,0,tmpi==0)
-call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_rhs_allowed_flag',ctrl_rhs_allowed_raw)
+call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_rhs_candidate_controlled_allowed_flag',ctrl_rhs_allowed_raw)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_default_rhs_allowed_flag',default_rhs_allowed_raw)
 ctrl_rhs_allowed_status=merge(1,0,ctrl_rhs_allowed_raw==1)
 call get_int('stage8_outputs/fibre_stage8_config_check.dat','stage8_controlled_config_status',tmpi); ctrl_config_status=merge(1,0,tmpi==1)
