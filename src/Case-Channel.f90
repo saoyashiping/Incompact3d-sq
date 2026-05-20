@@ -264,7 +264,7 @@ contains
   !############################################################################
   subroutine postprocess_channel(ux1,uy1,uz1,pp3,phi1,ep1)
 
-    use var, ONLY : nzmsize,xnu
+    use var, ONLY : nzmsize, xnu, ph1
     USE variables, only: nx,ny,nz
 
     use MPI

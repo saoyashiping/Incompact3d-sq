@@ -738,7 +738,8 @@ module mhd
     USE variables
     USE var, ONLY: ta1, tb1, tc1, pp1, pgy1, pgz1, di1, &
          duxdxp2, uyp2, uzp2, duydypi2, upi2, ta2, dipp2, &
-         duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize
+         duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize, &
+         ph1, ph3, ph4
 
     implicit none
 

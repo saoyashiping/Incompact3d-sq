@@ -650,7 +650,7 @@ contains
              enddo
           enddo
        endif
-       if (dims(1)==1) then
+       if (cart_dims(1)==1) then
           if (mhd_active) then
              do k=1,xsize(3)
                 do i=1,xsize(1)
@@ -668,7 +668,7 @@ contains
                 enddo
              enddo
           endif
-       elseif (ny - (nym / dims(1)) == xstart(2)) then
+       elseif (ny - (nym / cart_dims(1)) == xstart(2)) then
           if (mhd_active) then
              do k=1,xsize(3)
                 do i=1,xsize(1)

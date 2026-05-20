@@ -986,7 +986,7 @@ contains
       use var, only: pp1, di1, nxmsize
       use var, only: pp2, ppi2, dip2, ph2, nymsize
       use var, only: ppi3, dip3, ph3, nzmsize
-      use var, only: npress
+      use var, only: npress, ph1
       use tools, only: rescale_pressure
 
       implicit none

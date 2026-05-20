@@ -273,7 +273,7 @@ contains
 !############################################################################
   subroutine postprocess_hill(ux1,uy1,uz1,pp3,phi1,ep1)
 !############################################################################
-    use var, ONLY : nzmsize
+    use var, ONLY : nzmsize, ph1
 
     implicit none
 
