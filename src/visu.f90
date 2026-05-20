@@ -45,7 +45,8 @@ contains
     use MPI
     use param, only : ilmn, iscalar, ilast, ifirst, ioutput, istret
     use variables, only : numscalar, prec, nvisu
-    use param, only : dx, dy, dz, istret, nx, ny, nz
+    use param, only : dx, dy, dz, istret
+    use variables, only : nx, ny, nz
     use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_open_io, decomp_2d_append_mode
     use decomp_2d_io, only : decomp_2d_register_variable
 
@@ -402,7 +403,8 @@ contains
   subroutine write_xdmf_header(pathname, filename, num)
 
     use variables, only : nvisu, yp
-    use param, only : dx,dy,dz,istret,nx,ny,nz
+    use param, only : dx,dy,dz,istret
+    use variables, only : nx, ny, nz
     use utilities, only : gen_snapshotname
 
     implicit none
@@ -496,7 +498,8 @@ contains
 
   subroutine write_xdmf_topo()
 
-    use param, only : istret, nx, ny, nz
+    use param, only : istret
+    use variables, only : nx, ny, nz
     use variables, only : nvisu
     
     implicit none
@@ -579,7 +582,8 @@ contains
     use var, only : zero, one
     use var, only : uvisu
     use var, only : ta1
-    use param, only : iibm, itime, nx, ny, nz
+    use param, only : iibm, itime
+    use variables, only : nx, ny, nz
     use variables, only : nvisu
     use utilities, only : gen_filename,gen_snapshotname,gen_h5path
     use decomp_2d_io, only : decomp_2d_write_one, decomp_2d_write_plane

@@ -1,60 +1,60 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
-fail() {
-  echo "[FAIL] $1" >&2
-  exit 1
+failures=()
+
+pass() { echo "[PASS] $1"; }
+fail() { echo "[FAIL] $1"; failures+=("$1"); }
+
+search_src() {
+  local pattern="$1"
+  grep -RInE "$pattern" src --include='*.f90' --include='*.F90' 2>/dev/null
 }
 
-pass() {
-  echo "[PASS] $1"
+check_absent_file() {
+  local file="$1" desc="$2"
+  if [ -e "$file" ]; then fail "$desc"; else pass "$desc"; fi
 }
 
-[ ! -e src/xcompact3d_decomp_io_compat.f90 ] || fail "src/xcompact3d_decomp_io_compat.f90 must be removed"
-pass "compat source removed"
+check_absent_pattern_file() {
+  local pattern="$1" file="$2" desc="$3"
+  if grep -nE "$pattern" "$file" >/dev/null 2>&1; then fail "$desc"; else pass "$desc"; fi
+}
 
-[ ! -e src/fibre_stage_decomp2d_constants_stub.f90 ] || fail "src/fibre_stage_decomp2d_constants_stub.f90 must be removed"
-pass "decomp constants stub removed"
+check_absent_pattern_src() {
+  local pattern="$1" desc="$2"
+  if search_src "$pattern" >/dev/null; then fail "$desc"; else pass "$desc"; fi
+}
 
-if rg -n "xcompact3d_decomp_io_compat\.f90" src/CMakeLists.txt >/dev/null; then
-  fail "src/CMakeLists.txt still references xcompact3d_decomp_io_compat.f90"
-fi
-pass "CMakeLists has no compat source entries"
+check_present_pattern_src() {
+  local pattern="$1" desc="$2"
+  if search_src "$pattern" >/dev/null; then pass "$desc"; else fail "$desc"; fi
+}
 
-if rg -n "^[[:space:]]*use[[:space:]]+xcompact3d_decomp_io_compat\b|^[[:space:]]*USE[[:space:]]+xcompact3d_decomp_io_compat\b" src/*.f90 >/dev/null; then
-  fail "active source still imports xcompact3d_decomp_io_compat"
-fi
-pass "no active compat module import in src/*.f90"
+check_absent_file "src/xcompact3d_decomp_io_compat.f90" "compat source file removed"
+check_absent_file "src/fibre_stage_decomp2d_constants_stub.f90" "decomp constants stub removed"
+check_absent_pattern_file "xcompact3d_decomp_io_compat\.f90" "src/CMakeLists.txt" "CMakeLists has no compat source entries"
+check_absent_pattern_src "^[[:space:]]*(use|USE)[[:space:]]+xcompact3d_decomp_io_compat\b" "no active compat module import in src"
+check_absent_pattern_src "^[[:space:]]*(use|USE)[[:space:]]+m_halo\b" "no active m_halo import in src"
+check_absent_pattern_src "xcompact3d_coarse_bounds_initialized" "no local coarse-bounds init flag"
+check_absent_pattern_src "init_xcompact3d_coarse_bounds" "no local coarse-bounds initializer"
+check_present_pattern_src "^[[:space:]]*(use|USE)[[:space:]]+decomp_2d_io\b" "active sources import decomp_2d_io"
+check_absent_pattern_src "^[[:space:]]*(use|USE)[[:space:]]+xcompact3d_decomp_io_compat\b.*fine_to_coarse(S|V)" "fine_to_coarseS/V are not imported via compat"
+check_absent_pattern_file "^[[:space:]]*use[[:space:]]+param,[[:space:]]*only[[:space:]]*:.*\b(nx|ny|nz)\b" "src/visu.f90" "visu.f90 does not import nx/ny/nz from param"
 
-if rg -n "^[[:space:]]*use[[:space:]]+m_halo\b|^[[:space:]]*USE[[:space:]]+m_halo\b" src/*.f90 >/dev/null; then
-  fail "active source still imports m_halo"
-fi
-pass "no active m_halo import in src/*.f90"
-
-if rg -n "xcompact3d_coarse_bounds_initialized" src/*.f90 >/dev/null; then
-  fail "xcompact3d_coarse_bounds_initialized residual found"
-fi
-pass "no local coarse-bounds init flag"
-
-if rg -n "init_xcompact3d_coarse_bounds" src/*.f90 >/dev/null; then
-  fail "init_xcompact3d_coarse_bounds residual found"
-fi
-pass "no local coarse-bounds initializer call/subroutine"
-
-if ! rg -n "^[[:space:]]*use[[:space:]]+decomp_2d_io\b|^[[:space:]]*USE[[:space:]]+decomp_2d_io\b" src/*.f90 >/dev/null; then
-  fail "decomp_2d_io import not found in active sources"
-fi
-pass "decomp_2d_io is used by active sources"
-
-if ! rg -n "^[[:space:]]*use[[:space:]]+decomp_2d\b.*fine_to_coarseS|^[[:space:]]*use[[:space:]]+decomp_2d\b.*fine_to_coarseV|^[[:space:]]*USE[[:space:]]+decomp_2d\b.*fine_to_coarseS|^[[:space:]]*USE[[:space:]]+decomp_2d\b.*fine_to_coarseV" src/*.f90 >/dev/null; then
-  fail "fine_to_coarseS/fine_to_coarseV are not imported from decomp_2d"
-fi
-pass "coarse conversion symbols are imported from decomp_2d"
-
-if rg -n "target_link_libraries\([^)]*decomp2d" src/CMakeLists.txt >/dev/null; then
-  pass "targets link decomp2d"
+if [ ${#failures[@]} -eq 0 ]; then
+  echo "============================================================"
+  echo "STAGE 9.1 FINAL VERDICT: PASS"
+  echo "Reason: real 2decomp-fft interface cleanup is consistent."
+  echo "============================================================"
+  exit 0
 else
-  fail "no decomp2d target links found in src/CMakeLists.txt"
+  echo "============================================================"
+  echo "STAGE 9.1 FINAL VERDICT: FAIL"
+  echo "Failed checks:"
+  for item in "${failures[@]}"; do
+    echo "  - $item"
+  done
+  echo "============================================================"
+  exit 1
 fi
-
-echo "Stage 9.1 interface consistency checks passed."

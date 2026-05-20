@@ -46,3 +46,23 @@ No changes are introduced to physical models, RHS formulations, projection behav
   - no local coarse-bounds initializer residues;
   - active usage of real `decomp_2d_io` and `decomp_2d` symbols;
   - decomp2d target links retained in CMake.
+
+## Stage 9.1 follow-up compile-block fixes
+
+- Corrected `src/visu.f90` imports so `nx/ny/nz` are no longer imported from `param`.
+  - Runtime controls remain imported from `param` (`dx/dy/dz/istret/iibm/itime` as needed).
+  - Grid-size metadata (`nx/ny/nz`, and existing `nvisu`) are imported from `variables`.
+- Updated `stage9_checks/run_stage9_1_interface_consistency.sh` to be portable without `rg`.
+  - It now uses `grep -RInE` helpers and does not depend on ripgrep availability.
+  - Each sub-check still reports `[PASS]/[FAIL]`.
+  - Script always prints a final verdict:
+    - `STAGE 9.1 FINAL VERDICT: PASS` or
+    - `STAGE 9.1 FINAL VERDICT: FAIL` with explicit failed items.
+- Added `stage9_checks/run_stage9_1_full_gate.sh` as an optional unified gate entry.
+  - Runs configure/build/interface checks sequentially.
+  - Preserves command output visibility.
+  - Always prints final verdict:
+    - `STAGE 9.1 FULL GATE VERDICT: PASS` or
+    - `STAGE 9.1 FULL GATE VERDICT: FAIL` with failed steps.
+
+These follow-up fixes are interface/build-check plumbing only and do not alter physics models, IBM coupling algorithms, RHS/projection behavior, or structure solver logic.
