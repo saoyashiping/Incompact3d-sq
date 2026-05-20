@@ -74,7 +74,7 @@ contains
 
   subroutine geomcomplex_sandbox(epsi, nxi, nxf, ny, nyi, nyf, nzi, nzf, yp, remp)
 
-    use decomp_2d_io, only : decomp_2d_read_one
+    use xcompact3d_decomp_io_compat, only : decomp_2d_read_one
     use param, only : one, two
     use variables, only : nx, nz
     use complex_geometry, only : nxraf,nyraf,nzraf
@@ -379,7 +379,7 @@ contains
   !********************************************************************
   subroutine init_sandbox (ux1,uy1,uz1,ep1,phi1,iresflg)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE variables
     USE param
     USE MPI
@@ -577,7 +577,7 @@ contains
   ! subroutine postprocessing_aux(u1,u2,u3,name,num) !By Felipe Schuch
   !
   !   USE decomp_2d
-  !   USE decomp_2d_io
+  !   USE xcompact3d_decomp_io_compat
   !   USE param, only : zero, one
   !   USE var, only : ep1
   !   USE variables, only: nx, ny, nz, prec

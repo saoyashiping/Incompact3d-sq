@@ -69,7 +69,7 @@ contains
       use param
       use actuator_line_model
       use actuator_disc_model
-      use decomp_2d_io
+      use xcompact3d_decomp_io_compat
 
       implicit none   
  

@@ -16,7 +16,7 @@ contains
   !
   !*******************************************************************************
 
-    use decomp_2d_io
+    use xcompact3d_decomp_io_compat
     use variables
     use param
     use MPI
@@ -1179,7 +1179,7 @@ contains
   !*******************************************************************************
 
     USE MPI
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE var, only : umean,vmean,wmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
     USE var, only : uvisu
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1

@@ -53,6 +53,12 @@ module var
 
   integer, save :: nxmsize, nymsize, nzmsize
 
+  integer, save :: xstS(3) = 1
+  integer, save :: xenS(3) = 0
+  integer, save :: xstV(3) = 1
+  integer, save :: xenV(3) = 0
+  logical, save :: xcompact3d_coarse_bounds_initialized = .false.
+
   ! working arrays for LES
   ! These are by far too many variables and we should be able to decrease them
   real(mytype), save, allocatable, dimension(:,:,:) :: sgsx1,sgsy1,sgsz1,nut1,sxx1,syy1,szz1,sxy1,sxz1,syz1
@@ -88,6 +94,30 @@ module var
 
 contains
 
+  subroutine init_xcompact3d_coarse_bounds()
+
+    implicit none
+    integer :: d
+    integer :: sstat, svisu
+
+    sstat = max(1, nstat)
+    svisu = max(1, nvisu)
+
+    do d = 1, 3
+      xstS(d) = ((xstart(d) - 1 + sstat - 1) / sstat) + 1
+      xenS(d) = ((xend(d)   - 1) / sstat) + 1
+
+      xstV(d) = ((xstart(d) - 1 + svisu - 1) / svisu) + 1
+      xenV(d) = ((xend(d)   - 1) / svisu) + 1
+
+      if (xenS(d) < xstS(d)) xenS(d) = xstS(d) - 1
+      if (xenV(d) < xstV(d)) xenV(d) = xstV(d) - 1
+    end do
+
+    xcompact3d_coarse_bounds_initialized = .true.
+
+  end subroutine init_xcompact3d_coarse_bounds
+
   subroutine init_variables
 
     implicit none 
@@ -101,6 +131,10 @@ contains
 #endif
 
     if (nrank == 0) write(*,*) '# Initializing variables...'
+
+    if (.not. xcompact3d_coarse_bounds_initialized) then
+      call init_xcompact3d_coarse_bounds()
+    end if
 
     if (nclx) then
        nxmsize = xsize(1)

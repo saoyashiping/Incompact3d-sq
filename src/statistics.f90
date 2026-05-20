@@ -22,7 +22,7 @@ contains
 
   subroutine init_statistic_adios2
 
-    use decomp_2d_io, only : decomp_2d_register_variable, decomp_2d_init_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable, decomp_2d_init_io
 
     use var, only : numscalar
     
@@ -150,7 +150,7 @@ contains
 
     use param, only : iscalar, itime
     use variables, only : numscalar
-    use decomp_2d_io, only : decomp_2d_write_mode, decomp_2d_read_mode, &
+    use xcompact3d_decomp_io_compat, only : decomp_2d_write_mode, decomp_2d_read_mode, &
          decomp_2d_open_io, decomp_2d_close_io, decomp_2d_start_io, decomp_2d_end_io
     use var, only : pmean
     use var, only : umean, uumean
@@ -269,10 +269,10 @@ contains
 
     use param
     use variables
-    use decomp_2d_io
+    use xcompact3d_decomp_io_compat
     use tools, only : rescale_pressure
 
-    use var, only : nxmsize, nymsize, nzmsize
+    use var, only : nxmsize, nymsize, nzmsize, ph1, ph2, ph3
     use var, only : ppi3, dip3
     use var, only : pp2, ppi2, dip2
     use var, only : pp1, ta1, di1
