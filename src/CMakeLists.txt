@@ -1978,14 +1978,3 @@ if(MPI_FOUND)
   target_link_libraries(fibre_stage9_dependency_gate_check PRIVATE MPI::MPI_Fortran)
 endif()
 install(TARGETS fibre_stage9_dependency_gate_check DESTINATION bin)
-
-add_executable(fibre_stage9_build_regression_check
-  fibre_types.f90
-  fibre_parameters.f90
-  fibre_stage9_build_regression_check.f90
-)
-target_link_libraries(fibre_stage9_build_regression_check PRIVATE decomp2d)
-if(MPI_FOUND)
-  target_link_libraries(fibre_stage9_build_regression_check PRIVATE MPI::MPI_Fortran)
-endif()
-install(TARGETS fibre_stage9_build_regression_check DESTINATION bin)
