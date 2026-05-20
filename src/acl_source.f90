@@ -256,8 +256,7 @@ contains
     !*******************************************************************************
 
       use decomp_2d_mpi, only: nproc
-      use decomp_2d, only: xstart, xend, xsize
-  use m_halo,    only: update_halo
+      use decomp_2d, only: xstart, xend, xsize, update_halo
       use MPI
       use param, only: dx,dy,dz,eps_factor,xnu,istret,xlx,yly,zlz
       use var, only: ux1, uy1, uz1, FTx, FTy, FTz, yp
