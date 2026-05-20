@@ -530,7 +530,8 @@ module particle_utilities
   !+-------------------------------------------------------------------+
   subroutine pswap_yz(varin,varout)
     
-    use decomp_2d, only : xsize,update_halo
+    use decomp_2d, only : xsize
+  use m_halo,    only : update_halo
     use param,     only : nclx,ncly,nclz
     
     ! arguments
@@ -540,7 +541,7 @@ module particle_utilities
     ! local data
     real(mytype),allocatable,dimension(:,:,:) :: var_halo
 
-    call update_halo(varin,var_halo,1,opt_global=.true.,opt_pencil=1)
+    call update_halo(varin, var_halo, 1, opt_global=.true.)
 
     
     varout(1:xsize(1),0:xsize(2)+1,0:xsize(3)+1)=var_halo(:,:,:)
@@ -1515,7 +1516,7 @@ module particle
     use MPI
     use param,     only : dx,dy,dz,istret,nclx,ncly,nclz,xlx,yly,zlz
     use variables, only : yp,ny,nz
-    use decomp_2d, only : xsize,xstart,xend,update_halo
+    use decomp_2d, only : xsize, xstart, xend
     use actuator_line_model_utils, only: trilinear_interpolation
     
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: ux1,uy1,uz1
