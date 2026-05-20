@@ -12,7 +12,7 @@ for ln in p.read_text().splitlines():
 
 expected_one = [
   'stage9_1a_stage9_0_output_exists','stage9_1a_stage9_0_status','stage9_1a_stage9_1_allowed_flag','stage9_1a_stage9_0_dependency_status',
-  'stage9_1a_decomp2d_root_exists','stage9_1a_decomp2d_root_nonempty_flag','stage9_1a_real_decomp2d_required_flag','stage9_1a_no_decomp2d_stub_policy_flag','stage9_1a_decomp2d_presence_status',
+  'stage9_1a_decomp2d_root_exists','stage9_1a_decomp2d_root_nonempty_flag','stage9_1a_real_decomp2d_required_flag','stage9_1a_no_decomp2d_stub_policy_flag','stage9_1a_decomp2d_presence_status','stage9_1a_decomp2d_io_mod_exists','stage9_1a_decomp2d_static_lib_exists',
   'stage9_1a_compat_module_exists','stage9_1a_compat_in_cmake_flag','stage9_1a_compat_before_forces_flag','stage9_1a_compat_before_statistics_flag','stage9_1a_compat_before_visu_flag','stage9_1a_compat_before_tools_flag','stage9_1a_compat_before_les_models_flag','stage9_1a_compat_before_case_files_flag','stage9_1a_compat_cmake_order_status',
   'stage9_1a_forbidden_direct_old_io_imports_absent_flag','stage9_1a_xcompact3d_real_io_init_finalise_allowed_flag','stage9_1a_direct_import_policy_status',
   'stage9_1a_compat_metadata_wrappers_status','stage9_1a_compat_write_one_wrapper_status','stage9_1a_compat_read_one_wrapper_status','stage9_1a_compat_write_plane_wrapper_status','stage9_1a_compat_fine_to_coarse_wrapper_status','stage9_1a_compat_gen_iodir_name_status','stage9_1a_compat_coverage_status',

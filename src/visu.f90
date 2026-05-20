@@ -418,6 +418,11 @@ contains
     character(len=:), allocatable :: fmt
     
     if (nrank.eq.0) then
+      nxv = visu_coarse_count(nx, nvisu)
+      nyv = visu_coarse_count(ny, nvisu)
+      nzv = visu_coarse_count(nz, nvisu)
+      allocate(xp(nxv), zp(nzv))
+
       OPEN(newunit=ioxdmf,file="./data/"//gen_snapshotname(pathname, filename, num, "xdmf"))
 
       write(ioxdmf,'(A22)')'<?xml version="1.0" ?>'

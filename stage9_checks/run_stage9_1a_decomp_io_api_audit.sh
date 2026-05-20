@@ -18,7 +18,27 @@ emit(){ echo "$1=$2" >> "$OUT"; }
 
 get_key(){
   local f="$1" k="$2"
-  awk -F= -v key="$k" '$1==key{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}' "$f" 2>/dev/null || true
+  [[ -f "$f" ]] || return 0
+  awk -v key="$k" '
+      $0 ~ /^[[:space:]]*#/ { next }
+      {
+        line=$0
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+
+        if (index(line, "=") > 0) {
+          split(line, a, "=")
+          kk=a[1]
+          vv=a[2]
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", kk)
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", vv)
+          if (kk == key) { print vv; exit }
+        } else {
+          kk=$1
+          vv=$2
+          if (kk == key) { print vv; exit }
+        }
+      }
+    ' "$f" 2>/dev/null || true
 }
 
 dep_file="stage9_outputs/fibre_stage9_dependency_gate_check.dat"
@@ -36,6 +56,14 @@ if [[ -d "$DECOMP2D_ROOT" ]] && [[ -n "$(find "$DECOMP2D_ROOT" -mindepth 1 -maxd
 emit stage9_1a_real_decomp2d_required_flag 1
 emit stage9_1a_no_decomp2d_stub_policy_flag 1
 if [[ "$(get_key "$OUT" stage9_1a_decomp2d_root_exists)" == "1" && "$(get_key "$OUT" stage9_1a_decomp2d_root_nonempty_flag)" == "1" ]]; then emit stage9_1a_decomp2d_presence_status 1; else emit stage9_1a_decomp2d_presence_status 0; fi
+
+[[ -f "$DECOMP2D_ROOT/include/decomp_2d_io.mod" ]] && emit stage9_1a_decomp2d_io_mod_exists 1 || emit stage9_1a_decomp2d_io_mod_exists 0
+[[ -f "$DECOMP2D_ROOT/lib/libdecomp2d.a" ]] && emit stage9_1a_decomp2d_static_lib_exists 1 || emit stage9_1a_decomp2d_static_lib_exists 0
+if [[ -f "$DECOMP2D_ROOT/lib/libdecomp2d.a" ]] && command -v nm >/dev/null 2>&1; then
+  nm -g --defined-only "$DECOMP2D_ROOT/lib/libdecomp2d.a" | grep -i "decomp_2d_io_MOD" > stage9_outputs/stage9_1a_decomp2d_io_symbols.txt || true
+else
+  : > stage9_outputs/stage9_1a_decomp2d_io_symbols.txt
+fi
 
 [[ -f src/xcompact3d_decomp_io_compat.f90 ]] && emit stage9_1a_compat_module_exists 1 || emit stage9_1a_compat_module_exists 0
 compat_line=$(grep -n "xcompact3d_decomp_io_compat.f90" src/CMakeLists.txt | head -n1 | cut -d: -f1 || true)
@@ -60,23 +88,34 @@ emit stage9_1a_xcompact3d_real_io_init_finalise_allowed_flag "$xio_ok"
 if [[ "$(get_key "$OUT" stage9_1a_forbidden_direct_old_io_imports_absent_flag)" == "1" && "$xio_ok" == "1" ]]; then emit stage9_1a_direct_import_policy_status 1; else emit stage9_1a_direct_import_policy_status 0; fi
 
 compat=src/xcompact3d_decomp_io_compat.f90
-has_all(){ local ok=1; for p in "$@"; do grep -q "$p" "$compat" || ok=0; done; echo "$ok"; }
-emit stage9_1a_compat_metadata_wrappers_status "$(has_all 'public :: decomp_2d_init_io' 'public :: decomp_2d_register_variable' 'public :: decomp_2d_open_io' 'public :: decomp_2d_close_io' 'public :: decomp_2d_start_io' 'public :: decomp_2d_end_io' 'subroutine decomp_2d_init_io' 'subroutine decomp_2d_register_variable' 'subroutine decomp_2d_open_io' 'subroutine decomp_2d_close_io' 'subroutine decomp_2d_start_io' 'subroutine decomp_2d_end_io')"
-emit stage9_1a_compat_write_one_wrapper_status "$(has_all 'public :: decomp_2d_write_one' 'interface decomp_2d_write_one' 'x3d_write_one_r3_simple' 'x3d_write_one_r3_legacy')"
-emit stage9_1a_compat_read_one_wrapper_status "$(has_all 'public :: decomp_2d_read_one' 'interface decomp_2d_read_one' 'x3d_read_one_r3_simple' 'x3d_read_one_r3_legacy')"
-emit stage9_1a_compat_write_plane_wrapper_status "$(has_all 'public :: decomp_2d_write_plane' 'interface decomp_2d_write_plane' 'x3d_write_plane_r3_simple' 'x3d_write_plane_r3_legacy')"
-emit stage9_1a_compat_fine_to_coarse_wrapper_status "$(has_all 'public :: fine_to_coarseS' 'public :: fine_to_coarseV' 'interface fine_to_coarseS' 'interface fine_to_coarseV' 'fine_to_coarseS_r3' 'fine_to_coarseV_r3')"
-emit stage9_1a_compat_gen_iodir_name_status "$(has_all 'public :: gen_iodir_name' 'function gen_iodir_name')"
+has_symbol(){
+  local sym="$1"
+  grep -Eq "(public[[:space:]]*::.*\b${sym}\b|subroutine[[:space:]]+${sym}\b|function[[:space:]]+${sym}\b|interface[[:space:]]+${sym}\b|module[[:space:]]+procedure[[:space:]].*\b${sym}\b)" "$compat"
+}
+all_symbols_present(){
+  local ok=1
+  for sym in "$@"; do
+    has_symbol "$sym" || ok=0
+  done
+  echo "$ok"
+}
+emit stage9_1a_compat_metadata_wrappers_status "$(all_symbols_present decomp_2d_init_io decomp_2d_register_variable decomp_2d_open_io decomp_2d_close_io decomp_2d_start_io decomp_2d_end_io)"
+emit stage9_1a_compat_write_one_wrapper_status "$(all_symbols_present decomp_2d_write_one)"
+emit stage9_1a_compat_read_one_wrapper_status "$(all_symbols_present decomp_2d_read_one)"
+emit stage9_1a_compat_write_plane_wrapper_status "$(all_symbols_present decomp_2d_write_plane)"
+emit stage9_1a_compat_fine_to_coarse_wrapper_status "$(all_symbols_present fine_to_coarseS fine_to_coarseV)"
+emit stage9_1a_compat_gen_iodir_name_status "$(all_symbols_present gen_iodir_name)"
 if [[ "$(get_key "$OUT" stage9_1a_compat_metadata_wrappers_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_write_one_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_read_one_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_write_plane_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_fine_to_coarse_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_gen_iodir_name_status)" == "1" ]]; then emit stage9_1a_compat_coverage_status 1; else emit stage9_1a_compat_coverage_status 0; fi
 
-legacy_calls=$(grep -RInE "call[[:space:]]+(decomp_2d_write_one|decomp_2d_read_one|decomp_2d_write_plane|fine_to_coarseS|fine_to_coarseV|decomp_2d_register_variable|decomp_2d_init_io|decomp_2d_open_io|decomp_2d_close_io|decomp_2d_start_io|decomp_2d_end_io)" src | cut -d: -f1 | sort -u || true)
+legacy_calls=$(grep -RInE "call[[:space:]]+(decomp_2d_write_one|decomp_2d_read_one|decomp_2d_write_plane|fine_to_coarseS|fine_to_coarseV|decomp_2d_register_variable|decomp_2d_init_io|decomp_2d_open_io|decomp_2d_close_io|decomp_2d_start_io|decomp_2d_end_io)" src | cut -d: -f1 | sort -u | grep -v '^src/xcompact3d_decomp_io_compat\.f90$' || true)
 legacy_count=$(echo "$legacy_calls" | sed '/^$/d' | wc -l | tr -d ' ')
 uncovered=0
 coverage_table=""
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
   if grep -qi "use[[:space:]]\+xcompact3d_decomp_io_compat" "$f"; then cov=YES; else cov=NO; uncovered=$((uncovered+1)); fi
-  coverage_table+="| $f | $cov |\n"
+  coverage_table+="| $f | $cov |
+"
 done <<< "$legacy_calls"
 emit stage9_1a_legacy_io_call_file_count "$legacy_count"
 emit stage9_1a_legacy_io_uncovered_file_count "$uncovered"
@@ -114,13 +153,21 @@ Static API compatibility audit for Xcompact3D production I/O usage vs installed 
 
 - audit value: $DECOMP2D_ROOT
 
-## 3. Allowed remaining direct decomp_2d_io uses
+## 3. Decomp2d binary/mod evidence
+
+- include/decomp_2d_io.mod exists: $(get_key "$OUT" stage9_1a_decomp2d_io_mod_exists)
+- lib/libdecomp2d.a exists: $(get_key "$OUT" stage9_1a_decomp2d_static_lib_exists)
+- symbols snapshot: stage9_outputs/stage9_1a_decomp2d_io_symbols.txt
+
+The uploaded/current decomp2d install is binary/mod-only; current Xcompact3D legacy I/O API is not directly provided by decomp_2d_io.
+
+## 4. Allowed remaining direct decomp_2d_io uses
 
 \`\`\`
 $allowed_direct
 \`\`\`
 
-## 4. Forbidden old direct imports count
+## 5. Forbidden old direct imports count
 
 - count: $(get_key "$OUT" stage9_1a_forbidden_direct_old_io_import_count)
 
@@ -128,7 +175,7 @@ $allowed_direct
 $forbidden_direct
 \`\`\`
 
-## 5. Compat wrapper coverage table
+## 6. Compat wrapper coverage table
 
 | Check | Flag |
 |---|---|
@@ -139,21 +186,21 @@ $forbidden_direct
 | fine_to_coarse wrappers | $(get_key "$OUT" stage9_1a_compat_fine_to_coarse_wrapper_status) |
 | gen_iodir_name | $(get_key "$OUT" stage9_1a_compat_gen_iodir_name_status) |
 
-## 6. Legacy call coverage table
+## 7. Legacy call coverage table
 
 | File | compat imported |
 |---|---|
 $coverage_table
 
-## 7. Build-only wrapper warning
+## 8. Build-only wrapper warning
 
 Compat module markers indicate this is a build-only compatibility path for Stage 9.1.
 
-## 8. Stage 9.10 requirement
+## 9. Stage 9.10 requirement
 
 Stage 9.10 restart/output semantics must audit real I/O behavior.
 
-## 9. Next allowed step
+## 10. Next allowed step
 
 Stage 9.1b only (Stage 9.2 disallowed).
 MD
