@@ -253,7 +253,7 @@ contains
   !########################################################################
   subroutine visu_gravitycur_init(visu_initialised)
 
-    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_register_variable, &
+    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_register_variable, &
                              decomp_2d_open_io, decomp_2d_write_mode
     
     implicit none
@@ -275,7 +275,7 @@ contains
   !--------------------------------------------------------------------- 
   subroutine visu_gravitycur_finalise()
   
-    use decomp_2d_io, only : decomp_2d_close_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
     implicit none
     
 #ifdef ADIOS2
@@ -291,7 +291,7 @@ contains
     use var, only : phi2, rho2
     use var, only : phi3, rho3
     use tools, only : mean_plane_z
-    use decomp_2d_io, only : decomp_2d_write_mode, decomp_2d_open_io, decomp_2d_close_io, &
+    use xcompact3d_decomp_io_compat, only : decomp_2d_write_mode, decomp_2d_open_io, decomp_2d_close_io, &
                              decomp_2d_start_io, decomp_2d_end_io
 
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1, ep1

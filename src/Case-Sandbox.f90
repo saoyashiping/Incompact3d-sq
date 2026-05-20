@@ -74,7 +74,7 @@ contains
 
   subroutine geomcomplex_sandbox(epsi, nxi, nxf, ny, nyi, nyf, nzi, nzf, yp, remp)
 
-    use decomp_2d_io, only : decomp_2d_read_one
+    use xcompact3d_decomp_io_compat, only : decomp_2d_read_one
     use param, only : one, two
     use variables, only : nx, nz
     use complex_geometry, only : nxraf,nyraf,nzraf

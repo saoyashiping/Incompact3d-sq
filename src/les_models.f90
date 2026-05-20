@@ -25,7 +25,7 @@ contains
 
     USE param
     USE variables
-    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_register_variable, decomp_2d_open_io, decomp_2d_write_mode
+    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_register_variable, decomp_2d_open_io, decomp_2d_write_mode
 
     implicit none
 
@@ -83,7 +83,7 @@ contains
   end subroutine init_explicit_les
   subroutine finalise_explicit_les()
 
-    use decomp_2d_io, only : decomp_2d_close_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
     implicit none
     
 #ifdef ADIOS2
