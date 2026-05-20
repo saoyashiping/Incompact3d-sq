@@ -1978,3 +1978,12 @@ if(MPI_FOUND)
   target_link_libraries(fibre_stage9_dependency_gate_check PRIVATE MPI::MPI_Fortran)
 endif()
 install(TARGETS fibre_stage9_dependency_gate_check DESTINATION bin)
+
+add_executable(fibre_stage9_2_minimal_parallel_gate
+  fibre_stage9_2_minimal_parallel_gate.f90
+)
+target_link_libraries(fibre_stage9_2_minimal_parallel_gate PRIVATE decomp2d)
+if(MPI_FOUND)
+  target_link_libraries(fibre_stage9_2_minimal_parallel_gate PRIVATE MPI::MPI_Fortran)
+endif()
+install(TARGETS fibre_stage9_2_minimal_parallel_gate DESTINATION bin)
