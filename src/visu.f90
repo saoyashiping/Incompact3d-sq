@@ -45,15 +45,16 @@ contains
     use MPI
     use param, only : ilmn, iscalar, ilast, ifirst, ioutput, istret
     use variables, only : numscalar, prec, nvisu
-    use param, only : dx, dy, dz, istret
-    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_open_io, decomp_2d_append_mode
-    use decomp_2d_io, only : decomp_2d_register_variable
+    use param, only : dx, dy, dz, istret, nx, ny, nz
+    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_open_io, decomp_2d_append_mode
+    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
 
     
     implicit none
 
     ! Local variables
     integer :: noutput, nsnapout
+    integer :: nxv, nyv, nzv
     real(mytype) :: memout
     character(len=30) :: scname
 
@@ -68,14 +69,17 @@ contains
       if (iscalar.ne.0) nsnapout = nsnapout + numscalar
 
       memout = prec * nsnapout * noutput
+      nxv = visu_coarse_count(nx, nvisu)
+      nyv = visu_coarse_count(ny, nvisu)
+      nzv = visu_coarse_count(nz, nvisu)
       if (output2D.eq.0) then
-        memout = memout * xszV(1) * yszV(2) * zszV(3)
+        memout = memout * nxv * nyv * nzv
       else if (output2D.eq.1) then
-        memout = memout *           yszV(2) * zszV(3)
+        memout = memout *           nyv * nzv
       else if (output2D.eq.2) then
-        memout = memout * xszV(1)           * zszV(3)
+        memout = memout * nxv           * nzv
       else if (output2D.eq.3) then
-        memout = memout * xszV(1) * yszV(2)
+        memout = memout * nxv * nyv
       endif
       write(*,*)'==========================================================='
       write(*,*)'Visu module requires ',real(memout*1e-9,4),'GB'
@@ -130,7 +134,7 @@ contains
   !
   subroutine visu_ready ()
 
-    use decomp_2d_io, only : decomp_2d_open_io, decomp_2d_append_mode, decomp_2d_write_mode, gen_iodir_name
+    use xcompact3d_decomp_io_compat, only : decomp_2d_open_io, decomp_2d_append_mode, decomp_2d_write_mode, gen_iodir_name
     use param, only : irestart, dx, dy, dz
     
     implicit none
@@ -166,6 +170,11 @@ contains
     call decomp_2d_open_io(io_name, "data", mode)
 
     ! Write the vtk.xml file
+    nxv = visu_coarse_count(nx, nvisu)
+    nyv = visu_coarse_count(ny, nvisu)
+    nzv = visu_coarse_count(nz, nvisu)
+    allocate(xp(nxv), zp(nzv))
+
     if (nrank.eq.0) then
        open(newunit=ioxml, file=trim(gen_iodir_name("data", io_name))//"/vtk.xml")
 
@@ -187,7 +196,7 @@ contains
   ! 
   subroutine visu_finalise()
 
-    use decomp_2d_io, only : decomp_2d_close_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
     
     implicit none
 
@@ -205,7 +214,7 @@ contains
   !
   subroutine write_snapshot(rho1, ux1, uy1, uz1, pp3, phi1, ep1, itime, num)
 
-    use decomp_2d_io, only : decomp_2d_start_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_start_io
 
     use param, only : nrhotime, ilmn, iscalar, ioutput, irestart, istret, dy
 
@@ -216,7 +225,7 @@ contains
 
     use var, only : pp1, ta1, di1, nxmsize
     use var, only : pp2, ppi2, dip2, ph2, nymsize
-    use decomp_2d_io, only : fine_to_coarseV
+    use xcompact3d_decomp_io_compat, only : fine_to_coarseV
     use var, only : ppi3, dip3, ph3, nzmsize
     use var, only : npress
 
@@ -325,7 +334,7 @@ contains
 
   subroutine end_snapshot(itime, num)
 
-    use decomp_2d_io, only : decomp_2d_end_io
+    use xcompact3d_decomp_io_compat, only : decomp_2d_end_io
     use param, only : istret, xlx, yly, zlz
     use variables, only : nx, ny, nz
     use mod_stret, only : beta
@@ -393,7 +402,7 @@ contains
   subroutine write_xdmf_header(pathname, filename, num)
 
     use variables, only : nvisu, yp
-    use param, only : dx,dy,dz,istret
+    use param, only : dx,dy,dz,istret,nx,ny,nz
     use utilities, only : gen_snapshotname
 
     implicit none
@@ -403,8 +412,8 @@ contains
     integer, intent(in) :: num
 
     ! Local variables
-    integer :: i,k
-    real(mytype) :: xp(xszV(1)), zp(zszV(3))
+    integer :: i, k, nxv, nyv, nzv
+    real(mytype), allocatable :: xp(:), zp(:)
 
     character(len=:), allocatable :: fmt
     
@@ -417,15 +426,15 @@ contains
       write(ioxdmf,*)'<Domain>'
       call write_xdmf_topo()
       if (istret.ne.0) then
-        do i=1,xszV(1)
+        do i=1,nxv
           xp(i) = real(i-1,mytype)*dx*nvisu
         enddo
-        do k=1,zszV(3)
+        do k=1,nzv
           zp(k) = real(k-1,mytype)*dz*nvisu
         enddo
         write(ioxdmf,*)'    <Geometry name="geo" Type="VXVYVZ">'
         if (output2D.ne.1) then
-          write(ioxdmf,*)'        <DataItem Dimensions="',xszV(1),'" NumberType="Float" Precision="4" Format="XML">'
+          write(ioxdmf,*)'        <DataItem Dimensions="',nxv,'" NumberType="Float" Precision="4" Format="XML">'
           write(ioxdmf,*)'        ',xp(:)
         else
           write(ioxdmf,*)'        <DataItem Dimensions="1" NumberType="Float" Precision="4" Format="XML">'
@@ -433,15 +442,15 @@ contains
         endif
         write(ioxdmf,*)'        </DataItem>'
         if (output2D.ne.2) then
-          write(ioxdmf,*)'        <DataItem Dimensions="',yszV(2),'" NumberType="Float" Precision="4" Format="XML">'
-          write(ioxdmf,*)'        ',yp(ystV(1)::nvisu)
+          write(ioxdmf,*)'        <DataItem Dimensions="',nyv,'" NumberType="Float" Precision="4" Format="XML">'
+          write(ioxdmf,*)'        ',yp(1::nvisu)
         else
           write(ioxdmf,*)'        <DataItem Dimensions="1" NumberType="Float" Precision="4" Format="XML">'
           write(ioxdmf,*)'        ',yp(1)
         endif
         write(ioxdmf,*)'        </DataItem>'
         if (output2D.ne.3) then
-          write(ioxdmf,*)'        <DataItem Dimensions="',zszV(3),'" NumberType="Float" Precision="4" Format="XML">'
+          write(ioxdmf,*)'        <DataItem Dimensions="',nzv,'" NumberType="Float" Precision="4" Format="XML">'
           write(ioxdmf,*)'        ',zp(:)
         else
           write(ioxdmf,*)'        <DataItem Dimensions="1" NumberType="Float" Precision="4" Format="XML">'
@@ -482,11 +491,13 @@ contains
 
   subroutine write_xdmf_topo()
 
-    use param, only : istret
+    use param, only : istret, nx, ny, nz
+    use variables, only : nvisu
     
     implicit none
 
     character(len=:), allocatable :: topo_type
+    integer :: nxv, nyv, nzv
     character(len=:), allocatable :: fmt
     
     if (istret /= 0) then
@@ -495,17 +506,21 @@ contains
        topo_type = "3DCoRectMesh"
     end if
     
+    nxv = visu_coarse_count(nx, nvisu)
+    nyv = visu_coarse_count(ny, nvisu)
+    nzv = visu_coarse_count(nz, nvisu)
+
     write(ioxdmf,'(A)')'    <Topology name="topo" TopologyType="'//topo_type//'"'
 
     fmt = "(A, I0, A, I0, A, I0, A)"
     if (output2D.eq.0) then
-       write(ioxdmf,fmt)'        Dimensions="',zszV(3)," ",yszV(2)," ",xszV(1),'">'
+       write(ioxdmf,fmt)'        Dimensions="',nzv," ",nyv," ",nxv,'">'
     else if (output2D.eq.1) then
-       write(ioxdmf,fmt)'        Dimensions="',zszV(3)," ",yszV(2)," ",1,'">'
+       write(ioxdmf,fmt)'        Dimensions="',nzv," ",nyv," ",1,'">'
     else if (output2D.eq.2) then
-       write(ioxdmf,fmt)'        Dimensions="',zszV(3)," ",1," ",xszV(1),'">'
+       write(ioxdmf,fmt)'        Dimensions="',nzv," ",1," ",nxv,'">'
     else if (output2D.eq.3) then
-       write(ioxdmf,fmt)'        Dimensions="',1," ",yszV(2)," ",xszV(1),'">'
+       write(ioxdmf,fmt)'        Dimensions="',1," ",nyv," ",nxv,'">'
     endif
     write(ioxdmf,'(A)')'    </Topology>'
   end subroutine write_xdmf_topo
@@ -559,9 +574,10 @@ contains
     use var, only : zero, one
     use var, only : uvisu
     use var, only : ta1
-    use param, only : iibm, itime
+    use param, only : iibm, itime, nx, ny, nz
+    use variables, only : nvisu
     use utilities, only : gen_filename,gen_snapshotname,gen_h5path
-    use decomp_2d_io, only : decomp_2d_write_one, decomp_2d_write_plane
+    use xcompact3d_decomp_io_compat, only : decomp_2d_write_one, decomp_2d_write_plane
 
     implicit none
 
@@ -574,6 +590,7 @@ contains
     logical :: mpiio, force_flush
     
     integer :: ierr
+    integer :: nxv, nyv, nzv
 
     integer :: precision
     character(len=:), allocatable :: fmt
@@ -590,6 +607,10 @@ contains
        force_flush = .false.
     end if
  
+    nxv = visu_coarse_count(nx, nvisu)
+    nyv = visu_coarse_count(ny, nvisu)
+    nzv = visu_coarse_count(nz, nvisu)
+
     if (use_xdmf) then
        if (nrank.eq.0) then
           write(ioxdmf,*)'        <Attribute Name="'//filename//'" Center="Node">'
@@ -616,13 +637,13 @@ contains
 
           fmt = "(A, I0, A, I0, A, I0, A)"
           if (output2D.eq.0) then
-             write(ioxdmf,fmt)'            Dimensions="',zszV(3)," ",yszV(2)," ",xszV(1),'">'
+             write(ioxdmf,fmt)'            Dimensions="',nzv," ",nyv," ",nxv,'">'
           else if (output2D.eq.1) then
-             write(ioxdmf,fmt)'            Dimensions="',zszV(3)," ",yszV(2)," ",1,'">'
+             write(ioxdmf,fmt)'            Dimensions="',nzv," ",nyv," ",1,'">'
           else if (output2D.eq.2) then
-             write(ioxdmf,fmt)'            Dimensions="',zszV(3)," ",1," ",xszV(1),'">'
+             write(ioxdmf,fmt)'            Dimensions="',nzv," ",1," ",nxv,'">'
           else if (output2D.eq.3) then
-             write(ioxdmf,fmt)'            Dimensions="',1," ",yszV(2)," ",xszV(1),'">'
+             write(ioxdmf,fmt)'            Dimensions="',1," ",nyv," ",nxv,'">'
           endif
 
           write(ioxdmf,*)'              '//gen_h5path(gen_filename(pathname, filename, num, 'bin'), num)
@@ -662,4 +683,9 @@ contains
 
   end subroutine write_field
   
+  pure integer function visu_coarse_count(n, stride) result(nc)
+    integer, intent(in) :: n, stride
+    nc = max(1, (n - 1) / max(1, stride) + 1)
+  end function visu_coarse_count
+
 end module visu

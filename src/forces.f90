@@ -35,7 +35,7 @@ contains
 
   subroutine init_forces
 
-    USE decomp_2d_io, only : decomp_2d_register_variable, decomp_2d_init_io
+    USE xcompact3d_decomp_io_compat, only : decomp_2d_register_variable, decomp_2d_init_io
     USE param
     USE variables
     implicit none
@@ -194,7 +194,11 @@ contains
 
   subroutine restart_forces(itest1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat, only : &
+         decomp_2d_open_io, decomp_2d_close_io, &
+         decomp_2d_start_io, decomp_2d_end_io, &
+         decomp_2d_write_one, decomp_2d_read_one, &
+         decomp_2d_write_mode, decomp_2d_read_mode
     USE variables
     USE param
     USE MPI
