@@ -34,6 +34,7 @@ add_executable(xcompact3d
                     derive.f90
                     dynstall.f90
                     dynstall_legacy.f90
+                    xcompact3d_decomp_io_compat.f90
                     filters.f90
                     forces.f90
                     genepsi3d.f90
