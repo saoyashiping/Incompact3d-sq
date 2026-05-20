@@ -45,7 +45,7 @@ contains
       use var, only: GammaDisc
       use param, only: dx,dy,dz,istret,irestart,itime,iturboutput,initstat
       use decomp_2d
-      use decomp_2d_io
+      use xcompact3d_decomp_io_compat
       use MPI
 
       implicit none

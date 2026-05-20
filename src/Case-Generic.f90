@@ -27,7 +27,7 @@ contains
 
   subroutine init_generic (ux1,uy1,uz1,ep1,phi1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     implicit none
@@ -119,6 +119,7 @@ contains
   subroutine visu_generic(ux1, uy1, uz1, pp3, phi1, ep1, num)
 
     use var, only : ux2, uy2, uz2, ux3, uy3, uz3
+    use var, only : nzmsize, ph1
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ta2,tb2,tc2,td2,te2,tf2,di2,ta3,tb3,tc3,td3,te3,tf3,di3
     use var, ONLY : nxmsize, nymsize, nzmsize
