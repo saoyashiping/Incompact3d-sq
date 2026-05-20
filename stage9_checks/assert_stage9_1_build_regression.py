@@ -3,7 +3,10 @@ from pathlib import Path
 
 p = Path('stage9_outputs/fibre_stage9_build_regression_check.dat')
 if not p.is_file():
-    raise SystemExit('missing stage9 build regression dat')
+    raise SystemExit(
+        'missing required file: stage9_outputs/fibre_stage9_build_regression_check.dat '
+        '(run stage9_checks/run_stage9_1_build_regression.sh first)'
+    )
 
 vals = {}
 for ln in p.read_text().splitlines():
