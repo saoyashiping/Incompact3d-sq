@@ -9,7 +9,8 @@ module gravitycur
   use decomp_2d, only : xstart, ystart, zstart
   use decomp_2d, only : xend, yend, zend
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
-  use decomp_2d, only : xszV, alloc_x, fine_to_coarsev
+  use decomp_2d, only : xszV, alloc_x
+  use xcompact3d_decomp_io_compat, only : fine_to_coarseV
 
   use variables, only : numscalar
 
