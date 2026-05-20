@@ -21,28 +21,46 @@ Rank 0 prints final single-run verdict:
 - `STAGE 9.2 PROGRAM VERDICT: PASS` or
 - `STAGE 9.2 PROGRAM VERDICT: FAIL`.
 
+## Driver behavior (build/run control)
+
+`stage9_checks/run_stage9_2_minimal_parallel_gate.sh` provides staged control:
+1. configure stage;
+2. build stage;
+3. Stage 9.1 interface gate;
+4. MPI run stage (`np=1/2/4`).
+
+Key behavior:
+- If build directory is missing, the script auto-configures with CMake.
+- `BUILD_DIR` is configurable (default: `build_stage9`).
+- `DECOMP2D_ROOT` (or `CMAKE_PREFIX_PATH` in environment) can be used to locate external 2decomp install.
+- `MPIEXEC` is configurable (default: `mpirun`; can be `mpiexec`/`srun`).
+- If configure fails: no build, no MPI runs.
+- If any required build fails: no MPI runs.
+- If Stage 9.1 interface gate fails: no MPI runs.
+- Before MPI execution, script verifies stage9.2 executable exists and is executable; attempts `chmod +x` if needed.
+
+Every run ends with final script verdict:
+- `STAGE 9.2 FINAL VERDICT: PASS` or
+- `STAGE 9.2 FINAL VERDICT: FAIL` (with failed checks listed).
+
 ## Full gate pass criteria
 
 `stage9_checks/run_stage9_2_minimal_parallel_gate.sh` passes only if all succeed:
-1. `cmake --build build_stage9 --target xcompact3d -j`
-2. `cmake --build build_stage9 --target fibre_stage9_dependency_gate_check -j`
-3. `cmake --build build_stage9 --target fibre_stage9_2_minimal_parallel_gate -j`
-4. `bash stage9_checks/run_stage9_1_interface_consistency.sh`
-5. `${MPIEXEC:-mpirun} -np 1 ./build_stage9/bin/fibre_stage9_2_minimal_parallel_gate`
-6. `${MPIEXEC:-mpirun} -np 2 ./build_stage9/bin/fibre_stage9_2_minimal_parallel_gate`
-7. `${MPIEXEC:-mpirun} -np 4 ./build_stage9/bin/fibre_stage9_2_minimal_parallel_gate`
-
-Script final verdict:
-- `STAGE 9.2 FINAL VERDICT: PASS` or
-- `STAGE 9.2 FINAL VERDICT: FAIL` (with failed steps listed).
+1. `cmake -S . -B ${BUILD_DIR}` (or with `-DCMAKE_PREFIX_PATH=${DECOMP2D_ROOT}` when set)
+2. `cmake --build ${BUILD_DIR} --target xcompact3d -j`
+3. `cmake --build ${BUILD_DIR} --target fibre_stage9_dependency_gate_check -j`
+4. `cmake --build ${BUILD_DIR} --target fibre_stage9_2_minimal_parallel_gate -j`
+5. `bash stage9_checks/run_stage9_1_interface_consistency.sh`
+6. `${MPIEXEC:-mpirun} -np 1 ${BUILD_DIR}/bin/fibre_stage9_2_minimal_parallel_gate`
+7. `${MPIEXEC:-mpirun} -np 2 ${BUILD_DIR}/bin/fibre_stage9_2_minimal_parallel_gate`
+8. `${MPIEXEC:-mpirun} -np 4 ${BUILD_DIR}/bin/fibre_stage9_2_minimal_parallel_gate`
 
 ## Manual run
 
 ```bash
-cmake --build build_stage9 --target xcompact3d -j
-cmake --build build_stage9 --target fibre_stage9_dependency_gate_check -j
-cmake --build build_stage9 --target fibre_stage9_2_minimal_parallel_gate -j
-MPIEXEC=mpirun bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
+BUILD_DIR=build_stage9 MPIEXEC=mpirun bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
+# optional external 2decomp path:
+DECOMP2D_ROOT=/path/to/2decomp/install BUILD_DIR=build_stage9 MPIEXEC=mpiexec bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
 ```
 
 ## Scope guard
