@@ -25,7 +25,7 @@ contains
   !############################################################################
   subroutine init_channel (ux1,uy1,uz1,ep1,phi1)
 
-    use decomp_2d_io
+    use xcompact3d_decomp_io_compat
     use variables
     use param
     use MPI
@@ -279,7 +279,7 @@ contains
 
   subroutine visu_channel_init(visu_initialised)
 
-    use decomp_2d_io, only : decomp_2d_register_variable
+    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     use param, only : mhd_active
     
@@ -311,6 +311,7 @@ contains
   subroutine visu_channel(ux1, uy1, uz1, pp3, phi1, ep1, num)
 
     use var, only : ux2, uy2, uz2, ux3, uy3, uz3
+    use var, only : nzmsize, ph1
     use var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     use var, only : ta2,tb2,tc2,td2,te2,tf2,di2,ta3,tb3,tc3,td3,te3,tf3,di3
     use var, ONLY : nzmsize

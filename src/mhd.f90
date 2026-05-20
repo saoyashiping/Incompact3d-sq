@@ -272,7 +272,7 @@ module mhd
     use variables, only: ffxpS,fsxpS,fwxpS,ffypS,fsypS,fwypS,ffzpS,    &
                          fszpS,fwzpS,ppy,sx,sy,sz,derxs,derys,derzs
     use param, only: zero
-    use var, only : ta1,di1,ta2,tb2,di2,ta3,tb3,di3
+    use var, only : ta1,di1,ta2,tb2,di2,ta3,tb3,di3,ph1,ph3,ph4
     !
     real(mytype) :: dphi(xsize(1),xsize(2),xsize(3),3)
     real(mytype),intent(in) :: phi(xsize(1),xsize(2),xsize(3))
