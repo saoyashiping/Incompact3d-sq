@@ -212,6 +212,7 @@ contains
     use navier, only : gradp
     use mhd, only : mhd_equation,Bm,dBm
     use particle, only : particle_checkpoint
+    use var, only : phG
 
     implicit none
 
@@ -227,8 +228,6 @@ contains
     real(mytype), dimension(xsize(1),xsize(2),xsize(3),ntime) :: drho1
     real(mytype), dimension(xsize(1),xsize(2),xsize(3)) :: mu1
     real(mytype) :: xdt,tfield,y
-    integer, dimension(2) :: dims, dummy_coords
-    logical, dimension(2) :: dummy_periods
     logical :: fexists
     character(len=30) :: filename, filestart
     character(len=32) :: fmt2,fmt3,fmt4
@@ -518,7 +517,7 @@ contains
     use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable, decomp_2d_init_io
     use variables, only : numscalar
     use param, only : ilmn, nrhotime, ntime, mhd_active
-    use var, only : itimescheme, iibm
+    use var, only : itimescheme, iibm, phG
     use mhd, only : mhd_equation
     
     implicit none

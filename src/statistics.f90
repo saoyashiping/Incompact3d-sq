@@ -272,7 +272,7 @@ contains
     use xcompact3d_decomp_io_compat
     use tools, only : rescale_pressure
 
-    use var, only : nxmsize, nymsize, nzmsize
+    use var, only : nxmsize, nymsize, nzmsize, ph1, ph2, ph3
     use var, only : ppi3, dip3
     use var, only : pp2, ppi2, dip2
     use var, only : pp1, ta1, di1

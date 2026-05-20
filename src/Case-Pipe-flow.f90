@@ -208,7 +208,7 @@ contains
   !
   !********************************************************************
 
-    use var, ONLY : nzmsize
+    use var, ONLY : nzmsize, ph1
 
     implicit none
 
