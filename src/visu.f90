@@ -46,8 +46,8 @@ contains
     use param, only : ilmn, iscalar, ilast, ifirst, ioutput, istret
     use variables, only : numscalar, prec, nvisu
     use param, only : dx, dy, dz, istret, nx, ny, nz
-    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_open_io, decomp_2d_append_mode
-    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
+    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_open_io, decomp_2d_append_mode
+    use decomp_2d_io, only : decomp_2d_register_variable
 
     
     implicit none
@@ -134,7 +134,7 @@ contains
   !
   subroutine visu_ready ()
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_open_io, decomp_2d_append_mode, decomp_2d_write_mode, gen_iodir_name
+    use decomp_2d_io, only : decomp_2d_open_io, decomp_2d_append_mode, decomp_2d_write_mode, gen_iodir_name
     use param, only : irestart, dx, dy, dz
     
     implicit none
@@ -196,7 +196,7 @@ contains
   ! 
   subroutine visu_finalise()
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
+    use decomp_2d_io, only : decomp_2d_close_io
     
     implicit none
 
@@ -214,7 +214,7 @@ contains
   !
   subroutine write_snapshot(rho1, ux1, uy1, uz1, pp3, phi1, ep1, itime, num)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_start_io
+    use decomp_2d_io, only : decomp_2d_start_io
 
     use param, only : nrhotime, ilmn, iscalar, ioutput, irestart, istret, dy
 
@@ -225,7 +225,7 @@ contains
 
     use var, only : pp1, ta1, di1, nxmsize
     use var, only : pp2, ppi2, dip2, ph2, nymsize
-    use xcompact3d_decomp_io_compat, only : fine_to_coarseV
+    use decomp_2d, only : fine_to_coarseV
     use var, only : ppi3, dip3, ph3, nzmsize
     use var, only : npress
 
@@ -334,7 +334,7 @@ contains
 
   subroutine end_snapshot(itime, num)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_end_io
+    use decomp_2d_io, only : decomp_2d_end_io
     use param, only : istret, xlx, yly, zlz
     use variables, only : nx, ny, nz
     use mod_stret, only : beta
@@ -582,7 +582,7 @@ contains
     use param, only : iibm, itime, nx, ny, nz
     use variables, only : nvisu
     use utilities, only : gen_filename,gen_snapshotname,gen_h5path
-    use xcompact3d_decomp_io_compat, only : decomp_2d_write_one, decomp_2d_write_plane
+    use decomp_2d_io, only : decomp_2d_write_one, decomp_2d_write_plane
 
     implicit none
 
