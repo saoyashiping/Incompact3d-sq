@@ -51,7 +51,7 @@ case_line=$(grep -n "Case-" src/CMakeLists.txt | head -n1 | cut -d: -f1 || true)
 if [[ "$(get_key "$OUT" stage9_1a_compat_module_exists)" == "1" && "$(get_key "$OUT" stage9_1a_compat_in_cmake_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_forces_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_statistics_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_visu_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_tools_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_les_models_flag)" == "1" && "$(get_key "$OUT" stage9_1a_compat_before_case_files_flag)" == "1" ]]; then emit stage9_1a_compat_cmake_order_status 1; else emit stage9_1a_compat_cmake_order_status 0; fi
 
 forbidden_pat='use[[:space:]]+decomp_2d_io[[:space:]]*,[[:space:]]*only[[:space:]]*:[[:space:]]*(decomp_2d_init_io|decomp_2d_register_variable|decomp_2d_write_one|decomp_2d_read_one|decomp_2d_write_plane|fine_to_coarseS|fine_to_coarseV|gen_iodir_name|decomp_2d_open_io|decomp_2d_close_io|decomp_2d_start_io|decomp_2d_end_io|decomp_2d_write_mode|decomp_2d_read_mode|decomp_2d_append_mode)'
-forbidden_count=$(grep -RInE "$forbidden_pat" src | wc -l | tr -d ' ')
+forbidden_count=$( (grep -RInE "$forbidden_pat" src || true) | wc -l | tr -d ' ')
 emit stage9_1a_forbidden_direct_old_io_import_count "$forbidden_count"
 [[ "$forbidden_count" == "0" ]] && emit stage9_1a_forbidden_direct_old_io_imports_absent_flag 1 || emit stage9_1a_forbidden_direct_old_io_imports_absent_flag 0
 xio_ok=0
@@ -69,7 +69,7 @@ emit stage9_1a_compat_fine_to_coarse_wrapper_status "$(has_all 'public :: fine_t
 emit stage9_1a_compat_gen_iodir_name_status "$(has_all 'public :: gen_iodir_name' 'function gen_iodir_name')"
 if [[ "$(get_key "$OUT" stage9_1a_compat_metadata_wrappers_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_write_one_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_read_one_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_write_plane_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_fine_to_coarse_wrapper_status)" == "1" && "$(get_key "$OUT" stage9_1a_compat_gen_iodir_name_status)" == "1" ]]; then emit stage9_1a_compat_coverage_status 1; else emit stage9_1a_compat_coverage_status 0; fi
 
-legacy_calls=$(grep -RInE "call[[:space:]]+(decomp_2d_write_one|decomp_2d_read_one|decomp_2d_write_plane|fine_to_coarseS|fine_to_coarseV|decomp_2d_register_variable|decomp_2d_init_io|decomp_2d_open_io|decomp_2d_close_io|decomp_2d_start_io|decomp_2d_end_io)" src | cut -d: -f1 | sort -u)
+legacy_calls=$(grep -RInE "call[[:space:]]+(decomp_2d_write_one|decomp_2d_read_one|decomp_2d_write_plane|fine_to_coarseS|fine_to_coarseV|decomp_2d_register_variable|decomp_2d_init_io|decomp_2d_open_io|decomp_2d_close_io|decomp_2d_start_io|decomp_2d_end_io)" src | cut -d: -f1 | sort -u || true)
 legacy_count=$(echo "$legacy_calls" | sed '/^$/d' | wc -l | tr -d ' ')
 uncovered=0
 coverage_table=""
@@ -112,12 +112,7 @@ Static API compatibility audit for Xcompact3D production I/O usage vs installed 
 
 ## 2. DECOMP2D_ROOT
 
-- Path: \
-
-auto-detected: \
-
-audit value: \
-$DECOMP2D_ROOT
+- audit value: $DECOMP2D_ROOT
 
 ## 3. Allowed remaining direct decomp_2d_io uses
 
