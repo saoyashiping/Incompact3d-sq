@@ -38,7 +38,7 @@ for example
 ```
 $ cmake -S . -B build  
 ```
-By defult the build system will also download 2DECOMP&FFT 
+By default the build system will also download 2DECOMP&FFT 
 and perform the build install using the
 Generic FFT backend. Version 2.0.3 is the default for Xcompact3d building
 and all tests are performed against this specific version.
@@ -64,8 +64,8 @@ By default the installation directory is located under
 ```
 $ $path_to_build_directory/opt
 ```
-and it will cointain: 
-* The *bin* directory with the execulables **xcompact3d** for the main execution of the code;
+and it will contain: 
+* The *bin* directory with the executables **xcompact3d** for the main execution of the code;
 * The *example* directory with some examples of input *.i3d* files.
 
 To change the default location the `CMAKE_INSTALL_PREFIX` can be modified using 
@@ -104,13 +104,13 @@ Depending on the system *lib* can be *lib64*.
 
 Some of the alternative options for FFT and IO backends required additional input.
 
-* For MKL FFT the location of the MKL libraires needs to be passed to the configure as 
+* For MKL FFT the location of the MKL libraries needs to be passed to the configure as 
 for the 2DECOMP&FFT installation with 
 ```
 $ export MKL_DIR=${MKLROOT}/lib/cmake/mkl
 ```
 
-* For ADIOS the installation directory needs to be passes to the configure as
+* For ADIOS the installation directory needs to be passed to the configure as
 ```
 $ cmake -S . -B ./build -DIO_BACKEND=adios2 -Dadios2_DIR=/path/to/adios2/install/lib/cmake/adios2
 ```
