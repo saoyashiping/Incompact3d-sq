@@ -51,8 +51,6 @@ module var
        te3,tf3,tg3,th3,ti3,di3
   real(mytype), save, allocatable, dimension(:,:,:) :: pgz3,ppi3,dip3,dipp3,duxydxyp3,uzp3
 
-  type(DECOMP_INFO), save :: ph1, ph2, ph3, ph4, phG
-
   integer, save :: nxmsize, nymsize, nzmsize
 
   integer, save :: xstS(3) = 1

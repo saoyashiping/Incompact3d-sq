@@ -242,8 +242,8 @@ contains
   !
   subroutine read_or_write_one_stat(flag_read, filename, array)
 
-    use var, only : xstS, xenS
-    use xcompact3d_decomp_io_compat, only : decomp_2d_read_one, decomp_2d_write_one
+    use decomp_2d, only : xstS, xenS
+    use decomp_2d_io, only : decomp_2d_read_one, decomp_2d_write_one
 
     implicit none
 
@@ -374,8 +374,7 @@ contains
   subroutine update_average_scalar(um, ux, ep)
 
     use decomp_2d, only : xsize
-    use var, only : xstS, xenS
-    use xcompact3d_decomp_io_compat, only : fine_to_coarseS
+    use decomp_2d, only : xstS, xenS, fine_to_coarseS
     use param, only : itime, initstat,istatfreq
     use var, only : di1, tmean
 
@@ -399,7 +398,7 @@ contains
   subroutine update_average_vector(um, vm, wm, ux, uy, uz, ep)
 
     use decomp_2d, only : xsize
-    use var, only : xstS, xenS
+    use decomp_2d, only : xstS, xenS
 
     implicit none
 
@@ -419,7 +418,7 @@ contains
   subroutine update_variance_vector(uum, vvm, wwm, uvm, uwm, vwm, ux, uy, uz, ep)
 
     use decomp_2d, only : xsize
-    use var, only : xstS, xenS
+    use decomp_2d, only : xstS, xenS
     use var, only: ta1
 
     implicit none
@@ -455,4 +454,3 @@ contains
     write(int_to_str, "(I0)") i
   end function int_to_str
 endmodule stats
-
