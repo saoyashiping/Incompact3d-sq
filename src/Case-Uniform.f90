@@ -244,7 +244,7 @@ contains
   
    subroutine visu_uniform_init (visu_initialised)
 
-    use decomp_2d_io, only : decomp_2d_register_variable
+    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     
     implicit none
