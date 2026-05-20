@@ -136,7 +136,7 @@ contains
   subroutine init_hill (ux1,uy1,uz1,ep1,phi1)
 !############################################################################
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE variables
     USE param
     USE MPI
@@ -284,7 +284,7 @@ contains
   end subroutine postprocess_hill
   subroutine visu_hill_init(visu_initialised)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
+    use decomp_2d_io, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     
     implicit none
