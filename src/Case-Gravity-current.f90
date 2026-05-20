@@ -105,7 +105,7 @@ contains
 
   subroutine init_gravitycur (rho1,ux1,uy1,uz1,ep1,phi1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE variables
     USE param
     USE MPI
@@ -411,7 +411,7 @@ contains
 
   subroutine budget(rho1,ux1,uy1,uz1,phi1,vol1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     use param, only : iimplicit
@@ -639,7 +639,7 @@ contains
 
   subroutine dep(phi1,dep2)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
     use utilities, only : gen_filename
 
@@ -678,7 +678,7 @@ contains
 
   subroutine suspended(phi1,vol1,mp1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     implicit none
@@ -705,7 +705,7 @@ contains
 
   subroutine depositrate ( dep2, dms1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     real(mytype),intent(in),dimension(ystart(1):yend(1),ystart(3):yend(3),numscalar) :: dep2
@@ -730,7 +730,7 @@ contains
 
   subroutine front ( phisum1, xp )
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: phisum1
@@ -760,7 +760,7 @@ contains
 
   subroutine front2d (phim3, xp)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     real(mytype),intent(in),dimension(zstart(1):zend(1),zstart(2):zend(2)) :: phim3

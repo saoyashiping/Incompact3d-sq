@@ -379,7 +379,7 @@ contains
   !********************************************************************
   subroutine init_sandbox (ux1,uy1,uz1,ep1,phi1,iresflg)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE variables
     USE param
     USE MPI
@@ -577,7 +577,7 @@ contains
   ! subroutine postprocessing_aux(u1,u2,u3,name,num) !By Felipe Schuch
   !
   !   USE decomp_2d
-  !   USE decomp_2d_io
+  !   USE xcompact3d_decomp_io_compat
   !   USE param, only : zero, one
   !   USE var, only : ep1
   !   USE variables, only: nx, ny, nz, prec

@@ -105,7 +105,7 @@ contains
 
     USE param
     USE variables
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     use var, only: nut1
     use var, only: ta1, tb1, tc1
     use abl, only: wall_sgs_slip, wall_sgs_noslip
@@ -178,7 +178,7 @@ contains
     use MPI
     USE param
     USE variables
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
     USE var, only : ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
@@ -342,7 +342,7 @@ contains
 
     USE param
     USE variables
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
@@ -919,7 +919,7 @@ contains
 
   USE param
   USE variables
-  USE decomp_2d_io
+  USE xcompact3d_decomp_io_compat
   USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
   USE var, only : ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3

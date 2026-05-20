@@ -136,7 +136,7 @@ contains
   subroutine init_hill (ux1,uy1,uz1,ep1,phi1)
 !############################################################################
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE variables
     USE param
     USE MPI

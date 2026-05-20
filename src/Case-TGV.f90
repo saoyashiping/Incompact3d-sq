@@ -188,7 +188,7 @@ contains
   !############################################################################
   subroutine postprocess_tgv(ux1,uy1,uz1,phi1,ep1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE variables, only: nx,ny,nz
     USE MPI
     USE var, only: nut1, srt_smag 
@@ -599,7 +599,7 @@ contains
   !############################################################################
   subroutine suspended(phi1,vol1,mp1)
 
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE MPI
 
     implicit none
