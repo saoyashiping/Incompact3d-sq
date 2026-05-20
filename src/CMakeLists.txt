@@ -15,6 +15,7 @@ add_executable(xcompact3d
                     acl_utils.f90 
                     adm.f90
                     airfoils.f90
+                    xcompact3d_decomp_io_compat.f90
                     Case-ABL.f90
                     Case-Cavity.f90
                     Case-Channel.f90
