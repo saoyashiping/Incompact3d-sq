@@ -9,7 +9,7 @@ module gravitycur
   use decomp_2d, only : xstart, ystart, zstart
   use decomp_2d, only : xend, yend, zend
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
-  use decomp_2d, only : xszV, alloc_x
+  use decomp_2d, only : alloc_x
   use xcompact3d_decomp_io_compat, only : fine_to_coarseV
 
   use variables, only : numscalar
@@ -17,6 +17,7 @@ module gravitycur
   use var, only : xnu, ri, uset, sc, Fr, prandtl
   use var, only : gravy
   use var, only : nrank
+  use var, only : xstV, xenV
   use var, only : dens1, dens2
 
   use var, only : zero, half, one, two, five, twelve, thirteen
@@ -451,7 +452,7 @@ contains
 
     real(mytype),dimension(3,3,xsize(1),xsize(2),xsize(3)) :: A
 
-    real(mytype),dimension(xszV(1),xszV(2),xszV(3)) :: uvisu
+    real(mytype),dimension(xstV(1):xenV(1), xstV(2):xenV(2), xstV(3):xenV(3)) :: uvisu
 
     real(mytype) :: ek,ek1,dek,dek1,ep,ep1,dep,dep1,xvol
     integer :: i,j,k,l,m,is,code
