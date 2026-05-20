@@ -27,7 +27,7 @@ contains
   SUBROUTINE solve_poisson(pp3, px1, py1, pz1, rho1, ux1, uy1, uz1, ep1, drho1, divu3)
 
     USE decomp_2d_poisson, ONLY : poisson
-    USE var, ONLY : nzmsize
+    USE var, ONLY : nzmsize, ph1
     USE var, ONLY : dv3
     USE param, ONLY : ntime, nrhotime, npress
     USE param, ONLY : ilmn, ivarcoeff, zero, one 
@@ -260,7 +260,7 @@ contains
     USE variables
     USE var, ONLY: ta1, tb1, tc1, pp1, pgy1, pgz1, di1, &
          duxdxp2, uyp2, uzp2, duydypi2, upi2, ta2, dipp2, &
-         duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize
+         duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4
     USE MPI
     USE ibm_param
 
@@ -389,7 +389,7 @@ contains
     USE variables
     USE MPI
     USE var, only: pp1,pgy1,pgz1,di1,pp2,ppi2,pgy2,pgz2,pgzi2,dip2,&
-         pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize
+         pgz3,ppi3,dip3,nxmsize,nymsize,nzmsize,ph2,ph3
 
     USE forces, only : iforces, ppi1
 
@@ -514,13 +514,13 @@ contains
     real(mytype) :: ut,ut1
 
     integer :: code
-    integer, dimension(2) :: dims, dummy_coords
-    logical, dimension(2) :: dummy_periods
+    integer, dimension(2) :: cart_dims, cart_dummy_coords
+    logical, dimension(2) :: cart_dummy_periods
 #ifdef DEBG
     real(mytype) dep
 #endif
 
-    call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, dims, dummy_periods, dummy_coords, code)
+    call MPI_CART_GET(DECOMP_2D_COMM_CART_X, 2, cart_dims, cart_dummy_periods, cart_dummy_coords, code)
 
     !********NCLX==0*************************************
     !we are in X pencils:
@@ -650,7 +650,7 @@ contains
              enddo
           enddo
        endif
-       if (dims(1)==1) then
+       if (cart_dims(1)==1) then
           if (mhd_active) then
              do k=1,xsize(3)
                 do i=1,xsize(1)
@@ -668,7 +668,7 @@ contains
                 enddo
              enddo
           endif
-       elseif (ny - (nym / dims(1)) == xstart(2)) then
+       elseif (ny - (nym / cart_dims(1)) == xstart(2)) then
           if (mhd_active) then
              do k=1,xsize(3)
                 do i=1,xsize(1)
@@ -1109,7 +1109,7 @@ contains
   SUBROUTINE test_varcoeff(converged, divup3norm, pp3, dv3, atol, rtol, poissiter)
 
     USE MPI
-    USE var, ONLY : nzmsize
+    USE var, ONLY : nzmsize, ph1
     USE param, ONLY : npress, itime
     USE variables, ONLY : nxm, nym, nzm, ilist
 
@@ -1213,7 +1213,7 @@ contains
     USE param, ONLY : one
 
     USE var, ONLY : ta1, tb1, tc1
-    USE var, ONLY : nzmsize
+    USE var, ONLY : nzmsize, ph1
 
     IMPLICIT NONE
 
