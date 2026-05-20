@@ -23,7 +23,7 @@ contains
 
   subroutine init_tbl (ux1,uy1,uz1,ep1,phi1)
 
-    use decomp_2d_io
+    use xcompact3d_decomp_io_compat
     use param , only : zptwofive
     use MPI
 
@@ -172,7 +172,7 @@ contains
   !********************************************************************
   subroutine blasius()
 
-    use decomp_2d_io
+    use xcompact3d_decomp_io_compat
     use MPI
     use param, only : zero, zptwo, zpeight, one, nine
 
@@ -304,7 +304,7 @@ contains
   subroutine postprocess_tbl(ux1,uy1,uz1,ep1)
 
     USE MPI
-    USE decomp_2d_io
+    USE xcompact3d_decomp_io_compat
     USE var, only : umean,vmean,wmean,uumean,vvmean,wwmean,uvmean,uwmean,vwmean,tmean
     USE var, only : uvisu
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
@@ -318,7 +318,7 @@ contains
 
   subroutine visu_tbl_init (visu_initialised)
 
-    use decomp_2d_io, only : decomp_2d_register_variable
+    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     
     implicit none
