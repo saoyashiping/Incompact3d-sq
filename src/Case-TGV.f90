@@ -24,7 +24,7 @@ contains
 
   subroutine init_tgv (ux1,uy1,uz1,ep1,phi1)
 
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use variables
     use param
     use MPI
@@ -188,7 +188,7 @@ contains
   !############################################################################
   subroutine postprocess_tgv(ux1,uy1,uz1,phi1,ep1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE variables, only: nx,ny,nz
     USE MPI
     USE var, only: nut1, srt_smag 
@@ -485,7 +485,7 @@ contains
   !############################################################################
   subroutine visu_tgv_init (visu_initialised)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
+    use decomp_2d_io, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     
     implicit none
@@ -599,7 +599,7 @@ contains
   !############################################################################
   subroutine suspended(phi1,vol1,mp1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     implicit none
