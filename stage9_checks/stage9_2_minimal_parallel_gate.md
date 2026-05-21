@@ -34,6 +34,7 @@ Key behavior:
 - `BUILD_DIR` is configurable (default: `build_stage9`).
 - `DECOMP2D_ROOT` (or `CMAKE_PREFIX_PATH` in environment) can be used to locate external 2decomp install.
 - `MPIEXEC` is configurable (default: `mpirun`; can be `mpiexec`/`srun`).
+- `MPIEXEC_FLAGS` is configurable for launcher flags (default empty).
 - If configure fails: no build, no MPI runs.
 - If any required build fails: no MPI runs.
 - If Stage 9.1 interface gate fails: no MPI runs.
@@ -66,3 +67,21 @@ DECOMP2D_ROOT=/path/to/2decomp/install BUILD_DIR=build_stage9 MPIEXEC=mpiexec ba
 ## Scope guard
 
 Stage 9.2 does **not** change physics models, IBM numerical algorithms, RHS/projection/pressure solver behavior, or production two-way coupling logic. It only validates parallel infrastructure consistency after Stage 9.1 interface cleanup.
+
+
+## Stage 9.2 diagnosis and verdict details (latest)
+
+- The Fortran gate now prints explicit per-rank `[PASS]/[FAIL]` sub-check lines for minimal MPI/decomposition consistency.
+- Rank 0 prints aggregate failed sub-check count and program verdict.
+- Minimal gate strong criteria are limited to MPI/decomposition consistency:
+  - MPI init;
+  - decomp init;
+  - non-negative local sizes;
+  - start/end consistency for non-empty local regions;
+  - `size = end-start+1` for non-empty local regions;
+  - global local-cell sum positive.
+- Coarse/stat/visu bounds checks are treated as optional diagnostics unless real coarse initializers are explicitly called.
+- 2decomp small-grid warnings and OpenMPI TCP reachable pairing warnings are not automatically treated as gate failures.
+- Script supports `MPIEXEC_FLAGS` for launcher tuning, for example:
+  - `MPIEXEC_FLAGS="--mca btl self,vader,tcp"`
+  - `MPIEXEC_FLAGS="--mca btl self,vader"`

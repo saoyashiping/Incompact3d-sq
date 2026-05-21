@@ -7,6 +7,7 @@ cd "${REPO_ROOT}"
 
 BUILD_DIR=${BUILD_DIR:-build_stage9}
 MPIEXEC=${MPIEXEC:-mpirun}
+MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
 
 fails=()
@@ -30,6 +31,7 @@ echo "[INFO] Stage 9.2 minimal parallel gate started"
 echo "[INFO] REPO_ROOT=${REPO_ROOT}"
 echo "[INFO] BUILD_DIR=${BUILD_DIR}"
 echo "[INFO] MPIEXEC=${MPIEXEC}"
+echo "[INFO] MPIEXEC_FLAGS=${MPIEXEC_FLAGS}"
 
 configure_ok=1
 build_ok=1
@@ -87,9 +89,9 @@ if [ ${configure_ok} -eq 1 ] && [ ${build_ok} -eq 1 ] && [ ${stage9_1_ok} -eq 1 
   fi
 
   if [ ${mpi_ok} -eq 1 ]; then
-    run_step "np=1 minimal parallel gate" "${MPIEXEC}" -np 1 "${EXE}" || mpi_ok=0
-    run_step "np=2 minimal parallel gate" "${MPIEXEC}" -np 2 "${EXE}" || mpi_ok=0
-    run_step "np=4 minimal parallel gate" "${MPIEXEC}" -np 4 "${EXE}" || mpi_ok=0
+    run_step "np=1 minimal parallel gate" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np 1 "${EXE}" || mpi_ok=0
+    run_step "np=2 minimal parallel gate" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np 2 "${EXE}" || mpi_ok=0
+    run_step "np=4 minimal parallel gate" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np 4 "${EXE}" || mpi_ok=0
   else
     fail "MPI stage skipped due to non-executable/missing Stage 9.2 binary"
   fi
