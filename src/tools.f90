@@ -204,7 +204,7 @@ contains
   !##############################################################################
   subroutine restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3,phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,iresflg)
 
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use variables
     use param
     use MPI
@@ -514,7 +514,7 @@ contains
   
   subroutine init_restart_adios2()
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable, decomp_2d_init_io
+    use decomp_2d_io, only : decomp_2d_register_variable, decomp_2d_init_io
     use variables, only : numscalar
     use param, only : ilmn, nrhotime, ntime, mhd_active
     use var, only : itimescheme, iibm, phG
@@ -678,7 +678,7 @@ contains
   !############################################################################
   subroutine init_inflow_outflow()
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_register_variable
+    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_register_variable
 
     use param, only : ntimesteps
      
@@ -698,7 +698,7 @@ contains
   !############################################################################
   subroutine read_inflow(ux1,uy1,uz1,ifileinflow)
 
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use var, only: ux_inflow, uy_inflow, uz_inflow
     use param
     use MPI
@@ -735,7 +735,7 @@ contains
   !############################################################################
   subroutine append_outflow(ux,uy,uz,timestep)
  
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use var, only: ux_recoutflow, uy_recoutflow, uz_recoutflow, ilist
     use param
 
@@ -761,7 +761,7 @@ contains
   !############################################################################
   subroutine write_outflow(ifileoutflow)
 
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use param
     use var, only: ux_recoutflow, uy_recoutflow, uz_recoutflow
     use MPI
@@ -1001,7 +1001,7 @@ contains
   subroutine rename(oldname, newname, opt_rank)
 
     use MPI
-    use xcompact3d_decomp_io_compat, only : gen_iodir_name
+    use decomp_2d_io, only : gen_iodir_name
     
     character(len=*), intent(in) :: oldname
     character(len=*), intent(in) :: newname
@@ -1096,7 +1096,7 @@ contains
   logical function validate_restart(refname, testname, opt_rank)
 
     use MPI
-    use xcompact3d_decomp_io_compat, only : gen_iodir_name
+    use decomp_2d_io, only : gen_iodir_name
     
     character(len=*), intent(in) :: refname
     character(len=*), intent(in) :: testname

@@ -360,6 +360,8 @@ contains
     call MPI_ALLREDUCE(MPI_IN_PLACE, tmoy, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
     call MPI_ALLREDUCE(MPI_IN_PLACE, tmax, 1, real_type, MPI_MAX, MPI_COMM_WORLD, code)
 
+    if (nlock > 0) call stage9_5_record_projection_divergence_pair(nlock, tmax, tmoy/real(nproc,mytype))
+
     if ((nrank == 0) .and. (nlock > 0).and.(mod(itime, ilist) == 0 .or. itime == ifirst .or. itime==ilast)) then
        if (nlock == 2) then
           write(*,*) 'DIV U  max mean=',real(tmax,mytype),real(tmoy/real(nproc),mytype)
@@ -1342,8 +1344,10 @@ contains
   !********************************************************************
 
     use param, only: one
-    use variables, only: numscalar
-    use var, only: ta1, phi1
+    use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables, only: numscalar
+    use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair, only: ta1, phi1
 
     implicit none
     real(mytype),dimension(xsize(1),xsize(2),xsize(3))  :: ux,uy,uz,ep
@@ -1373,9 +1377,11 @@ contains
   !
   !********************************************************************
 
-    use variables
+    use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
     use param
     use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
     use ibm_param, only: rai
     use MPI
 
@@ -1444,7 +1450,8 @@ contains
   !********************************************************************
 
     use decomp_2d_poisson
-    use variables
+    use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
     use param
     use ibm_param, only: rai
     use MPI
@@ -1528,7 +1535,8 @@ contains
   !********************************************************************
 
     use param
-    use variables
+    use var
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
     use MPI
     use ibm_param, only: rai
 
