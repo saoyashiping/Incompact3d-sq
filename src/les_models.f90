@@ -25,7 +25,7 @@ contains
 
     USE param
     USE variables
-    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_register_variable, decomp_2d_open_io, decomp_2d_write_mode
+    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_register_variable, decomp_2d_open_io, decomp_2d_write_mode
 
     implicit none
 
@@ -83,7 +83,7 @@ contains
   end subroutine init_explicit_les
   subroutine finalise_explicit_les()
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
+    use decomp_2d_io, only : decomp_2d_close_io
     implicit none
     
 #ifdef ADIOS2
@@ -105,7 +105,7 @@ contains
 
     USE param
     USE variables
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     use var, only: nut1
     use var, only: ta1, tb1, tc1
     use abl, only: wall_sgs_slip, wall_sgs_noslip
@@ -178,7 +178,7 @@ contains
     use MPI
     USE param
     USE variables
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
     USE var, only : ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3
@@ -342,7 +342,7 @@ contains
 
     USE param
     USE variables
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
@@ -919,7 +919,7 @@ contains
 
   USE param
   USE variables
-  USE xcompact3d_decomp_io_compat
+  USE decomp_2d_io
   USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
   USE var, only : ux2,uy2,uz2,ta2,tb2,tc2,td2,te2,tf2,tg2,th2,ti2,di2
   USE var, only : ux3,uy3,uz3,ta3,tb3,tc3,td3,te3,tf3,tg3,th3,ti3,di3

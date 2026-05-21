@@ -10,7 +10,7 @@ module gravitycur
   use decomp_2d, only : xend, yend, zend
   use decomp_2d, only : transpose_x_to_y, transpose_y_to_z, transpose_z_to_y, transpose_y_to_x
   use decomp_2d, only : alloc_x
-  use xcompact3d_decomp_io_compat, only : fine_to_coarseV
+  use decomp_2d, only : fine_to_coarseV
 
   use variables, only : numscalar
 
@@ -107,7 +107,7 @@ contains
 
   subroutine init_gravitycur (rho1,ux1,uy1,uz1,ep1,phi1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE variables
     USE param
     USE MPI
@@ -255,7 +255,7 @@ contains
   !########################################################################
   subroutine visu_gravitycur_init(visu_initialised)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_init_io, decomp_2d_register_variable, &
+    use decomp_2d_io, only : decomp_2d_init_io, decomp_2d_register_variable, &
                              decomp_2d_open_io, decomp_2d_write_mode
     
     implicit none
@@ -277,7 +277,7 @@ contains
   !--------------------------------------------------------------------- 
   subroutine visu_gravitycur_finalise()
   
-    use xcompact3d_decomp_io_compat, only : decomp_2d_close_io
+    use decomp_2d_io, only : decomp_2d_close_io
     implicit none
     
 #ifdef ADIOS2
@@ -293,7 +293,7 @@ contains
     use var, only : phi2, rho2
     use var, only : phi3, rho3
     use tools, only : mean_plane_z
-    use xcompact3d_decomp_io_compat, only : decomp_2d_write_mode, decomp_2d_open_io, decomp_2d_close_io, &
+    use decomp_2d_io, only : decomp_2d_write_mode, decomp_2d_open_io, decomp_2d_close_io, &
                              decomp_2d_start_io, decomp_2d_end_io
 
     real(mytype),intent(in),dimension(xsize(1),xsize(2),xsize(3)) :: ux1, uy1, uz1, ep1
@@ -413,7 +413,7 @@ contains
 
   subroutine budget(rho1,ux1,uy1,uz1,phi1,vol1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     use param, only : iimplicit
@@ -641,7 +641,7 @@ contains
 
   subroutine dep(phi1,dep2)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
     use utilities, only : gen_filename
 
@@ -680,7 +680,7 @@ contains
 
   subroutine suspended(phi1,vol1,mp1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     implicit none
@@ -707,7 +707,7 @@ contains
 
   subroutine depositrate ( dep2, dms1)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     real(mytype),intent(in),dimension(ystart(1):yend(1),ystart(3):yend(3),numscalar) :: dep2
@@ -732,7 +732,7 @@ contains
 
   subroutine front ( phisum1, xp )
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     real(mytype),intent(in),dimension(xstart(1):xend(1),xstart(2):xend(2),xstart(3):xend(3)) :: phisum1
@@ -762,7 +762,7 @@ contains
 
   subroutine front2d (phim3, xp)
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE MPI
 
     real(mytype),intent(in),dimension(zstart(1):zend(1),zstart(2):zend(2)) :: phim3

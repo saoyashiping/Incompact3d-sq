@@ -28,7 +28,7 @@ contains
   !
   !*******************************************************************************
 
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE variables
     USE param
     USE MPI
@@ -232,7 +232,7 @@ contains
   !*******************************************************************************
 
     USE MPI
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     USE var, only : uvisu
     USE var, only : ta1,tb1,tc1,td1,te1,tf1,tg1,th1,ti1,di1
     USE var, only : ta2,tb2,tc2,td2,te2,tf2,di2,ta3,tb3,tc3,td3,te3,tf3,di3
@@ -244,7 +244,7 @@ contains
   
    subroutine visu_uniform_init (visu_initialised)
 
-    use xcompact3d_decomp_io_compat, only : decomp_2d_register_variable
+    use decomp_2d_io, only : decomp_2d_register_variable
     use visu, only : io_name, output2D
     
     implicit none
