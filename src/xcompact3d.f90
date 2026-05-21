@@ -90,6 +90,7 @@ program xcompact3d
         call pre_correc(ux1,uy1,uz1,ep1)
 
         call calc_divu_constraint(divu3,rho1,phi1)
+        call stage9_5_record_divergence_before_projection(divu3)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
         call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
         call calc_divu_constraint(divu3,rho1,phi1)
