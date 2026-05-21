@@ -1525,18 +1525,19 @@ contains
   end subroutine pipe_bulk_phi
   !********************************************************************
   !
-  subroutine pipe_volume_avg(var,qm,ep,ncount)
+  subroutine pipe_volume_avg(field,qm,ep,ncount)
   !
   !********************************************************************
 
     use param
+    use var, only : yp, xsize, xstart, istret
     use MPI
     use ibm_param, only: rai
 
     implicit none
 
     !INPUTS
-    real(mytype),dimension(xsize(1),xsize(2),xsize(3))  :: var,ep
+    real(mytype),dimension(xsize(1),xsize(2),xsize(3))  :: field,ep
     real(mytype),intent(out)                            :: qm
     real(mytype),intent(in)                             :: ncount
     !LOCALS
@@ -1556,7 +1557,7 @@ contains
             r=sqrt(ym*ym+zm*zm)
             do i=1,xsize(1)
                 if (r.le.rai.and.ep(i,j,k).eq.0) then
-                    qm=qm+var(i,j,k)
+                    qm=qm+field(i,j,k)
                 endif
             enddo
         enddo

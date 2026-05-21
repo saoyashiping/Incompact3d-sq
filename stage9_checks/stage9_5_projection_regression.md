@@ -66,3 +66,5 @@ Stage 9.5 closure requires `.dat` per-step divergence values to match the real p
 - Stage 9.5 records real `DIV U*` and `DIV U` diagnostics directly from `navier::divergence` (same `tmax` and global mean values as production log prints).
 - Pipe bulk/volume-average routines are not part of Stage 9.5 divergence capture and must not import Stage 9.5 diagnostic module symbols.
 - Machine-readable `.dat` per-step divergence values must be non-placeholder and match production log diagnostics within floating-point formatting differences.
+
+- `pipe_volume_avg` must not use a dummy argument named `var` when importing module `var`; it uses `field` to avoid ambiguity.
