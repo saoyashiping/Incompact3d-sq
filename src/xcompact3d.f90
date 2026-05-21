@@ -20,11 +20,20 @@ program xcompact3d
                      solve_poisson_mhd
   use param, only : mhd_active
   use particle, only : intt_particles
+  use fibre_stage9_3_channel_init_dryrun, only : stage9_3_dryrun_requested, stage9_3_channel_init_dryrun_audit
 
   implicit none
 
+  logical :: stage9_3_dryrun
 
   call init_xcompact3d()
+
+  stage9_3_dryrun = stage9_3_dryrun_requested()
+  if (stage9_3_dryrun) then
+     call stage9_3_channel_init_dryrun_audit()
+     call finalise_xcompact3d()
+     stop
+  endif
 
   do itime=ifirst,ilast
      !t=itime*dt
@@ -193,7 +202,6 @@ subroutine init_xcompact3d()
   call decomp_2d_io_init()
   call init_coarser_mesh_statS(nstat,nstat,nstat,.true.)    !start from 1 == true
   call init_coarser_mesh_statV(nvisu,nvisu,nvisu,.true.)    !start from 1 == true
-  call init_xcompact3d_coarse_bounds()
   !div: nx ny nz --> nxm ny nz --> nxm nym nz --> nxm nym nzm
   call decomp_info_init(nxm, nym, nzm, ph1)
   call decomp_info_init(nxm, ny, nz, ph4)
@@ -367,27 +375,3 @@ subroutine finalise_xcompact3d()
 
 endsubroutine finalise_xcompact3d
 
-subroutine check_transients()
-
-  use decomp_2d_constants, only : mytype
-  use mpi
-  use var
-  
-  implicit none
-
-  real(mytype) :: dep
-  integer :: code
-   
-  dep=maxval(abs(dux1))
-  call MPI_ALLREDUCE(MPI_IN_PLACE,dep,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
-  if (nrank == 0) write(*,*)'## MAX dux1 ', dep
- 
-  dep=maxval(abs(duy1))
-  call MPI_ALLREDUCE(MPI_IN_PLACE,dep,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
-  if (nrank == 0) write(*,*)'## MAX duy1 ', dep
- 
-  dep=maxval(abs(duz1))
-  call MPI_ALLREDUCE(MPI_IN_PLACE,dep,1,real_type,MPI_MAX,MPI_COMM_WORLD,code)
-  if (nrank == 0) write(*,*)'## MAX duz1 ', dep
-  
-end subroutine check_transients
