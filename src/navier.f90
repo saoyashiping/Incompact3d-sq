@@ -263,6 +263,7 @@ contains
          duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4
     USE MPI
     USE ibm_param
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
 
     implicit none
 
@@ -1344,10 +1345,7 @@ contains
   !********************************************************************
 
     use param, only: one
-    use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables, only: numscalar
-    use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair, only: ta1, phi1
+    use var, only: ta1, phi1, numscalar
 
     implicit none
     real(mytype),dimension(xsize(1),xsize(2),xsize(3))  :: ux,uy,uz,ep
@@ -1377,8 +1375,6 @@ contains
   !
   !********************************************************************
 
-    use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
     use param
     use var
     use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
@@ -1450,8 +1446,7 @@ contains
   !********************************************************************
 
     use decomp_2d_poisson
-    use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
+    use var, only: nrank, itime, ilist, dt, yp, istret, xsize, xstart, numscalar, iscalar
     use param
     use ibm_param, only: rai
     use MPI
@@ -1535,8 +1530,6 @@ contains
   !********************************************************************
 
     use param
-    use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pairiables
     use MPI
     use ibm_param, only: rai
 

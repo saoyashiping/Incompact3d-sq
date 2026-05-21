@@ -22,7 +22,7 @@ program xcompact3d
   use particle, only : intt_particles
   use fibre_stage9_3_channel_init_dryrun, only : stage9_3_dryrun_requested, stage9_3_channel_init_dryrun_audit
   use fibre_stage9_4_no_fibre_dns_smoke, only : stage9_4_smoke_requested, stage9_4_get_max_steps, stage9_4_begin, stage9_4_after_completed_step, stage9_4_finalise_mark, stage9_4_final_audit
-  use fibre_stage9_5_projection_regression, only : stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances, stage9_5_begin, stage9_5_record_divergence_before_projection, stage9_5_record_divergence_after_projection, stage9_5_record_projection_divergence_pair, stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
+  use fibre_stage9_5_projection_regression, only : stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances, stage9_5_begin, stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
 
   implicit none
 

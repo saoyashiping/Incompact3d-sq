@@ -60,3 +60,9 @@ bash stage9_checks/run_stage9_5_projection_regression.sh
 
 ## Machine-readable data requirement
 Stage 9.5 closure requires `.dat` per-step divergence values to match the real production projection diagnostics (`DIV U*` / `DIV U`) within normal floating-point formatting differences.
+
+
+## Data source and compile-safety notes
+- Stage 9.5 records real `DIV U*` and `DIV U` diagnostics directly from `navier::divergence` (same `tmax` and global mean values as production log prints).
+- Pipe bulk/volume-average routines are not part of Stage 9.5 divergence capture and must not import Stage 9.5 diagnostic module symbols.
+- Machine-readable `.dat` per-step divergence values must be non-placeholder and match production log diagnostics within floating-point formatting differences.
