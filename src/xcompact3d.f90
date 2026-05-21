@@ -22,11 +22,13 @@ program xcompact3d
   use particle, only : intt_particles
   use fibre_stage9_3_channel_init_dryrun, only : stage9_3_dryrun_requested, stage9_3_channel_init_dryrun_audit
   use fibre_stage9_4_no_fibre_dns_smoke, only : stage9_4_smoke_requested, stage9_4_get_max_steps, stage9_4_begin, stage9_4_after_completed_step, stage9_4_finalise_mark, stage9_4_final_audit
+  use fibre_stage9_5_projection_regression, only : stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances, stage9_5_begin, stage9_5_record_divergence_before_projection, stage9_5_record_divergence_after_projection, stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
 
   implicit none
 
-  logical :: stage9_3_dryrun, stage9_4_smoke
-  integer :: stage9_4_max_steps
+  logical :: stage9_3_dryrun, stage9_4_smoke, stage9_5_proj
+  integer :: stage9_4_max_steps, stage9_5_max_steps
+  real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol
 
   call init_xcompact3d()
 
@@ -34,6 +36,10 @@ program xcompact3d
   stage9_4_smoke = stage9_4_smoke_requested()
   stage9_4_max_steps = stage9_4_get_max_steps(3)
   call stage9_4_begin(stage9_4_smoke, stage9_4_max_steps, itime0, t0)
+  stage9_5_proj = stage9_5_projection_requested()
+  stage9_5_max_steps = stage9_5_get_max_steps(3)
+  call stage9_5_get_divergence_tolerances(stage9_5_div_max_tol, stage9_5_div_mean_tol)
+  call stage9_5_begin(stage9_5_proj, stage9_5_max_steps, stage9_5_div_max_tol, stage9_5_div_mean_tol)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -84,8 +90,12 @@ program xcompact3d
         call pre_correc(ux1,uy1,uz1,ep1)
 
         call calc_divu_constraint(divu3,rho1,phi1)
+        call stage9_5_record_divergence_before_projection(divu3)
         call solve_poisson(pp3,px1,py1,pz1,rho1,ux1,uy1,uz1,ep1,drho1,divu3)
         call cor_vel(ux1,uy1,uz1,px1,py1,pz1)
+        call calc_divu_constraint(divu3,rho1,phi1)
+        call stage9_5_record_divergence_after_projection(divu3)
+        call stage9_5_record_pressure_finite_status(pp3,px1,py1,pz1,ux1,uy1,uz1)
 
         if(mhd_active .and. mhd_equation == 'induction') then
           call solve_poisson_mhd()
@@ -114,8 +124,12 @@ program xcompact3d
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
      call stage9_4_after_completed_step()
+     call stage9_5_after_completed_step()
      if (stage9_4_smoke) then
         if (itime - ifirst + 1 >= stage9_4_max_steps) exit
+     endif
+     if (stage9_5_proj) then
+        if (itime - ifirst + 1 >= stage9_5_max_steps) exit
      endif
 
   enddo !! End time loop
@@ -123,6 +137,10 @@ program xcompact3d
   if (stage9_4_smoke) then
      call stage9_4_finalise_mark()
      call stage9_4_final_audit()
+  endif
+  if (stage9_5_proj) then
+     call stage9_5_finalise_mark()
+     call stage9_5_final_audit()
   endif
 
   call finalise_xcompact3d()

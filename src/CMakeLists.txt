@@ -59,6 +59,7 @@ add_executable(xcompact3d
                     visu.f90
                     fibre_stage9_3_channel_init_dryrun.f90
                     fibre_stage9_4_no_fibre_dns_smoke.f90
+                    fibre_stage9_5_projection_regression.f90
                     xcompact3d.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)
