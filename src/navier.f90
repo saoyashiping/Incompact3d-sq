@@ -263,6 +263,7 @@ contains
          duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4
     USE MPI
     USE ibm_param
+    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
 
     implicit none
 
@@ -359,6 +360,8 @@ contains
     tmoy=tmoy/real(nvect3,mytype)
     call MPI_ALLREDUCE(MPI_IN_PLACE, tmoy, 1, real_type, MPI_SUM, MPI_COMM_WORLD, code)
     call MPI_ALLREDUCE(MPI_IN_PLACE, tmax, 1, real_type, MPI_MAX, MPI_COMM_WORLD, code)
+
+    if (nlock > 0) call stage9_5_record_projection_divergence_pair(nlock, tmax, tmoy/real(nproc,mytype))
 
     if ((nrank == 0) .and. (nlock > 0).and.(mod(itime, ilist) == 0 .or. itime == ifirst .or. itime==ilast)) then
        if (nlock == 2) then
@@ -1342,8 +1345,7 @@ contains
   !********************************************************************
 
     use param, only: one
-    use variables, only: numscalar
-    use var, only: ta1, phi1
+    use var, only: ta1, phi1, numscalar
 
     implicit none
     real(mytype),dimension(xsize(1),xsize(2),xsize(3))  :: ux,uy,uz,ep
@@ -1373,7 +1375,6 @@ contains
   !
   !********************************************************************
 
-    use variables
     use param
     use var
     use ibm_param, only: rai
@@ -1444,7 +1445,7 @@ contains
   !********************************************************************
 
     use decomp_2d_poisson
-    use variables
+    use var, only: nrank, itime, ilist, dt, yp, istret, xsize, xstart, numscalar, iscalar
     use param
     use ibm_param, only: rai
     use MPI
@@ -1528,7 +1529,6 @@ contains
   !********************************************************************
 
     use param
-    use variables
     use MPI
     use ibm_param, only: rai
 
