@@ -57,6 +57,7 @@ add_executable(xcompact3d
                     utilities.f90
                     variables.f90
                     visu.f90
+                    fibre_stage9_3_channel_init_dryrun.f90
                     xcompact3d.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)

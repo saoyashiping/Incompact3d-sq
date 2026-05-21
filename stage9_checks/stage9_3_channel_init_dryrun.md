@@ -36,3 +36,9 @@ MPIEXEC=mpirun \
 MPIEXEC_FLAGS="--mca btl self,vader,tcp" \
 bash stage9_checks/run_stage9_3_channel_init_dryrun.sh
 ```
+
+
+## Compile-regression guard
+
+- Stage 9.3 dry-run helpers are provided via explicit module interface in `src/fibre_stage9_3_channel_init_dryrun.f90` (`stage9_3_dryrun_requested`, `stage9_3_channel_init_dryrun_audit`).
+- `xcompact3d` imports these via `use fibre_stage9_3_channel_init_dryrun, only: ...`; this prevents implicit-type/return-type mismatches and is required for successful compile before Stage 9.3 MPI dry-run can start.
