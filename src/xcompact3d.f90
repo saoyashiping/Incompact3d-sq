@@ -21,14 +21,19 @@ program xcompact3d
   use param, only : mhd_active
   use particle, only : intt_particles
   use fibre_stage9_3_channel_init_dryrun, only : stage9_3_dryrun_requested, stage9_3_channel_init_dryrun_audit
+  use fibre_stage9_4_no_fibre_dns_smoke, only : stage9_4_smoke_requested, stage9_4_get_max_steps, stage9_4_begin, stage9_4_after_completed_step, stage9_4_finalise_mark, stage9_4_final_audit
 
   implicit none
 
-  logical :: stage9_3_dryrun
+  logical :: stage9_3_dryrun, stage9_4_smoke
+  integer :: stage9_4_max_steps
 
   call init_xcompact3d()
 
   stage9_3_dryrun = stage9_3_dryrun_requested()
+  stage9_4_smoke = stage9_4_smoke_requested()
+  stage9_4_max_steps = stage9_4_get_max_steps(3)
+  call stage9_4_begin(stage9_4_smoke, stage9_4_max_steps, itime0, t0)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -108,7 +113,17 @@ program xcompact3d
 
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
+     call stage9_4_after_completed_step()
+     if (stage9_4_smoke) then
+        if (itime - ifirst + 1 >= stage9_4_max_steps) exit
+     endif
+
   enddo !! End time loop
+
+  if (stage9_4_smoke) then
+     call stage9_4_finalise_mark()
+     call stage9_4_final_audit()
+  endif
 
   call finalise_xcompact3d()
 
