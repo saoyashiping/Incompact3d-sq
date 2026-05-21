@@ -56,3 +56,7 @@ bash stage9_checks/run_stage9_5_projection_regression.sh
 ## Expected PASS lines
 - `STAGE 9.5 PRESSURE PROJECTION REGRESSION VERDICT: PASS`
 - `STAGE 9.5 FINAL VERDICT: PASS`
+
+
+## Machine-readable data requirement
+Stage 9.5 closure requires `.dat` per-step divergence values to match the real production projection diagnostics (`DIV U*` / `DIV U`) within normal floating-point formatting differences.

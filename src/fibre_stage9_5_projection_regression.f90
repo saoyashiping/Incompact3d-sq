@@ -2,6 +2,7 @@ module fibre_stage9_5_projection_regression
   use mpi
   use, intrinsic :: ieee_arithmetic
   use decomp_2d_mpi, only : nrank
+  use decomp_2d_constants, only : mytype
   use param, only : itype, itype_channel
   implicit none
   private
@@ -15,7 +16,7 @@ module fibre_stage9_5_projection_regression
   integer, save :: pressure_finite_status=1, velocity_finite_status=1
 
   public :: stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances
-  public :: stage9_5_begin, stage9_5_record_divergence_before_projection, stage9_5_record_divergence_after_projection
+  public :: stage9_5_begin, stage9_5_record_divergence_before_projection, stage9_5_record_divergence_after_projection, stage9_5_record_projection_divergence_pair
   public :: stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
 contains
   logical function stage9_5_projection_requested() result(requested)
@@ -76,6 +77,22 @@ contains
     call reduce_div_stats(div,after_max(projection_samples),after_mean(projection_samples))
   end subroutine
 
+
+  subroutine stage9_5_record_projection_divergence_pair(nlock, div_max, div_mean)
+    integer, intent(in) :: nlock
+    real(mytype), intent(in) :: div_max, div_mean
+    if (.not.proj_enabled) return
+    if (nlock == 1) then
+      if (projection_samples>=max_track_steps) return
+      projection_samples = projection_samples + 1
+      before_max(projection_samples) = real(div_max,8)
+      before_mean(projection_samples) = real(div_mean,8)
+    else if (nlock == 2) then
+      if (projection_samples<=0 .or. projection_samples>max_track_steps) return
+      after_max(projection_samples) = real(div_max,8)
+      after_mean(projection_samples) = real(div_mean,8)
+    end if
+  end subroutine
   subroutine stage9_5_record_pressure_finite_status(pp,px,py,pz,ux,uy,uz)
     real(8),intent(in)::pp(:,:,:,:),px(:,:,:),py(:,:,:),pz(:,:,:),ux(:,:,:),uy(:,:,:),uz(:,:,:)
     integer :: locp,locv,gp,gv,ierr
