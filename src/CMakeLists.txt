@@ -15,7 +15,6 @@ add_executable(xcompact3d
                     acl_utils.f90 
                     adm.f90
                     airfoils.f90
-                    xcompact3d_decomp_io_compat.f90
                     Case-ABL.f90
                     Case-Cavity.f90
                     Case-Channel.f90
@@ -34,7 +33,6 @@ add_executable(xcompact3d
                     derive.f90
                     dynstall.f90
                     dynstall_legacy.f90
-                    xcompact3d_decomp_io_compat.f90
                     filters.f90
                     forces.f90
                     genepsi3d.f90
@@ -1980,3 +1978,12 @@ if(MPI_FOUND)
   target_link_libraries(fibre_stage9_dependency_gate_check PRIVATE MPI::MPI_Fortran)
 endif()
 install(TARGETS fibre_stage9_dependency_gate_check DESTINATION bin)
+
+add_executable(fibre_stage9_2_minimal_parallel_gate
+  fibre_stage9_2_minimal_parallel_gate.f90
+)
+target_link_libraries(fibre_stage9_2_minimal_parallel_gate PRIVATE decomp2d)
+if(MPI_FOUND)
+  target_link_libraries(fibre_stage9_2_minimal_parallel_gate PRIVATE MPI::MPI_Fortran)
+endif()
+install(TARGETS fibre_stage9_2_minimal_parallel_gate DESTINATION bin)
