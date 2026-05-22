@@ -11,6 +11,7 @@ DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
 STAGE9_SKIP_PREREQS=${STAGE9_SKIP_PREREQS:-0}
 CHANNEL_INPUT=${CHANNEL_INPUT:-examples/Channel/input.i3d}
 STAGE9_9_MAX_STEPS=${STAGE9_9_MAX_STEPS:-3}
+STAGE9_9_REFERENCE_STEPS=${STAGE9_9_REFERENCE_STEPS:-3}
 STAGE9_9_SIGNATURE_TOL=${STAGE9_9_SIGNATURE_TOL:-1.0e-8}
 STAGE9_9_DIVERGENCE_TOL=${STAGE9_9_DIVERGENCE_TOL:-1.0e-8}
 STAGE9_9_MASSFLUX_TOL=${STAGE9_9_MASSFLUX_TOL:-1.0e-6}
@@ -51,16 +52,49 @@ fi
 
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"
+ref_input="stage9_outputs/stage9_9_input_reference_cold.i3d"
+awk '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 0", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); print line }' "${CHANNEL_INPUT}" > "${ref_input}"
+
+rm -f checkpoint checkpoint.old restart.info restart*
+
+echo "[INFO] stage9.9 generating reference checkpoint"
+ref_log="stage9_outputs/stage9_9_reference_checkpoint_np1.log"
+timeout "${STAGE9_9_TIMEOUT_SEC}" env \
+  X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
+  X3D_STAGE9_9_MAX_STEPS="${STAGE9_9_REFERENCE_STEPS}" \
+  X3D_STAGE9_9_SIGNATURE_TOL="${STAGE9_9_SIGNATURE_TOL}" \
+  X3D_STAGE9_9_DIVERGENCE_TOL="${STAGE9_9_DIVERGENCE_TOL}" \
+  X3D_STAGE9_9_MASSFLUX_TOL="${STAGE9_9_MASSFLUX_TOL}" \
+  X3D_STAGE9_9_DECOMP_INVARIANT_INIT=0 \
+  ${MPIEXEC} ${MPIEXEC_FLAGS} -np 1 "${EXE}" "${ref_input}" >"${ref_log}" 2>&1
+rc=$?
+if [ ${rc} -ne 0 ]; then
+  fail "stage9.9 reference checkpoint generation failed"
+  tail -n 160 "${ref_log}"
+fi
+
+checkpoint_file=$(find . -maxdepth 1 -type f \( -name 'checkpoint' -o -name 'checkpoint*' -o -name 'restart*' \) -size +0c -print -quit)
+if [ -z "${checkpoint_file}" ]; then
+  fail "stage9.9 reference checkpoint missing/nonempty check failed"
+else
+  pass "stage9.9 reference checkpoint exists: ${checkpoint_file}"
+  echo "[INFO] stage9.9 reference checkpoint exists: ${checkpoint_file}"
+fi
+
 for np in 1 2 4; do
+  restart_input="stage9_outputs/stage9_9_input_restart_np${np}.i3d"
+  awk -v ifirst_val="$((STAGE9_9_REFERENCE_STEPS + 1))" '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*ifirst[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= " ifirst_val, line); print line }' "${CHANNEL_INPUT}" > "${restart_input}"
   log="stage9_outputs/stage9_9_parallel_no_fibre_consistency_np${np}.log"
   dat="stage9_outputs/fibre_stage9_9_parallel_consistency_np${np}.dat"
+  echo "[INFO] stage9.9 run np=${np} from reference restart"
   timeout "${STAGE9_9_TIMEOUT_SEC}" env \
     X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
     X3D_STAGE9_9_MAX_STEPS="${STAGE9_9_MAX_STEPS}" \
     X3D_STAGE9_9_SIGNATURE_TOL="${STAGE9_9_SIGNATURE_TOL}" \
     X3D_STAGE9_9_DIVERGENCE_TOL="${STAGE9_9_DIVERGENCE_TOL}" \
     X3D_STAGE9_9_MASSFLUX_TOL="${STAGE9_9_MASSFLUX_TOL}" \
-    ${MPIEXEC} ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${CHANNEL_INPUT}" >"${log}" 2>&1
+    X3D_STAGE9_9_DECOMP_INVARIANT_INIT=1 \
+    ${MPIEXEC} ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${restart_input}" >"${log}" 2>&1
   rc=$?
   if [ ${rc} -ne 0 ]; then
     fail "np=${np} failed/timeout"
@@ -72,11 +106,8 @@ for np in 1 2 4; do
     cp stage9_outputs/fibre_stage9_9_parallel_consistency.dat "${dat}"
   fi
   grep -q "stage9_9_parallel_consistency_local_status[[:space:]]\+1" "${dat}" && pass "np=${np} dat pass" || fail "np=${np} dat fail"
+  grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" "${dat}" && pass "np=${np} invariant init status" || fail "np=${np} invariant init status!=1"
 done
-
-if ! grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" stage9_outputs/fibre_stage9_9_parallel_consistency_np1.dat; then
-  fail "Stage 9.9 cannot compare raw signatures because initial state is not decomposition-invariant."
-fi
 
 metric_check() {
   local metric="$1"
@@ -85,7 +116,7 @@ metric_check() {
     FNR==1{file=FILENAME}
     $1==m{
       v=$2+0
-      if (ref=="") ref=v
+      if (ref=="") {ref=v; next}
       d=v-ref; if (d<0) d=-d
       if (d>tol) {print "[FAIL] metric",m,"file",file,"delta",d,"tol",tol; ok=0}
     }
@@ -108,7 +139,7 @@ if grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1"
     fi
   done
 else
-  echo "[INFO] Skipping raw signature cross-np comparison because decomposition-invariant initial state status is not 1 for all runs."
+  fail "cross-decomposition restart initial state is unsupported or failed"
 fi
 
 if [ ${#fails[@]} -eq 0 ]; then

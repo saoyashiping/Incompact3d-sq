@@ -14,6 +14,7 @@ module fibre_stage9_8_restart_io_regression
   real(8), save :: sig_tol=1.0d-8
   real(8), save :: sig_sum(3)=0d0, sig_max(3)=0d0
   real(8), save :: read_sig_sum(3)=0d0, read_sig_max(3)=0d0
+  real(8), save :: sig_diff_sum(3)=0d0, sig_diff_max(3)=0d0
   character(len=256), save :: signature_file=''
   public :: stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart
   public :: stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_write_path, stage9_8_record_restart_read_path
@@ -64,6 +65,7 @@ subroutine stage9_8_begin(en,phase,steps,tol)
   restart_write_path=0; restart_read_path=0; restart_exist=0; restart_nonempty=0; restart_signature_status=1
   restart_read_signature_checked=0
   vel_finite=1; pres_finite=1; div_finite=1; sig_sum=0d0; sig_max=0d0; read_sig_sum=0d0; read_sig_max=0d0
+  sig_diff_sum=0d0; sig_diff_max=0d0
   signature_file=''
   call get_environment_variable('X3D_STAGE9_8_SIGNATURE_FILE',value=signature_file,status=st)
   if (enabled .and. nrank==0) then
@@ -140,7 +142,9 @@ subroutine stage9_8_record_signature(ux,uy,uz)
     call MPI_Bcast(sig_sum,3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     call MPI_Bcast(sig_max,3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     read_sig_sum=real(gs,8); read_sig_max=real(gm,8)
-    if (maxval(abs(read_sig_sum-sig_sum))>sig_tol .or. maxval(abs(read_sig_max-sig_max))>sig_tol) restart_signature_status=0
+    sig_diff_sum=abs(read_sig_sum-sig_sum)
+    sig_diff_max=abs(read_sig_max-sig_max)
+    if (maxval(sig_diff_sum)>sig_tol .or. maxval(sig_diff_max)>sig_tol) restart_signature_status=0
     restart_read_signature_checked=1
   endif
 end subroutine
@@ -196,6 +200,13 @@ subroutine stage9_8_final_audit()
     write(u,*) 'stage9_8_read_signature_max_ux ',read_sig_max(1)
     write(u,*) 'stage9_8_read_signature_max_uy ',read_sig_max(2)
     write(u,*) 'stage9_8_read_signature_max_uz ',read_sig_max(3)
+    write(u,*) 'stage9_8_d_sum_ux ',sig_diff_sum(1)
+    write(u,*) 'stage9_8_d_sum_uy ',sig_diff_sum(2)
+    write(u,*) 'stage9_8_d_sum_uz ',sig_diff_sum(3)
+    write(u,*) 'stage9_8_d_max_ux ',sig_diff_max(1)
+    write(u,*) 'stage9_8_d_max_uy ',sig_diff_max(2)
+    write(u,*) 'stage9_8_d_max_uz ',sig_diff_max(3)
+    write(u,*) 'stage9_8_signature_tolerance ',sig_tol
     write(u,*) 'stage9_8_velocity_finite_status ',vel_finite
     write(u,*) 'stage9_8_pressure_finite_status ',pres_finite
     write(u,*) 'stage9_8_divergence_finite_status ',div_finite
@@ -206,6 +217,13 @@ subroutine stage9_8_final_audit()
     if (s_final==1) then
       write(*,'(A)') 'STAGE 9.8 RESTART IO REGRESSION VERDICT: PASS'
     else
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_sum_ux',sig_diff_sum(1)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_sum_uy',sig_diff_sum(2)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_sum_uz',sig_diff_sum(3)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_max_ux',sig_diff_max(1)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_max_uy',sig_diff_max(2)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_d_max_uz',sig_diff_max(3)
+      write(*,'(A,1X,ES12.5)') 'stage9_8_signature_tolerance',sig_tol
       write(*,'(A)') 'STAGE 9.8 RESTART IO REGRESSION VERDICT: FAIL'
     endif
   endif

@@ -59,6 +59,8 @@ contains
     logical, intent(in) :: is_enabled
     integer, intent(in) :: max_steps
     real(8), intent(in) :: sig_tol,div_tol,mf_tol
+    character(len=64) :: e
+    integer :: st
     enabled=is_enabled
     requested_max_steps=max_steps
     signature_tol=sig_tol
@@ -68,6 +70,11 @@ contains
     velocity_finite_status=1; pressure_finite_status=1; divergence_finite_status=1
     cfl_finite_status=1; massflux_finite_status=1; no_fibre_coupling_status=1
     decomp_invariant_init_status=0
+    e=''
+    call get_environment_variable('X3D_STAGE9_9_DECOMP_INVARIANT_INIT',value=e,status=st)
+    if (st==0) then
+      if (trim(adjustl(e))=='1') decomp_invariant_init_status=1
+    endif
     sig_sum_ux=0d0; sig_sum_uy=0d0; sig_sum_uz=0d0
     sig_max_ux=0d0; sig_max_uy=0d0; sig_max_uz=0d0
     sig_l2_ux=0d0; sig_l2_uy=0d0; sig_l2_uz=0d0

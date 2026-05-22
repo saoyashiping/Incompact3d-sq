@@ -23,8 +23,9 @@ Plus finite statuses for velocity/pressure/divergence/CFL/massflux and final loc
 Raw cross-np signature comparison is only valid when initialization is decomposition-invariant.
 
 - Dat key `stage9_9_decomposition_invariant_initial_state_status` controls whether cross-np signature deltas are compared.
-- If this status is `0`, the gate intentionally fails with a clear diagnostic instead of reporting misleading signature-delta failures.
-- This avoids claiming parallel inconsistency when the initial perturbation/state itself is decomposition-dependent.
+- Stage 9.9 therefore generates a common reference checkpoint first, then runs `np=1/2/4` from restart inputs (`irestart=1`, `icheckpoint=1`, `ifirst=reference_steps+1`).
+- If that restart-based common initial state cannot be established (or status is not `1`), Stage 9.9 fails explicitly with `cross-decomposition restart initial state is unsupported or failed`.
+- This avoids claiming parallel inconsistency when fresh channel initialization itself is decomposition-dependent.
 
 ## Not tested yet
 - Long-time statistical equivalence beyond short smoke steps.
