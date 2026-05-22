@@ -42,6 +42,9 @@ add_executable(xcompact3d
                     mhd.f90
                     module_param.f90
                     mptool.f90
+                    fibre_stage9_5_projection_regression.f90
+                    fibre_stage9_6_rk3_rhs_massflux_regression.f90
+                    fibre_stage9_7_stats_visu_io_smoke.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -59,7 +62,6 @@ add_executable(xcompact3d
                     visu.f90
                     fibre_stage9_3_channel_init_dryrun.f90
                     fibre_stage9_4_no_fibre_dns_smoke.f90
-                    fibre_stage9_5_projection_regression.f90
                     xcompact3d.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)
