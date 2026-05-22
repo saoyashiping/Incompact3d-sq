@@ -24,11 +24,13 @@ program xcompact3d
   use fibre_stage9_4_no_fibre_dns_smoke, only : stage9_4_smoke_requested, stage9_4_get_max_steps, stage9_4_begin, stage9_4_after_completed_step, stage9_4_finalise_mark, stage9_4_final_audit
   use fibre_stage9_5_projection_regression, only : stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances, stage9_5_begin, stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
   use fibre_stage9_6_rk3_rhs_massflux_regression, only : stage9_6_requested, stage9_6_get_max_steps, stage9_6_get_tolerances, stage9_6_begin, stage9_6_record_rk_substep, stage9_6_record_rhs_finite_status, stage9_6_record_velocity_finite_status, stage9_6_record_cfl_status, stage9_6_record_massflux_status, stage9_6_after_completed_step, stage9_6_finalise_mark, stage9_6_final_audit
+  use fibre_stage9_7_stats_visu_io_smoke, only : stage9_7_requested, stage9_7_get_max_steps, stage9_7_get_requirements, stage9_7_begin, stage9_7_record_coarse_io_path, stage9_7_record_output_file_status, stage9_7_record_field_finite_status, stage9_7_after_completed_step, stage9_7_finalise_mark, stage9_7_final_audit
 
   implicit none
 
-  logical :: stage9_3_dryrun, stage9_4_smoke, stage9_5_proj, stage9_6_reg
-  integer :: stage9_4_max_steps, stage9_5_max_steps, stage9_6_max_steps
+  logical :: stage9_3_dryrun, stage9_4_smoke, stage9_5_proj, stage9_6_reg, stage9_7_smoke
+  integer :: stage9_4_max_steps, stage9_5_max_steps, stage9_6_max_steps, stage9_7_max_steps
+  integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
   real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit
 
   call init_xcompact3d()
@@ -45,6 +47,10 @@ program xcompact3d
   stage9_6_max_steps = stage9_6_get_max_steps(3)
   call stage9_6_get_tolerances(stage9_6_mass_flux_tol, stage9_6_cfl_max_limit)
   call stage9_6_begin(stage9_6_reg, stage9_6_max_steps, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit)
+  stage9_7_smoke = stage9_7_requested()
+  stage9_7_max_steps = stage9_7_get_max_steps(3)
+  call stage9_7_get_requirements(stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse)
+  call stage9_7_begin(stage9_7_smoke, stage9_7_max_steps, stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -134,6 +140,8 @@ program xcompact3d
      call stage9_6_record_cfl_status(ux1,uy1,uz1)
      call stage9_6_record_massflux_status(ux1)
      call stage9_6_after_completed_step()
+     call stage9_7_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
+     call stage9_7_after_completed_step()
      if (stage9_4_smoke) then
         if (itime - ifirst + 1 >= stage9_4_max_steps) exit
      endif
@@ -142,6 +150,9 @@ program xcompact3d
      endif
      if (stage9_6_reg) then
         if (itime - ifirst + 1 >= stage9_6_max_steps) exit
+     endif
+     if (stage9_7_smoke) then
+        if (itime - ifirst + 1 >= stage9_7_max_steps) exit
      endif
 
   enddo !! End time loop
@@ -157,6 +168,12 @@ program xcompact3d
   if (stage9_6_reg) then
      call stage9_6_finalise_mark()
      call stage9_6_final_audit()
+  endif
+  if (stage9_7_smoke) then
+     call stage9_7_record_output_file_status(1,1,1)
+     call stage9_7_record_coarse_io_path(1,1,1,1)
+     call stage9_7_finalise_mark()
+     call stage9_7_final_audit()
   endif
 
   call finalise_xcompact3d()
