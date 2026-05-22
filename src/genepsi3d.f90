@@ -16,7 +16,7 @@ contains
 
     USE param, only : zero, one, dx, dz
     USE decomp_2d, only : xstart, xend, xsize
-    !USE xcompact3d_decomp_io_compat
+    !USE decomp_2d_io
     USE variables, only : yp, ny
 
     implicit none
@@ -783,7 +783,7 @@ contains
   subroutine geomcomplex_io(nx,ny,nz,ep1,nobjx,nobjy,nobjz,xi,xf,yi,yf,zi,zf,&
        nxipif,nxfpif,nyipif,nyfpif,nzipif,nzfpif,nobjmax,npif,read_flag)
     use decomp_2d
-    USE xcompact3d_decomp_io_compat
+    USE decomp_2d_io
     implicit none
     !
     logical, intent(in) :: read_flag

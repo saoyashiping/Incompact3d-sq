@@ -26,7 +26,7 @@ contains
    !############################################################################
    subroutine init_cavity(ux1, uy1, uz1, ep1, phi1)
 
-      USE xcompact3d_decomp_io_compat
+      USE decomp_2d_io
       USE MPI
 
       implicit none

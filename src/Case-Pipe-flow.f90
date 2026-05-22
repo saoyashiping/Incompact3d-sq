@@ -101,7 +101,7 @@ contains
   !
   !********************************************************************
 
-    use xcompact3d_decomp_io_compat
+    use decomp_2d_io
     use variables
     use param
     use ibm_param
