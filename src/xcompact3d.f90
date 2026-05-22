@@ -64,7 +64,10 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
+  ! Stage 9.8 is initialized inside init_xcompact3d() immediately after
+  ! reading the input parameters and before any production restart read.
+  ! Do not call stage9_8_begin() again here: in restart phase that would
+  ! reset restart_read_path and the read-point signature comparison.
   stage9_9_reg = stage9_9_requested()
   stage9_9_max_steps = stage9_9_get_max_steps(3)
   call stage9_9_get_tolerances(stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol)
@@ -153,6 +156,7 @@ program xcompact3d
         inquire(file='checkpoint',exist=stage9_8_checkpoint_exists,size=stage9_8_checkpoint_size)
         if (stage9_8_checkpoint_exists .and. stage9_8_checkpoint_size>0) then
            call stage9_8_record_restart_file_status(1,1)
+           if (stage9_8_phase==0) call stage9_8_record_signature(ux1,uy1,uz1)
         else
            call stage9_8_record_restart_file_status(0,0)
         endif
@@ -173,7 +177,7 @@ program xcompact3d
      call stage9_7_after_completed_step()
      if (stage9_8_reg) then
        call stage9_8_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
-       call stage9_8_record_signature(ux1,uy1,uz1)
+       if (stage9_8_phase==1) call stage9_8_record_signature(ux1,uy1,uz1)
        call stage9_8_after_completed_step()
        stage9_8_stop_now=stage9_8_should_stop()
        if (stage9_8_stop_now) then
