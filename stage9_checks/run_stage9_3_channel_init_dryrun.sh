@@ -9,6 +9,7 @@ BUILD_DIR=${BUILD_DIR:-build_stage9}
 MPIEXEC=${MPIEXEC:-mpirun}
 MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
+STAGE9_SKIP_PREREQS=${STAGE9_SKIP_PREREQS:-0}
 CHANNEL_INPUT=${CHANNEL_INPUT:-examples/Channel/input.i3d}
 
 fails=()
@@ -27,8 +28,12 @@ fi
 run_step "xcompact3d build" cmake --build "${BUILD_DIR}" --target xcompact3d -j
 run_step "fibre_stage9_dependency_gate_check build" cmake --build "${BUILD_DIR}" --target fibre_stage9_dependency_gate_check -j
 run_step "fibre_stage9_2_minimal_parallel_gate build" cmake --build "${BUILD_DIR}" --target fibre_stage9_2_minimal_parallel_gate -j
-run_step "Stage 9.1 interface consistency" bash stage9_checks/run_stage9_1_interface_consistency.sh
-run_step "Stage 9.2 minimal parallel gate" bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
+if [ "${STAGE9_SKIP_PREREQS}" = "1" ]; then
+  echo "[INFO] STAGE9_SKIP_PREREQS=1 -> skipping Stage 9.1/9.2 prerequisites"
+else
+  run_step "Stage 9.1 interface consistency" bash stage9_checks/run_stage9_1_interface_consistency.sh
+  run_step "Stage 9.2 minimal parallel gate" env STAGE9_SKIP_PREREQS=1 bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
+fi
 
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"

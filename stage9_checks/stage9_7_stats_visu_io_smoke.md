@@ -26,3 +26,10 @@ Stage 9.7 verifies real production channel DNS output plumbing for statistics, v
 
 ## Manual run
 `bash stage9_checks/run_stage9_7_stats_visu_io_smoke.sh`
+
+
+## Gate orchestration
+- Stage 9.7 calls earlier Stage 9 gates as prerequisites by default.
+- Set `STAGE9_SKIP_PREREQS=1` to skip nested prerequisite calls when Stage 9.7 is invoked from a higher-level orchestrator.
+- This flag only skips prerequisite gate invocations; each stage still executes its own build/run/log/dat validation.
+- Stage 9.7 remains no-fibre/no-coupling/no-IBM-injection.
