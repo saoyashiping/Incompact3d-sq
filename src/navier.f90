@@ -264,6 +264,7 @@ contains
     USE MPI
     USE ibm_param
 
+    USE fibre_stage9_5_projection_regression, ONLY: stage9_5_record_projection_divergence_pair
     implicit none
 
     !  TYPE(DECOMP_INFO) :: ph1,ph3,ph4
