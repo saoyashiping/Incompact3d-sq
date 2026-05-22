@@ -19,17 +19,17 @@ module fibre_stage9_7_stats_visu_io_smoke
   public :: stage9_7_finalise_mark, stage9_7_should_stop, stage9_7_progress_note, stage9_7_final_audit
 contains
 logical function stage9_7_requested() result(v)
-character(len=64)::e;integer::st; v=.false.;e=''; call get_environment_variable('X3D_STAGE9_7_STATS_VISU_IO_SMOKE',e,st); if(st==0) v=(trim(adjustl(e))=='1')
+character(len=64)::e;integer::st; v=.false.;e=''; call get_environment_variable('X3D_STAGE9_7_STATS_VISU_IO_SMOKE', value=e, status=st); if(st==0) v=(trim(adjustl(e))=='1')
 end function
 integer function stage9_7_get_max_steps(d) result(v)
-integer,intent(in)::d; character(len=64)::e; integer::st,ios,t; v=d; e=''; call get_environment_variable('X3D_STAGE9_7_MAX_STEPS',e,st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0.and.t>0) v=t; endif
+integer,intent(in)::d; character(len=64)::e; integer::st,ios,t; v=d; e=''; call get_environment_variable('X3D_STAGE9_7_MAX_STEPS', value=e, status=st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0.and.t>0) v=t; endif
 end function
 subroutine stage9_7_get_requirements(rstats,rvisu,rcoarse)
 integer,intent(out)::rstats,rvisu,rcoarse; character(len=64)::e; integer::st,ios,t
 rstats=1; rvisu=1; rcoarse=1
-e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_STATS',e,st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rstats=merge(1,0,t/=0); endif
-e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_VISU',e,st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rvisu=merge(1,0,t/=0); endif
-e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_COARSE_IO',e,st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rcoarse=merge(1,0,t/=0); endif
+e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_STATS', value=e, status=st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rstats=merge(1,0,t/=0); endif
+e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_VISU', value=e, status=st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rvisu=merge(1,0,t/=0); endif
+e=''; call get_environment_variable('X3D_STAGE9_7_REQUIRE_COARSE_IO', value=e, status=st); if(st==0) then; read(e,*,iostat=ios) t; if(ios==0) rcoarse=merge(1,0,t/=0); endif
 end subroutine
 subroutine stage9_7_begin(en,mx,rs,rv,rc)
 logical,intent(in)::en; integer,intent(in)::mx,rs,rv,rc
