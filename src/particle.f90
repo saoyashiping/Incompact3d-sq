@@ -530,8 +530,7 @@ module particle_utilities
   !+-------------------------------------------------------------------+
   subroutine pswap_yz(varin,varout)
     
-    use decomp_2d, only : xsize
-  use m_halo,    only : update_halo
+    use decomp_2d, only : xsize, update_halo
     use param,     only : nclx,ncly,nclz
     
     ! arguments
@@ -1007,7 +1006,7 @@ module particle
     
     use variables 
     use param
-    use decomp_2d, only : xsize
+    use decomp_2d, only : xsize, update_halo
     use, intrinsic :: ieee_arithmetic
     
     ! arguments
@@ -1516,7 +1515,7 @@ module particle
     use MPI
     use param,     only : dx,dy,dz,istret,nclx,ncly,nclz,xlx,yly,zlz
     use variables, only : yp,ny,nz
-    use decomp_2d, only : xsize, xstart, xend
+    use decomp_2d, only : xsize, update_halo, xstart, xend
     use actuator_line_model_utils, only: trilinear_interpolation
     
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)),intent(in) :: ux1,uy1,uz1
@@ -2146,7 +2145,7 @@ module particle
   !+-------------------------------------------------------------------+
   subroutine particle_force(ux1,uy1,uz1)
     
-    use decomp_2d, only : xsize
+    use decomp_2d, only : xsize, update_halo
     use var,       only : itime
     use param,     only : re,t,itr
     use mhd,       only : Bm,stuart
