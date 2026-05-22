@@ -31,10 +31,21 @@ fi
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"
 for np in 1 2 4; do
+ restart_input="stage9_outputs/stage9_8_input_restart_np${np}.i3d"
+ awk '{ if ($0 ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1"); print }' "${CHANNEL_INPUT}" > "${restart_input}"
  for phase in cold restart; do
   log="stage9_outputs/stage9_8_restart_io_regression_np${np}_${phase}.log"
   dat="stage9_outputs/fibre_stage9_8_restart_io_regression_np${np}_${phase}.dat"
-  timeout "${STAGE9_8_TIMEOUT_SEC}" env X3D_STAGE9_8_RESTART_IO_REGRESSION=1 X3D_STAGE9_8_PHASE="${phase}" X3D_STAGE9_8_MAX_STEPS_BEFORE_RESTART="${STAGE9_8_MAX_STEPS_BEFORE_RESTART}" X3D_STAGE9_8_MAX_STEPS_AFTER_RESTART="${STAGE9_8_MAX_STEPS_AFTER_RESTART}" X3D_STAGE9_8_RESTART_SIGNATURE_TOL="${STAGE9_8_RESTART_SIGNATURE_TOL}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${CHANNEL_INPUT}" >"${log}" 2>&1
+  sig="stage9_outputs/stage9_8_restart_signature_np${np}.dat"
+  input_file="${CHANNEL_INPUT}"
+  if [ "${phase}" = "restart" ]; then
+    input_file="${restart_input}"
+    if ! find . -maxdepth 1 -type f -name 'restart*' -size +0c >/dev/null 2>&1; then
+      fail "np=${np} restart files missing/empty before restart phase"
+      continue
+    fi
+  fi
+  timeout "${STAGE9_8_TIMEOUT_SEC}" env X3D_STAGE9_8_RESTART_IO_REGRESSION=1 X3D_STAGE9_8_PHASE="${phase}" X3D_STAGE9_8_MAX_STEPS_BEFORE_RESTART="${STAGE9_8_MAX_STEPS_BEFORE_RESTART}" X3D_STAGE9_8_MAX_STEPS_AFTER_RESTART="${STAGE9_8_MAX_STEPS_AFTER_RESTART}" X3D_STAGE9_8_RESTART_SIGNATURE_TOL="${STAGE9_8_RESTART_SIGNATURE_TOL}" X3D_STAGE9_8_SIGNATURE_FILE="${sig}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${input_file}" >"${log}" 2>&1
   rc=$?
   if [ ${rc} -ne 0 ]; then fail "np=${np} ${phase} failed/timeout"; tail -n 160 "${log}"; continue; fi
   grep -q "STAGE 9.8 RESTART IO REGRESSION VERDICT: PASS" "${log}" && pass "np=${np} ${phase} pass line" || fail "np=${np} ${phase} missing pass line"

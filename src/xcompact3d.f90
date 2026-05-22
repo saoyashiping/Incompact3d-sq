@@ -368,11 +368,16 @@ subroutine init_xcompact3d()
      itime = 0
      call preprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
+     if (stage9_8_reg) call stage9_8_record_restart_read_path()
      itr=1
      if (itype == itype_sandbox) then
         call init_sandbox(ux1,uy1,uz1,ep1,phi1,1)
      end if
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,0)
+     if (stage9_8_reg) then
+        call stage9_8_record_restart_file_status(1,1)
+        call stage9_8_record_signature(ux1,uy1,uz1)
+     endif
   endif
 
   if ((ioutflow.eq.1).or.(iin.eq.3)) then
