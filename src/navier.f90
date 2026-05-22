@@ -263,7 +263,6 @@ contains
          duxydxyp3, uzp3, po3, dipp3, nxmsize, nymsize, nzmsize, ph1, ph3, ph4
     USE MPI
     USE ibm_param
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
 
     implicit none
 
@@ -1377,7 +1376,6 @@ contains
 
     use param
     use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
     use ibm_param, only: rai
     use MPI
 
