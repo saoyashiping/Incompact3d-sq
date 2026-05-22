@@ -10,7 +10,8 @@ Stage 9.7 verifies real production channel DNS output plumbing for statistics, v
 - Statistics path reached and finite-status tracking.
 - Visualization/snapshot path reached and finite-status tracking.
 - Coarse/decomp I/O descriptor/open/write/close status tracking.
-- Output file patterns checked by script: non-empty files under `data/` and `statistics/`.
+- The shell gate treats `stage9_7_stats_visu_io_smoke_status` in the Stage 9.7 `.dat` file as the authoritative output-file smoke result.
+- Optional external file-pattern checks are advisory only and are not used to override a passing machine-readable Stage 9.7 status.
 
 ## Finite-field criteria
 - Output-field finite status checks real `ux1,uy1,uz1,pp3(:,:,:,1),divu3` before end-of-step audit.

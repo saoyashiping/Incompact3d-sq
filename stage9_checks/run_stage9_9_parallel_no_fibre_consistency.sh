@@ -74,6 +74,10 @@ for np in 1 2 4; do
   grep -q "stage9_9_parallel_consistency_local_status[[:space:]]\+1" "${dat}" && pass "np=${np} dat pass" || fail "np=${np} dat fail"
 done
 
+if ! grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" stage9_outputs/fibre_stage9_9_parallel_consistency_np1.dat; then
+  fail "Stage 9.9 cannot compare raw signatures because initial state is not decomposition-invariant."
+fi
+
 metric_check() {
   local metric="$1"
   awk -v m="${metric}" -v tol="${STAGE9_9_SIGNATURE_TOL}" '
@@ -91,15 +95,21 @@ metric_check() {
     stage9_outputs/fibre_stage9_9_parallel_consistency_np4.dat
 }
 
-for metric in stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz \
-              stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz \
-              stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz; do
-  if metric_check "${metric}"; then
-    pass "parallel metric ${metric}"
-  else
-    fail "parallel metric ${metric}"
-  fi
-done
+if grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" stage9_outputs/fibre_stage9_9_parallel_consistency_np1.dat && \
+   grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" stage9_outputs/fibre_stage9_9_parallel_consistency_np2.dat && \
+   grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" stage9_outputs/fibre_stage9_9_parallel_consistency_np4.dat; then
+  for metric in stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz \
+                stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz \
+                stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz; do
+    if metric_check "${metric}"; then
+      pass "parallel metric ${metric}"
+    else
+      fail "parallel metric ${metric}"
+    fi
+  done
+else
+  echo "[INFO] Skipping raw signature cross-np comparison because decomposition-invariant initial state status is not 1 for all runs."
+fi
 
 if [ ${#fails[@]} -eq 0 ]; then
   echo "STAGE 9.9 PARALLEL NO-FIBRE CONSISTENCY VERDICT: PASS"

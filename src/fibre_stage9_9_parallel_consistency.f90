@@ -12,6 +12,7 @@ module fibre_stage9_9_parallel_consistency
   real(8), save :: signature_tol=1.0d-8, divergence_tol=1.0d-8, massflux_tol=1.0d-6
   integer, save :: velocity_finite_status=1, pressure_finite_status=1, divergence_finite_status=1
   integer, save :: cfl_finite_status=1, massflux_finite_status=1, no_fibre_coupling_status=1
+  integer, save :: decomp_invariant_init_status=0
   real(8), save :: sig_sum_ux=0d0, sig_sum_uy=0d0, sig_sum_uz=0d0
   real(8), save :: sig_max_ux=0d0, sig_max_uy=0d0, sig_max_uz=0d0
   real(8), save :: sig_l2_ux=0d0, sig_l2_uy=0d0, sig_l2_uz=0d0
@@ -66,6 +67,7 @@ contains
     completed_steps=0; finalise_reached=0
     velocity_finite_status=1; pressure_finite_status=1; divergence_finite_status=1
     cfl_finite_status=1; massflux_finite_status=1; no_fibre_coupling_status=1
+    decomp_invariant_init_status=0
     sig_sum_ux=0d0; sig_sum_uy=0d0; sig_sum_uz=0d0
     sig_max_ux=0d0; sig_max_uy=0d0; sig_max_uz=0d0
     sig_l2_ux=0d0; sig_l2_uy=0d0; sig_l2_uz=0d0
@@ -181,6 +183,7 @@ contains
       write(u,*) 'stage9_9_signature_l2_ux ',sig_l2_ux
       write(u,*) 'stage9_9_signature_l2_uy ',sig_l2_uy
       write(u,*) 'stage9_9_signature_l2_uz ',sig_l2_uz
+      write(u,*) 'stage9_9_decomposition_invariant_initial_state_status ',decomp_invariant_init_status
       write(u,*) 'stage9_9_finalise_reached_status ',finalise_reached
       write(u,*) 'stage9_9_parallel_consistency_local_status ',s_final
       close(u)

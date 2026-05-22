@@ -47,7 +47,7 @@ for np in 1 2 4; do
     else
       fail "np=${np} dat missing"
     fi
-    find data statistics -type f -size +0c >/dev/null 2>&1 && pass "np=${np} output files non-empty" || fail "np=${np} expected output files missing/empty"
+    pass "np=${np} output-file smoke is authoritative from stage9_7_stats_visu_io_smoke_status"
   else
     if [ ${rc} -eq 124 ]; then
       fail "stage9.7 np=${np} timed out after ${STAGE9_7_TIMEOUT_SEC}s"

@@ -64,8 +64,7 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  ! Stage 9.8 begin is performed inside init_xcompact3d after reading the input file.
-  ! Reinitialising here would erase restart-read diagnostics captured during init.
+  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
   stage9_9_reg = stage9_9_requested()
   stage9_9_max_steps = stage9_9_get_max_steps(3)
   call stage9_9_get_tolerances(stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol)
@@ -297,6 +296,8 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
+  use fibre_stage9_8_restart_io_regression, only : stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, stage9_8_record_signature
+
   implicit none
 
   integer :: ierr

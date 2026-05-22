@@ -14,6 +14,7 @@ Stage 9.8 validates real production restart write/read/continue in no-fibre/no-c
 - Restart-read status is recorded only in real production `irestart /= 0` branch around `restart(...,0)` in `xcompact3d`.
 - Restart file pattern checks require non-empty `checkpoint*`/`restart*` files before restart phase starts.
 - Restart signature persists across runs through `X3D_STAGE9_8_SIGNATURE_FILE` and compares global sums/max-abs of `ux/uy/uz` with tolerance `X3D_STAGE9_8_RESTART_SIGNATURE_TOL`.
+- Restart signature comparison is performed at the restart **read point** (immediately after real production `restart(...,0)`), before additional continuation steps advance the state.
 - Finite checks include velocity/pressure/divergence fields.
 - Timeout per phase: `STAGE9_8_TIMEOUT_SEC`.
 - Stage 9.8 remains no-fibre/no-coupling.

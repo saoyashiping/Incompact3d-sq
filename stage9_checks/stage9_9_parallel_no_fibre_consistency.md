@@ -1,6 +1,6 @@
 # Stage 9.9 parallel no-fibre DNS consistency
 
-Stage 9.9 checks that short no-fibre/no-coupling production channel DNS runs are consistent across MPI decompositions (`np=1,2,4`).
+Stage 9.9 checks short no-fibre/no-coupling production channel DNS across MPI decompositions (`np=1,2,4`) with methodology guards.
 
 - Stage 9.9 comes after Stage 9.8 restart I/O checks.
 - Stage 9.9 remains no-fibre/no-coupling/no-IBM-injection.
@@ -20,7 +20,11 @@ Plus finite statuses for velocity/pressure/divergence/CFL/massflux and final loc
 - `X3D_STAGE9_9_DIVERGENCE_TOL` (default `1.0e-8`)
 - `X3D_STAGE9_9_MASSFLUX_TOL` (default `1.0e-6`)
 
-The gate script compares `np=2` and `np=4` signature metrics against `np=1` within `X3D_STAGE9_9_SIGNATURE_TOL`.
+Raw cross-np signature comparison is only valid when initialization is decomposition-invariant.
+
+- Dat key `stage9_9_decomposition_invariant_initial_state_status` controls whether cross-np signature deltas are compared.
+- If this status is `0`, the gate intentionally fails with a clear diagnostic instead of reporting misleading signature-delta failures.
+- This avoids claiming parallel inconsistency when the initial perturbation/state itself is decomposition-dependent.
 
 ## Not tested yet
 - Long-time statistical equivalence beyond short smoke steps.

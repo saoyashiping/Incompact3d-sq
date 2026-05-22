@@ -9,9 +9,11 @@ module fibre_stage9_8_restart_io_regression
   logical, save :: enabled=.false.
   integer, save :: phase_restart=0, requested_steps=0, completed_steps=0, finalise_reached=0
   integer, save :: restart_write_path=0, restart_read_path=0, restart_exist=0, restart_nonempty=0, restart_signature_status=1
+  integer, save :: restart_read_signature_checked=0
   integer, save :: vel_finite=1, pres_finite=1, div_finite=1
   real(8), save :: sig_tol=1.0d-8
   real(8), save :: sig_sum(3)=0d0, sig_max(3)=0d0
+  real(8), save :: read_sig_sum(3)=0d0, read_sig_max(3)=0d0
   character(len=256), save :: signature_file=''
   public :: stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart
   public :: stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_write_path, stage9_8_record_restart_read_path
@@ -60,7 +62,8 @@ subroutine stage9_8_begin(en,phase,steps,tol)
   integer :: st
   enabled=en; phase_restart=phase; requested_steps=steps; sig_tol=tol; completed_steps=0; finalise_reached=0
   restart_write_path=0; restart_read_path=0; restart_exist=0; restart_nonempty=0; restart_signature_status=1
-  vel_finite=1; pres_finite=1; div_finite=1; sig_sum=0d0; sig_max=0d0
+  restart_read_signature_checked=0
+  vel_finite=1; pres_finite=1; div_finite=1; sig_sum=0d0; sig_max=0d0; read_sig_sum=0d0; read_sig_max=0d0
   signature_file=''
   call get_environment_variable('X3D_STAGE9_8_SIGNATURE_FILE',value=signature_file,status=st)
   if (enabled .and. nrank==0) then
@@ -122,6 +125,7 @@ subroutine stage9_8_record_signature(ux,uy,uz)
       close(u)
     endif
   else
+    if (restart_read_signature_checked==1) return
     if (nrank==0 .and. len_trim(signature_file)>0) then
       open(newunit=u,file=trim(signature_file),status='old',action='read',iostat=ios)
       if (ios==0) then
@@ -135,7 +139,9 @@ subroutine stage9_8_record_signature(ux,uy,uz)
     endif
     call MPI_Bcast(sig_sum,3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     call MPI_Bcast(sig_max,3,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-    if (maxval(abs(real(gs,8)-sig_sum))>sig_tol .or. maxval(abs(real(gm,8)-sig_max))>sig_tol) restart_signature_status=0
+    read_sig_sum=real(gs,8); read_sig_max=real(gm,8)
+    if (maxval(abs(read_sig_sum-sig_sum))>sig_tol .or. maxval(abs(read_sig_max-sig_max))>sig_tol) restart_signature_status=0
+    restart_read_signature_checked=1
   endif
 end subroutine
 
@@ -184,6 +190,12 @@ subroutine stage9_8_final_audit()
     write(u,*) 'stage9_8_signature_max_ux ',sig_max(1)
     write(u,*) 'stage9_8_signature_max_uy ',sig_max(2)
     write(u,*) 'stage9_8_signature_max_uz ',sig_max(3)
+    write(u,*) 'stage9_8_read_signature_sum_ux ',read_sig_sum(1)
+    write(u,*) 'stage9_8_read_signature_sum_uy ',read_sig_sum(2)
+    write(u,*) 'stage9_8_read_signature_sum_uz ',read_sig_sum(3)
+    write(u,*) 'stage9_8_read_signature_max_ux ',read_sig_max(1)
+    write(u,*) 'stage9_8_read_signature_max_uy ',read_sig_max(2)
+    write(u,*) 'stage9_8_read_signature_max_uz ',read_sig_max(3)
     write(u,*) 'stage9_8_velocity_finite_status ',vel_finite
     write(u,*) 'stage9_8_pressure_finite_status ',pres_finite
     write(u,*) 'stage9_8_divergence_finite_status ',div_finite
