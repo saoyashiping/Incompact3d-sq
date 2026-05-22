@@ -51,7 +51,7 @@ else
   fail "xcompact3d executable missing: ${EXE}"
 fi
 
-if [ -f stage9_outputs/fibre_stage9_3_channel_init_dryrun.dat ] && grep -q "stage9_3_channel_init_dryrun_status 1" stage9_outputs/fibre_stage9_3_channel_init_dryrun.dat; then
+if [ -f stage9_outputs/fibre_stage9_3_channel_init_dryrun.dat ] && grep -q "stage9_3_channel_init_dryrun_status[[:space:]]\+1" stage9_outputs/fibre_stage9_3_channel_init_dryrun.dat; then
   pass "stage9.3 diagnostic dat exists with PASS status"
 else
   fail "stage9.3 diagnostic dat missing or status!=1"
