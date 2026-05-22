@@ -46,6 +46,7 @@ add_executable(xcompact3d
                     fibre_stage9_6_rk3_rhs_massflux_regression.f90
                     fibre_stage9_7_stats_visu_io_smoke.f90
                     fibre_stage9_8_restart_io_regression.f90
+                    fibre_stage9_9_parallel_consistency.f90
                     navier.f90
                     parameters.f90
                     particle.f90
