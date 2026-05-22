@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
+
+BUILD_DIR=${BUILD_DIR:-build_stage9}
+MPIEXEC=${MPIEXEC:-mpirun}
+MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
+DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
+CHANNEL_INPUT=${CHANNEL_INPUT:-examples/Channel/input.i3d}
+STAGE9_6_MAX_STEPS=${STAGE9_6_MAX_STEPS:-3}
+STAGE9_6_MASS_FLUX_TOL=${STAGE9_6_MASS_FLUX_TOL:-1.0e-6}
+STAGE9_6_CFL_MAX_LIMIT=${STAGE9_6_CFL_MAX_LIMIT:-10.0}
+
+fails=(); pass(){ echo "[PASS] $1"; }; fail(){ echo "[FAIL] $1"; fails+=("$1"); }
+run(){ local n="$1"; shift; echo "[INFO] $n"; if "$@"; then pass "$n"; else fail "$n"; fi; }
+
+if [ ! -d "${BUILD_DIR}" ]; then
+  if [ -n "${DECOMP2D_ROOT}" ]; then run "cmake configure" cmake -S . -B "${BUILD_DIR}" -DCMAKE_PREFIX_PATH="${DECOMP2D_ROOT}"; else run "cmake configure" cmake -S . -B "${BUILD_DIR}"; fi
+fi
+run "build xcompact3d" cmake --build "${BUILD_DIR}" --target xcompact3d -j
+run "build fibre_stage9_dependency_gate_check" cmake --build "${BUILD_DIR}" --target fibre_stage9_dependency_gate_check -j
+run "build fibre_stage9_2_minimal_parallel_gate" cmake --build "${BUILD_DIR}" --target fibre_stage9_2_minimal_parallel_gate -j
+run "stage9.1 gate" bash stage9_checks/run_stage9_1_interface_consistency.sh
+run "stage9.2 gate" bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
+run "stage9.3 gate" bash stage9_checks/run_stage9_3_channel_init_dryrun.sh
+run "stage9.4 gate" bash stage9_checks/run_stage9_4_no_fibre_dns_smoke.sh
+run "stage9.5 gate" bash stage9_checks/run_stage9_5_projection_regression.sh
+
+mkdir -p stage9_outputs
+EXE="${BUILD_DIR}/bin/xcompact3d"
+for np in 1 2 4; do
+  log="stage9_outputs/stage9_6_rk3_rhs_massflux_regression_np${np}.log"
+  dat="stage9_outputs/fibre_stage9_6_rk3_rhs_massflux_regression_np${np}.dat"
+  if X3D_STAGE9_6_RK3_RHS_MASSFLUX_REGRESSION=1 X3D_STAGE9_6_MAX_STEPS="${STAGE9_6_MAX_STEPS}" X3D_STAGE9_6_MASS_FLUX_TOL="${STAGE9_6_MASS_FLUX_TOL}" X3D_STAGE9_6_CFL_MAX_LIMIT="${STAGE9_6_CFL_MAX_LIMIT}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${CHANNEL_INPUT}" >"${log}" 2>&1; then
+    grep -q "STAGE 9.6 RK3 RHS MASS-FLUX REGRESSION VERDICT: PASS" "${log}" && pass "np=${np} PASS line" || fail "np=${np} missing PASS line"
+    if [ -f stage9_outputs/fibre_stage9_6_rk3_rhs_massflux_regression.dat ]; then
+      cp stage9_outputs/fibre_stage9_6_rk3_rhs_massflux_regression.dat "${dat}"
+      grep -q "stage9_6_rk3_rhs_massflux_regression_status[[:space:]]\\+1" "${dat}" && pass "np=${np} dat status" || fail "np=${np} dat status!=1"
+    else
+      fail "np=${np} dat missing"
+    fi
+  else
+    fail "np=${np} execution failed"
+  fi
+done
+if [ ${#fails[@]} -eq 0 ]; then echo "STAGE 9.6 FINAL VERDICT: PASS"; else echo "STAGE 9.6 FINAL VERDICT: FAIL"; printf '  - %s\n' "${fails[@]}"; exit 1; fi
