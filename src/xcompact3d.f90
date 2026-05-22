@@ -61,7 +61,7 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
+  ! Stage 9.8 begin is performed inside init_xcompact3d(), before the production restart-read branch.
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -142,7 +142,10 @@ program xcompact3d
 
      if (stage9_8_reg) call stage9_8_record_restart_write_path()
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,1)
-     if (stage9_8_reg) call stage9_8_record_restart_file_status(1,1)
+      if (stage9_8_reg) then
+         call stage9_8_record_restart_file_status(1,1)
+         if (stage9_8_phase==0) call stage9_8_record_signature(ux1,uy1,uz1)
+      endif
 
      call simu_stats(3)
 
@@ -157,7 +160,6 @@ program xcompact3d
      call stage9_7_after_completed_step()
      if (stage9_8_reg) then
        call stage9_8_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
-       call stage9_8_record_signature(ux1,uy1,uz1)
        call stage9_8_after_completed_step()
        stage9_8_stop_now=stage9_8_should_stop()
        if (stage9_8_stop_now) then
@@ -229,6 +231,12 @@ subroutine init_xcompact3d()
   use case
   use sandbox, only : init_sandbox
   use forces
+  use fibre_stage9_8_restart_io_regression, only : &
+       stage9_8_requested, stage9_8_get_phase, &
+       stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, &
+       stage9_8_get_signature_tol, stage9_8_begin, &
+       stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, &
+       stage9_8_record_signature
 
   use var
 
@@ -262,6 +270,9 @@ subroutine init_xcompact3d()
   implicit none
 
   integer :: ierr
+  logical :: stage9_8_init_reg
+  integer :: stage9_8_init_phase, stage9_8_init_steps
+  real(8) :: stage9_8_init_sig_tol
 
   integer :: nargin, FNLength, status, DecInd
   logical :: back
@@ -362,19 +373,28 @@ subroutine init_xcompact3d()
   end if
   ! compute diffusion number of simulation
   call compute_cfldiff()
+
+  stage9_8_init_reg = stage9_8_requested()
+  stage9_8_init_phase = stage9_8_get_phase()
+  stage9_8_init_steps = merge(stage9_8_get_max_steps_after_restart(3), &
+       stage9_8_get_max_steps_before_restart(3), stage9_8_init_phase==1)
+  stage9_8_init_sig_tol = stage9_8_get_signature_tol(1.0d-8)
+  call stage9_8_begin(stage9_8_init_reg, stage9_8_init_phase, &
+       stage9_8_init_steps, stage9_8_init_sig_tol)
+
   !####################################################################
   if (irestart==0) then
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
      itime = 0
      call preprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
-     if (stage9_8_reg) call stage9_8_record_restart_read_path()
+     if (stage9_8_init_reg) call stage9_8_record_restart_read_path()
      itr=1
      if (itype == itype_sandbox) then
         call init_sandbox(ux1,uy1,uz1,ep1,phi1,1)
      end if
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,0)
-     if (stage9_8_reg) then
+     if (stage9_8_init_reg) then
         call stage9_8_record_restart_file_status(1,1)
         call stage9_8_record_signature(ux1,uy1,uz1)
      endif
