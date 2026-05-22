@@ -68,3 +68,11 @@ Stage 9.5 closure requires `.dat` per-step divergence values to match the real p
 - Machine-readable `.dat` per-step divergence values must be non-placeholder and match production log diagnostics within floating-point formatting differences.
 
 - `pipe_volume_avg` must not use a dummy argument named `var` when importing module `var`; it uses `field` to avoid ambiguity.
+
+
+## Stage 9.5a source-of-truth and safety rules
+- Stage 9.5 divergence samples come only from `navier::divergence` via `stage9_5_record_projection_divergence_pair(nlock, tmax, tmoy/real(nproc,mytype))`.
+- `xcompact3d.f90` must not call placeholder `stage9_5_record_divergence_before_projection` / `stage9_5_record_divergence_after_projection`.
+- `pipe_bulk`, `pipe_bulk_u`, `pipe_bulk_phi`, and `pipe_volume_avg` must not import Stage 9.5 diagnostics.
+- `.dat` per-step divergence values must match production `DIV U*` and `DIV U` diagnostics (format tolerance only).
+- Any incomplete before/after pair must fail Stage 9.5 (`stage9_5_projection_pair_complete_status=0`).

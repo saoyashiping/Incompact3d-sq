@@ -13,10 +13,11 @@ module fibre_stage9_5_projection_regression
   real(8), save :: div_max_tol=1.0d-8, div_mean_tol=1.0d-9
   real(8), save :: before_max(max_track_steps)=0d0, before_mean(max_track_steps)=0d0
   real(8), save :: after_max(max_track_steps)=0d0, after_mean(max_track_steps)=0d0
+  logical, save :: before_seen(max_track_steps)=.false., after_seen(max_track_steps)=.false.
   integer, save :: pressure_finite_status=1, velocity_finite_status=1
 
   public :: stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances
-  public :: stage9_5_begin, stage9_5_record_divergence_before_projection, stage9_5_record_divergence_after_projection, stage9_5_record_projection_divergence_pair
+  public :: stage9_5_begin, stage9_5_record_projection_divergence_pair
   public :: stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
 contains
   logical function stage9_5_projection_requested() result(requested)
@@ -48,33 +49,7 @@ contains
     logical,intent(in)::enabled; integer,intent(in)::max_steps; real(8),intent(in)::max_tol,mean_tol
     proj_enabled=enabled; requested_max_steps=max_steps; div_max_tol=max_tol; div_mean_tol=mean_tol
     completed_steps=0; projection_samples=0; finalise_reached=0; pressure_finite_status=1; velocity_finite_status=1
-    before_max=0d0; before_mean=0d0; after_max=0d0; after_mean=0d0
-  end subroutine
-
-  subroutine reduce_div_stats(div,maxv,meanv)
-    real(8),intent(in) :: div(:,:,:)
-    real(8),intent(out)::maxv,meanv
-    real(8)::lmax,lsum,gsum; integer(kind=8)::ln,gn; integer::ierr
-    lmax=maxval(abs(div)); lsum=sum(abs(div)); ln=size(div,kind=8)
-    call MPI_Allreduce(lmax,maxv,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,ierr)
-    call MPI_Allreduce(lsum,gsum,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr)
-    call MPI_Allreduce(ln,gn,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,ierr)
-    if (gn>0_8) then; meanv=gsum/dble(gn); else; meanv=0d0; endif
-  end subroutine
-
-  subroutine stage9_5_record_divergence_before_projection(div)
-    real(8),intent(in)::div(:,:,:)
-    if (.not.proj_enabled) return
-    if (projection_samples>=max_track_steps) return
-    projection_samples=projection_samples+1
-    call reduce_div_stats(div,before_max(projection_samples),before_mean(projection_samples))
-  end subroutine
-
-  subroutine stage9_5_record_divergence_after_projection(div)
-    real(8),intent(in)::div(:,:,:)
-    if (.not.proj_enabled) return
-    if (projection_samples<=0 .or. projection_samples>max_track_steps) return
-    call reduce_div_stats(div,after_max(projection_samples),after_mean(projection_samples))
+    before_max=0d0; before_mean=0d0; after_max=0d0; after_mean=0d0; before_seen=.false.; after_seen=.false.
   end subroutine
 
 
@@ -87,10 +62,12 @@ contains
       projection_samples = projection_samples + 1
       before_max(projection_samples) = real(div_max,8)
       before_mean(projection_samples) = real(div_mean,8)
+      before_seen(projection_samples) = .true.
     else if (nlock == 2) then
       if (projection_samples<=0 .or. projection_samples>max_track_steps) return
       after_max(projection_samples) = real(div_max,8)
       after_mean(projection_samples) = real(div_mean,8)
+      after_seen(projection_samples) = .true.
     end if
   end subroutine
   subroutine stage9_5_record_pressure_finite_status(pp,px,py,pz,ux,uy,uz)
@@ -111,14 +88,16 @@ contains
   subroutine stage9_5_finalise_mark(); finalise_reached=1; end subroutine
 
   subroutine stage9_5_final_audit()
-    integer::i,u,s_case,s_nocouple,s_time,s_path,s_bfin,s_afin,s_reduc,s_amax,s_amean,s_nonan,s_final,rank
+    integer::i,u,s_case,s_nocouple,s_time,s_path,s_pair,s_bfin,s_afin,s_reduc,s_amax,s_amean,s_nonan,s_final,rank
     character(len=128) :: key
     real(8)::tinyv,rrm,rra
     rank=nrank; tinyv=1.0d-300
     s_case=merge(1,0,itype==itype_channel); s_nocouple=1; s_time=merge(1,0,completed_steps>=1 .and. completed_steps<=requested_max_steps)
     s_path=merge(1,0,projection_samples>=1)
+    s_pair=1
     s_bfin=1; s_afin=1; s_reduc=1; s_amax=1; s_amean=1
     do i=1,projection_samples
+      if (.not.(before_seen(i).and.after_seen(i))) s_pair=0
       if (.not.ieee_is_finite(before_max(i)) .or. .not.ieee_is_finite(before_mean(i))) s_bfin=0
       if (.not.ieee_is_finite(after_max(i)) .or. .not.ieee_is_finite(after_mean(i))) s_afin=0
       rra=after_max(i)/max(before_max(i),tinyv); rrm=after_mean(i)/max(before_mean(i),tinyv)
@@ -127,7 +106,7 @@ contains
       if (after_mean(i)>div_mean_tol) s_amean=0
     end do
     s_nonan=merge(1,0,pressure_finite_status==1 .and. velocity_finite_status==1 .and. s_bfin==1 .and. s_afin==1)
-    s_final=min(s_case,min(s_nocouple,min(s_time,min(s_path,min(s_bfin,min(s_afin,min(s_reduc,min(s_amax,min(s_amean,min(pressure_finite_status,min(velocity_finite_status,min(s_nonan,finalise_reached))))))))))))
+    s_final=min(s_case,min(s_nocouple,min(s_time,min(s_path,min(s_pair,min(s_bfin,min(s_afin,min(s_reduc,min(s_amax,min(s_amean,min(pressure_finite_status,min(velocity_finite_status,min(s_nonan,finalise_reached)))))))))))))
     call MPI_Allreduce(MPI_IN_PLACE,s_final,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,i)
     if (rank==0) then
       open(newunit=u,file='stage9_outputs/fibre_stage9_5_projection_regression.dat',status='replace',action='write')
@@ -140,6 +119,7 @@ contains
       write(u,*) 'stage9_5_div_mean_tolerance ',div_mean_tol
       write(u,*) 'stage9_5_time_advance_status ',s_time
       write(u,*) 'stage9_5_projection_path_executed_status ',s_path
+      write(u,*) 'stage9_5_projection_pair_complete_status ',s_pair
       write(u,*) 'stage9_5_divergence_before_finite_status ',s_bfin
       write(u,*) 'stage9_5_divergence_after_finite_status ',s_afin
       write(u,*) 'stage9_5_divergence_reduction_status ',s_reduc
@@ -151,6 +131,7 @@ contains
       write(u,*) 'stage9_5_finalise_reached_status ',finalise_reached
       write(u,*) 'stage9_5_projection_regression_status ',s_final
       do i=1,projection_samples
+        if (.not.(before_seen(i).and.after_seen(i))) cycle
         rra=after_max(i)/max(before_max(i),tinyv); rrm=after_mean(i)/max(before_mean(i),tinyv)
         write(key,'(A,I0,A)') 'stage9_5_step_',i,'_div_before_max'
         write(u,*) trim(key),' ',before_max(i)

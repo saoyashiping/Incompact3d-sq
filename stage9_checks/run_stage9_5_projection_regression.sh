@@ -27,6 +27,19 @@ run "stage9.2 gate" bash stage9_checks/run_stage9_2_minimal_parallel_gate.sh
 run "stage9.3 gate" bash stage9_checks/run_stage9_3_channel_init_dryrun.sh
 run "stage9.4 gate" bash stage9_checks/run_stage9_4_no_fibre_dns_smoke.sh
 
+# static guard against placeholder/divergence misuse
+if rg -n "stage9_5_record_divergence_before_projection|stage9_5_record_divergence_after_projection" src/xcompact3d.f90 >/dev/null; then
+  fail "xcompact3d contains forbidden placeholder stage9.5 divergence calls"
+fi
+if rg -n "public ::.*stage9_5_record_divergence_before_projection|public ::.*stage9_5_record_divergence_after_projection" src/fibre_stage9_5_projection_regression.f90 >/dev/null; then
+  fail "stage9.5 module publicly exports placeholder divergence routines"
+fi
+for sub in pipe_bulk pipe_bulk_u pipe_bulk_phi pipe_volume_avg; do
+  if awk "/subroutine ${sub}\(/,/end subroutine ${sub}/" src/navier.f90 | rg -n "fibre_stage9_5_projection_regression" >/dev/null; then
+    fail "${sub} block imports stage9.5 diagnostics"
+  fi
+done
+
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"
 for np in 1 2 4; do
