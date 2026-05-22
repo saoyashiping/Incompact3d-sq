@@ -16,7 +16,7 @@ module fibre_stage9_7_stats_visu_io_smoke
   public :: stage9_7_requested, stage9_7_get_max_steps, stage9_7_get_requirements, stage9_7_begin
   public :: stage9_7_record_stats_path, stage9_7_record_visu_path, stage9_7_record_coarse_io_path
   public :: stage9_7_record_output_file_status, stage9_7_record_field_finite_status, stage9_7_after_completed_step
-  public :: stage9_7_finalise_mark, stage9_7_final_audit
+  public :: stage9_7_finalise_mark, stage9_7_should_stop, stage9_7_progress_note, stage9_7_final_audit
 contains
 logical function stage9_7_requested() result(v)
 character(len=64)::e;integer::st; v=.false.;e=''; call get_environment_variable('X3D_STAGE9_7_STATS_VISU_IO_SMOKE',e,st); if(st==0) v=(trim(adjustl(e))=='1')
@@ -57,6 +57,14 @@ call MPI_Allreduce(loc,glob,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr); output_f
 end subroutine
 subroutine stage9_7_after_completed_step(); if(enabled) completed_steps=completed_steps+1; end
 subroutine stage9_7_finalise_mark(); finalise_reached=1; end
+subroutine stage9_7_progress_note()
+  if (enabled .and. nrank==0) then
+    write(*,'(A,I0,A,I0)') '[STAGE9.7] completed outer step ',completed_steps,' / ',requested_max_steps
+  endif
+end subroutine
+logical function stage9_7_should_stop() result(v)
+  v = enabled .and. (completed_steps>=requested_max_steps)
+end function
 subroutine stage9_7_final_audit()
 integer::u,s_case,s_noc,s_time,s_stats,s_visu,s_coarse,s_nonan,s_final,i
 s_case=merge(1,0,itype==itype_channel); s_noc=1; s_time=merge(1,0,completed_steps>=1.and.completed_steps<=requested_max_steps)

@@ -13,6 +13,7 @@ STAGE9_7_MAX_STEPS=${STAGE9_7_MAX_STEPS:-3}
 STAGE9_7_REQUIRE_STATS=${STAGE9_7_REQUIRE_STATS:-1}
 STAGE9_7_REQUIRE_VISU=${STAGE9_7_REQUIRE_VISU:-1}
 STAGE9_7_REQUIRE_COARSE_IO=${STAGE9_7_REQUIRE_COARSE_IO:-1}
+STAGE9_7_TIMEOUT_SEC=${STAGE9_7_TIMEOUT_SEC:-240}
 fails=(); pass(){ echo "[PASS] $1"; }; fail(){ echo "[FAIL] $1"; fails+=("$1"); }
 run(){ local n="$1"; shift; echo "[INFO] $n"; if "$@"; then pass "$n"; else fail "$n"; fi; }
 if [ ! -d "${BUILD_DIR}" ]; then if [ -n "${DECOMP2D_ROOT}" ]; then run "cmake configure" cmake -S . -B "${BUILD_DIR}" -DCMAKE_PREFIX_PATH="${DECOMP2D_ROOT}"; else run "cmake configure" cmake -S . -B "${BUILD_DIR}"; fi; fi
@@ -32,10 +33,13 @@ fi
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"
 for np in 1 2 4; do
-  echo "[INFO] stage9.7 run np=${np}"
   log="stage9_outputs/stage9_7_stats_visu_io_smoke_np${np}.log"
+  echo "[INFO] stage9.7 run np=${np} -> ${log}"
   dat="stage9_outputs/fibre_stage9_7_stats_visu_io_smoke_np${np}.dat"
-  if X3D_STAGE9_7_STATS_VISU_IO_SMOKE=1 X3D_STAGE9_7_MAX_STEPS="${STAGE9_7_MAX_STEPS}" X3D_STAGE9_7_REQUIRE_STATS="${STAGE9_7_REQUIRE_STATS}" X3D_STAGE9_7_REQUIRE_VISU="${STAGE9_7_REQUIRE_VISU}" X3D_STAGE9_7_REQUIRE_COARSE_IO="${STAGE9_7_REQUIRE_COARSE_IO}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${CHANNEL_INPUT}" >"${log}" 2>&1; then
+  timeout "${STAGE9_7_TIMEOUT_SEC}" env X3D_STAGE9_7_STATS_VISU_IO_SMOKE=1 X3D_STAGE9_7_MAX_STEPS="${STAGE9_7_MAX_STEPS}" X3D_STAGE9_7_REQUIRE_STATS="${STAGE9_7_REQUIRE_STATS}" X3D_STAGE9_7_REQUIRE_VISU="${STAGE9_7_REQUIRE_VISU}" X3D_STAGE9_7_REQUIRE_COARSE_IO="${STAGE9_7_REQUIRE_COARSE_IO}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${CHANNEL_INPUT}" >"${log}" 2>&1
+  rc=$?
+  echo "[INFO] stage9.7 np=${np} returned rc=${rc}"
+  if [ ${rc} -eq 0 ]; then
     grep -q "STAGE 9.7 STATS VISU IO SMOKE VERDICT: PASS" "${log}" && pass "np=${np} PASS line" || fail "np=${np} missing PASS line"
     if [ -f stage9_outputs/fibre_stage9_7_stats_visu_io_smoke.dat ]; then
       cp stage9_outputs/fibre_stage9_7_stats_visu_io_smoke.dat "${dat}"
@@ -45,7 +49,13 @@ for np in 1 2 4; do
     fi
     find data statistics -type f -size +0c >/dev/null 2>&1 && pass "np=${np} output files non-empty" || fail "np=${np} expected output files missing/empty"
   else
-    fail "np=${np} execution failed"
+    if [ ${rc} -eq 124 ]; then
+      fail "stage9.7 np=${np} timed out after ${STAGE9_7_TIMEOUT_SEC}s"
+      echo "[INFO] tail of ${log}"
+      tail -n 160 "${log}"
+    else
+      fail "np=${np} execution failed"
+    fi
   fi
 done
 if [ ${#fails[@]} -eq 0 ]; then echo "STAGE 9.7 FINAL VERDICT: PASS"; else echo "STAGE 9.7 FINAL VERDICT: FAIL"; printf '  - %s\n' "${fails[@]}"; exit 1; fi

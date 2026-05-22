@@ -33,3 +33,11 @@ Stage 9.7 verifies real production channel DNS output plumbing for statistics, v
 - Set `STAGE9_SKIP_PREREQS=1` to skip nested prerequisite calls when Stage 9.7 is invoked from a higher-level orchestrator.
 - This flag only skips prerequisite gate invocations; each stage still executes its own build/run/log/dat validation.
 - Stage 9.7 remains no-fibre/no-coupling/no-IBM-injection.
+
+## Bounded smoke execution
+
+- Stage 9.7 smoke runs are bounded by `X3D_STAGE9_7_MAX_STEPS` and exit after complete outer steps.
+- The gate script enforces `STAGE9_7_TIMEOUT_SEC` per np run to prevent hangs.
+- The executable prints per-step Stage 9.7 progress and a final-audit start message.
+- If timeout occurs, inspect the printed log tail.
+- Stage 9.7 remains no-fibre/no-coupling/no-IBM-injection.
