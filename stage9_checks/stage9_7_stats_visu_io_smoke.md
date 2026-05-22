@@ -46,3 +46,6 @@ Stage 9.7 verifies real production channel DNS output plumbing for statistics, v
 ## Environment variable parsing guard
 - Stage 9.7 env parsing in Fortran must call `get_environment_variable` with keywords (`value=...`, `status=...`).
 - Do not use positional argument 3 for status: positional arg 3 is **length**, not status, and can silently disable smoke-mode detection.
+
+
+- Stage 9.7 visualization output success is verified through: path reached, finite output fields, expected visualization files detected, output files non-empty, and decomp I/O write path succeeded.

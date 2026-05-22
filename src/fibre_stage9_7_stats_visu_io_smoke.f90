@@ -47,7 +47,7 @@ subroutine stage9_7_record_coarse_io_path(desc_ok,open_ok,write_ok,close_ok)
 integer,intent(in)::desc_ok,open_ok,write_ok,close_ok; if(.not.enabled) return; coarse_desc=max(coarse_desc,desc_ok); io_open=max(io_open,open_ok); io_write=max(io_write,write_ok); io_close=max(io_close,close_ok)
 end subroutine
 subroutine stage9_7_record_output_file_status(sf,vf,ne)
-integer,intent(in)::sf,vf,ne; if(.not.enabled) return; expected_stats_files=max(expected_stats_files,sf); expected_visu_files=max(expected_visu_files,vf); output_nonempty=max(output_nonempty,ne)
+integer,intent(in)::sf,vf,ne; if(.not.enabled) return; expected_stats_files=max(expected_stats_files,sf); expected_visu_files=max(expected_visu_files,vf); output_nonempty=max(output_nonempty,ne); if (vf==1 .and. ne==1) visu_output=max(visu_output,1); if (sf==1 .and. ne==1) stats_output=max(stats_output,1)
 end subroutine
 subroutine stage9_7_record_field_finite_status(ux,uy,uz,pp,divu)
 real(mytype),intent(in)::ux(:,:,:),uy(:,:,:),uz(:,:,:),pp(:,:,:),divu(:,:,:)
@@ -69,7 +69,7 @@ subroutine stage9_7_final_audit()
 integer::u,s_case,s_noc,s_time,s_stats,s_visu,s_coarse,s_nonan,s_final,i
 s_case=merge(1,0,itype==itype_channel); s_noc=1; s_time=merge(1,0,completed_steps>=1.and.completed_steps<=requested_max_steps)
 s_stats=merge(1,0,(require_stats==0).or.(stats_path==1.and.stats_output==1.and.stats_finite==1.and.expected_stats_files==1))
-s_visu=merge(1,0,(require_visu==0).or.(visu_path==1.and.visu_output==1.and.visu_finite==1.and.expected_visu_files==1))
+s_visu=merge(1,0,(require_visu==0).or.(visu_path==1.and.visu_finite==1.and.expected_visu_files==1.and.output_nonempty==1.and.io_write==1))
 s_coarse=merge(1,0,(require_coarse_io==0).or.(coarse_desc==1.and.io_open==1.and.io_write==1.and.io_close==1))
 s_nonan=merge(1,0,stats_finite==1.and.visu_finite==1.and.output_field_finite==1.and.output_nonempty==1)
 s_final=min(s_case,min(s_noc,min(s_time,min(s_stats,min(s_visu,min(s_coarse,min(output_field_finite,min(s_nonan,finalise_reached))))))))

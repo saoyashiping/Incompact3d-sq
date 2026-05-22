@@ -25,14 +25,15 @@ program xcompact3d
   use fibre_stage9_5_projection_regression, only : stage9_5_projection_requested, stage9_5_get_max_steps, stage9_5_get_divergence_tolerances, stage9_5_begin, stage9_5_record_pressure_finite_status, stage9_5_after_completed_step, stage9_5_finalise_mark, stage9_5_final_audit
   use fibre_stage9_6_rk3_rhs_massflux_regression, only : stage9_6_requested, stage9_6_get_max_steps, stage9_6_get_tolerances, stage9_6_begin, stage9_6_record_rk_substep, stage9_6_record_rhs_finite_status, stage9_6_record_velocity_finite_status, stage9_6_record_cfl_status, stage9_6_record_massflux_status, stage9_6_after_completed_step, stage9_6_finalise_mark, stage9_6_final_audit
   use fibre_stage9_7_stats_visu_io_smoke, only : stage9_7_requested, stage9_7_get_max_steps, stage9_7_get_requirements, stage9_7_begin, stage9_7_record_coarse_io_path, stage9_7_record_output_file_status, stage9_7_record_field_finite_status, stage9_7_after_completed_step, stage9_7_should_stop, stage9_7_progress_note, stage9_7_finalise_mark, stage9_7_final_audit
+  use fibre_stage9_8_restart_io_regression, only : stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_write_path, stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, stage9_8_record_field_finite_status, stage9_8_record_signature, stage9_8_after_completed_step, stage9_8_should_stop, stage9_8_finalise_mark, stage9_8_final_audit
 
   implicit none
 
-  logical :: stage9_3_dryrun, stage9_4_smoke, stage9_5_proj, stage9_6_reg, stage9_7_smoke
-  integer :: stage9_4_max_steps, stage9_5_max_steps, stage9_6_max_steps, stage9_7_max_steps
+  logical :: stage9_3_dryrun, stage9_4_smoke, stage9_5_proj, stage9_6_reg, stage9_7_smoke, stage9_8_reg
+  integer :: stage9_4_max_steps, stage9_5_max_steps, stage9_6_max_steps, stage9_7_max_steps, stage9_8_steps, stage9_8_phase
   integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
-  real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit
-  logical :: stage9_7_stop_now
+  real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit, stage9_8_sig_tol
+  logical :: stage9_7_stop_now, stage9_8_stop_now
 
   call init_xcompact3d()
 
@@ -56,6 +57,11 @@ program xcompact3d
      write(*,'(A)') "[STAGE9.7] stats/visu/io smoke mode enabled"
      write(*,'(A,I0)') "[STAGE9.7] requested max steps = ", stage9_7_max_steps
   endif
+  stage9_8_reg = stage9_8_requested()
+  stage9_8_phase = stage9_8_get_phase()
+  stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
+  stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
+  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -134,7 +140,9 @@ program xcompact3d
        call intt_particles(ux1,uy1,uz1,t)
      endif
 
+     if (stage9_8_reg) call stage9_8_record_restart_write_path()
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,1)
+     if (stage9_8_reg) call stage9_8_record_restart_file_status(1,1)
 
      call simu_stats(3)
 
@@ -147,6 +155,19 @@ program xcompact3d
      call stage9_6_after_completed_step()
      call stage9_7_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
      call stage9_7_after_completed_step()
+     if (stage9_8_reg) then
+       call stage9_8_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
+       call stage9_8_record_signature(ux1,uy1,uz1)
+       call stage9_8_after_completed_step()
+       stage9_8_stop_now=stage9_8_should_stop()
+       if (stage9_8_stop_now) then
+          if (nrank==0) write(*,'(A)') "[STAGE9.8] final audit starting"
+          call stage9_8_finalise_mark()
+          call stage9_8_final_audit()
+          call finalise_xcompact3d()
+          stop
+       endif
+     endif
      if (stage9_7_smoke) then
         call stage9_7_progress_note()
         stage9_7_stop_now = stage9_7_should_stop()
