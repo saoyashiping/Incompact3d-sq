@@ -31,19 +31,27 @@ fi
 mkdir -p stage9_outputs
 EXE="${BUILD_DIR}/bin/xcompact3d"
 for np in 1 2 4; do
+ cold_input="stage9_outputs/stage9_8_input_cold_np${np}.i3d"
  restart_input="stage9_outputs/stage9_8_input_restart_np${np}.i3d"
- awk '{ if ($0 ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1"); print }' "${CHANNEL_INPUT}" > "${restart_input}"
+ awk '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 0", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); print line }' "${CHANNEL_INPUT}" > "${cold_input}"
+ awk '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); print line }' "${CHANNEL_INPUT}" > "${restart_input}"
+
+ rm -f checkpoint checkpoint.old restart.info restart*
+
  for phase in cold restart; do
   log="stage9_outputs/stage9_8_restart_io_regression_np${np}_${phase}.log"
   dat="stage9_outputs/fibre_stage9_8_restart_io_regression_np${np}_${phase}.dat"
   sig="stage9_outputs/stage9_8_restart_signature_np${np}.dat"
-  input_file="${CHANNEL_INPUT}"
+  input_file="${cold_input}"
   if [ "${phase}" = "restart" ]; then
-    input_file="${restart_input}"
-    if ! find . -maxdepth 1 -type f -name 'restart*' -size +0c >/dev/null 2>&1; then
-      fail "np=${np} restart files missing/empty before restart phase"
+    checkpoint_file=$(find . -maxdepth 1 -type f \( -name 'checkpoint' -o -name 'checkpoint*' -o -name 'restart*' \) -size +0c -print -quit)
+    if [ -z "${checkpoint_file}" ]; then
+      fail "np=${np} restart/checkpoint files missing or empty before restart phase"
       continue
+    else
+      pass "np=${np} restart/checkpoint file exists: ${checkpoint_file}"
     fi
+    input_file="${restart_input}"
   fi
   timeout "${STAGE9_8_TIMEOUT_SEC}" env X3D_STAGE9_8_RESTART_IO_REGRESSION=1 X3D_STAGE9_8_PHASE="${phase}" X3D_STAGE9_8_MAX_STEPS_BEFORE_RESTART="${STAGE9_8_MAX_STEPS_BEFORE_RESTART}" X3D_STAGE9_8_MAX_STEPS_AFTER_RESTART="${STAGE9_8_MAX_STEPS_AFTER_RESTART}" X3D_STAGE9_8_RESTART_SIGNATURE_TOL="${STAGE9_8_RESTART_SIGNATURE_TOL}" X3D_STAGE9_8_SIGNATURE_FILE="${sig}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${input_file}" >"${log}" 2>&1
   rc=$?
@@ -52,6 +60,5 @@ for np in 1 2 4; do
   if [ -f stage9_outputs/fibre_stage9_8_restart_io_regression.dat ]; then cp stage9_outputs/fibre_stage9_8_restart_io_regression.dat "${dat}"; fi
   grep -q "stage9_8_restart_io_regression_status[[:space:]]\+1" "${dat}" && pass "np=${np} ${phase} dat pass" || fail "np=${np} ${phase} dat fail"
  done
- find . -maxdepth 1 -type f -name 'restart*' -size +0c >/dev/null 2>&1 && pass "np=${np} restart files exist/nonempty" || fail "np=${np} restart files missing/empty"
 done
 if [ ${#fails[@]} -eq 0 ]; then echo "STAGE 9.8 FINAL VERDICT: PASS"; else echo "STAGE 9.8 FINAL VERDICT: FAIL"; printf '  - %s\n' "${fails[@]}"; exit 1; fi

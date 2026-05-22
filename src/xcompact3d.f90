@@ -33,7 +33,8 @@ program xcompact3d
   integer :: stage9_4_max_steps, stage9_5_max_steps, stage9_6_max_steps, stage9_7_max_steps, stage9_8_steps, stage9_8_phase
   integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
   real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit, stage9_8_sig_tol
-  logical :: stage9_7_stop_now, stage9_8_stop_now
+  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_8_checkpoint_exists
+  integer :: stage9_8_checkpoint_size
 
   call init_xcompact3d()
 
@@ -61,7 +62,7 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  ! Stage 9.8 begin is performed inside init_xcompact3d(), before the production restart-read branch.
+  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -142,10 +143,14 @@ program xcompact3d
 
      if (stage9_8_reg) call stage9_8_record_restart_write_path()
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,1)
-      if (stage9_8_reg) then
-         call stage9_8_record_restart_file_status(1,1)
-         if (stage9_8_phase==0) call stage9_8_record_signature(ux1,uy1,uz1)
-      endif
+     if (stage9_8_reg) then
+        inquire(file='checkpoint',exist=stage9_8_checkpoint_exists,size=stage9_8_checkpoint_size)
+        if (stage9_8_checkpoint_exists .and. stage9_8_checkpoint_size>0) then
+           call stage9_8_record_restart_file_status(1,1)
+        else
+           call stage9_8_record_restart_file_status(0,0)
+        endif
+     endif
 
      call simu_stats(3)
 
@@ -160,6 +165,7 @@ program xcompact3d
      call stage9_7_after_completed_step()
      if (stage9_8_reg) then
        call stage9_8_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
+       call stage9_8_record_signature(ux1,uy1,uz1)
        call stage9_8_after_completed_step()
        stage9_8_stop_now=stage9_8_should_stop()
        if (stage9_8_stop_now) then
@@ -388,14 +394,19 @@ subroutine init_xcompact3d()
      itime = 0
      call preprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
-     if (stage9_8_init_reg) call stage9_8_record_restart_read_path()
+     if (stage9_8_reg) call stage9_8_record_restart_read_path()
      itr=1
      if (itype == itype_sandbox) then
         call init_sandbox(ux1,uy1,uz1,ep1,phi1,1)
      end if
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,0)
-     if (stage9_8_init_reg) then
-        call stage9_8_record_restart_file_status(1,1)
+     if (stage9_8_reg) then
+        inquire(file='checkpoint',exist=stage9_8_checkpoint_exists,size=stage9_8_checkpoint_size)
+        if (stage9_8_checkpoint_exists .and. stage9_8_checkpoint_size>0) then
+           call stage9_8_record_restart_file_status(1,1)
+        else
+           call stage9_8_record_restart_file_status(0,0)
+        endif
         call stage9_8_record_signature(ux1,uy1,uz1)
      endif
   endif

@@ -20,3 +20,9 @@ Manual run:
 Expected lines:
 - `STAGE 9.8 RESTART IO REGRESSION VERDICT: PASS`
 - `STAGE 9.8 FINAL VERDICT: PASS`
+
+
+- Stage 9.8 gate generates per-np temporary inputs under `stage9_outputs/`.
+- Cold input sets `irestart=0` and `icheckpoint=1`; restart input sets `irestart=1` and `icheckpoint=1`.
+- Stale restart/checkpoint files are removed before each np cold phase.
+- Restart/checkpoint detection uses a real matched file path from `find ... -print -quit`, not bare `find` exit status.
