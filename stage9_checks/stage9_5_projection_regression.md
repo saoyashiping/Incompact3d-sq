@@ -74,5 +74,13 @@ Stage 9.5 closure requires `.dat` per-step divergence values to match the real p
 - Stage 9.5 divergence samples come only from `navier::divergence` via `stage9_5_record_projection_divergence_pair(nlock, tmax, tmoy/real(nproc,mytype))`.
 - `xcompact3d.f90` must not call placeholder `stage9_5_record_divergence_before_projection` / `stage9_5_record_divergence_after_projection`.
 - `pipe_bulk`, `pipe_bulk_u`, `pipe_bulk_phi`, and `pipe_volume_avg` must not import Stage 9.5 diagnostics.
+- The Stage 9.5 shell gate uses portable `grep -nE`/`awk` static guards and must not depend on `rg`.
 - `.dat` per-step divergence values must match production `DIV U*` and `DIV U` diagnostics (format tolerance only).
 - Any incomplete before/after pair must fail Stage 9.5 (`stage9_5_projection_pair_complete_status=0`).
+
+### Build-only preflight
+To check compile/link before MPI runs, use:
+```bash
+BUILD_ONLY=1 bash stage9_checks/run_stage9_5_projection_regression.sh
+```
+This runs static guards and `cmake --build "${BUILD_DIR}" --target xcompact3d -j`, then exits.
