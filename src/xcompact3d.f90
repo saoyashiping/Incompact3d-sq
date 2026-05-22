@@ -62,9 +62,7 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  ! Stage 9.8 is initialised inside init_xcompact3d() before the real restart-read branch.
-  ! Do not call stage9_8_begin() here, otherwise restart-read diagnostics recorded during
-  ! init_xcompact3d() would be reset before the main time-advance loop.
+  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -398,13 +396,13 @@ subroutine init_xcompact3d()
      itime = 0
      call preprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
   else
-     if (stage9_8_init_reg) call stage9_8_record_restart_read_path()
+     if (stage9_8_reg) call stage9_8_record_restart_read_path()
      itr=1
      if (itype == itype_sandbox) then
         call init_sandbox(ux1,uy1,uz1,ep1,phi1,1)
      end if
      call restart(ux1,uy1,uz1,dux1,duy1,duz1,ep1,pp3(:,:,:,1),phi1,dphi1,px1,py1,pz1,rho1,drho1,mu1,0)
-     if (stage9_8_init_reg) then
+     if (stage9_8_reg) then
         inquire(file='checkpoint',exist=stage9_8_checkpoint_exists,size=stage9_8_checkpoint_size)
         if (stage9_8_checkpoint_exists .and. stage9_8_checkpoint_size>0) then
            call stage9_8_record_restart_file_status(1,1)

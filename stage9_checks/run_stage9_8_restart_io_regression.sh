@@ -34,7 +34,7 @@ for np in 1 2 4; do
  cold_input="stage9_outputs/stage9_8_input_cold_np${np}.i3d"
  restart_input="stage9_outputs/stage9_8_input_restart_np${np}.i3d"
  awk '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 0", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); print line }' "${CHANNEL_INPUT}" > "${cold_input}"
- awk '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); print line }' "${CHANNEL_INPUT}" > "${restart_input}"
+ awk -v ifirst_val="$((STAGE9_8_MAX_STEPS_BEFORE_RESTART + 1))" '{ line=$0; if (line ~ /^[[:space:]]*irestart[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*icheckpoint[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= 1", line); if (line ~ /^[[:space:]]*ifirst[[:space:]]*=/) sub(/=[[:space:]]*[0-9]+/, "= " ifirst_val, line); print line }' "${CHANNEL_INPUT}" > "${restart_input}"
 
  rm -f checkpoint checkpoint.old restart.info restart*
 
@@ -51,6 +51,7 @@ for np in 1 2 4; do
     else
       pass "np=${np} restart/checkpoint file exists: ${checkpoint_file}"
     fi
+    grep -nE "^[[:space:]]*(ifirst|irestart|icheckpoint)[[:space:]]*=" "${restart_input}"
     input_file="${restart_input}"
   fi
   timeout "${STAGE9_8_TIMEOUT_SEC}" env X3D_STAGE9_8_RESTART_IO_REGRESSION=1 X3D_STAGE9_8_PHASE="${phase}" X3D_STAGE9_8_MAX_STEPS_BEFORE_RESTART="${STAGE9_8_MAX_STEPS_BEFORE_RESTART}" X3D_STAGE9_8_MAX_STEPS_AFTER_RESTART="${STAGE9_8_MAX_STEPS_AFTER_RESTART}" X3D_STAGE9_8_RESTART_SIGNATURE_TOL="${STAGE9_8_RESTART_SIGNATURE_TOL}" X3D_STAGE9_8_SIGNATURE_FILE="${sig}" "${MPIEXEC}" ${MPIEXEC_FLAGS} -np "${np}" "${EXE}" "${input_file}" >"${log}" 2>&1
