@@ -47,6 +47,7 @@ add_executable(xcompact3d
                     fibre_stage9_7_stats_visu_io_smoke.f90
                     fibre_stage9_8_restart_io_regression.f90
                     fibre_stage9_9_parallel_consistency.f90
+                    fibre_stage10_config.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -76,6 +77,16 @@ if(ADIOS2_FOUND)
   #target_link_libraries(xcompact3d ${ADIOS_LIBRARIES})
   target_link_libraries(xcompact3d PRIVATE adios2::fortran_mpi)
 endif()
+
+add_executable(fibre_stage10_config_check
+                    fibre_stage10_config.f90
+                    fibre_stage10_config_check.f90)
+
+target_link_libraries(fibre_stage10_config_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage10_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
 
 
 add_executable(fibre_structure_check
