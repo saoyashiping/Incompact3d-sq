@@ -1,9 +1,11 @@
 module fibre_stage9_9_parallel_consistency
   use mpi
   use, intrinsic :: ieee_arithmetic
+  use decomp_2d, only : xstart
   use decomp_2d_mpi, only : nrank
   use decomp_2d_constants, only : mytype, real_type
   use param, only : itype, itype_channel, dt, dx, dy, dz, istret
+  use variables, only : ny
   implicit none
   private
 
@@ -13,12 +15,17 @@ module fibre_stage9_9_parallel_consistency
   integer, save :: velocity_finite_status=1, pressure_finite_status=1, divergence_finite_status=1
   integer, save :: cfl_finite_status=1, massflux_finite_status=1, no_fibre_coupling_status=1
   integer, save :: decomp_invariant_init_status=0
+  integer, save :: initial_signature_recorded=0
+  real(8), save :: init_sig_sum_ux=0d0, init_sig_sum_uy=0d0, init_sig_sum_uz=0d0
+  real(8), save :: init_sig_max_ux=0d0, init_sig_max_uy=0d0, init_sig_max_uz=0d0
+  real(8), save :: init_sig_l2_ux=0d0, init_sig_l2_uy=0d0, init_sig_l2_uz=0d0
   real(8), save :: sig_sum_ux=0d0, sig_sum_uy=0d0, sig_sum_uz=0d0
   real(8), save :: sig_max_ux=0d0, sig_max_uy=0d0, sig_max_uz=0d0
   real(8), save :: sig_l2_ux=0d0, sig_l2_uy=0d0, sig_l2_uz=0d0
 
   public :: stage9_9_requested, stage9_9_get_max_steps, stage9_9_get_tolerances
-  public :: stage9_9_begin, stage9_9_record_field_signature, stage9_9_record_divergence_status
+  public :: stage9_9_begin, stage9_9_apply_deterministic_initial_condition, stage9_9_record_initial_signature
+  public :: stage9_9_record_field_signature, stage9_9_record_divergence_status
   public :: stage9_9_record_massflux_status, stage9_9_record_cfl_status, stage9_9_after_completed_step
   public :: stage9_9_should_stop, stage9_9_finalise_mark, stage9_9_final_audit
 contains
@@ -59,8 +66,6 @@ contains
     logical, intent(in) :: is_enabled
     integer, intent(in) :: max_steps
     real(8), intent(in) :: sig_tol,div_tol,mf_tol
-    character(len=64) :: e
-    integer :: st
     enabled=is_enabled
     requested_max_steps=max_steps
     signature_tol=sig_tol
@@ -70,14 +75,61 @@ contains
     velocity_finite_status=1; pressure_finite_status=1; divergence_finite_status=1
     cfl_finite_status=1; massflux_finite_status=1; no_fibre_coupling_status=1
     decomp_invariant_init_status=0
-    e=''
-    call get_environment_variable('X3D_STAGE9_9_DECOMP_INVARIANT_INIT',value=e,status=st)
-    if (st==0) then
-      if (trim(adjustl(e))=='1') decomp_invariant_init_status=1
-    endif
+    initial_signature_recorded=0
+    init_sig_sum_ux=0d0; init_sig_sum_uy=0d0; init_sig_sum_uz=0d0
+    init_sig_max_ux=0d0; init_sig_max_uy=0d0; init_sig_max_uz=0d0
+    init_sig_l2_ux=0d0; init_sig_l2_uy=0d0; init_sig_l2_uz=0d0
     sig_sum_ux=0d0; sig_sum_uy=0d0; sig_sum_uz=0d0
     sig_max_ux=0d0; sig_max_uy=0d0; sig_max_uz=0d0
     sig_l2_ux=0d0; sig_l2_uy=0d0; sig_l2_uz=0d0
+  end subroutine
+
+  subroutine stage9_9_apply_deterministic_initial_condition(ux,uy,uz,pp)
+    real(mytype), intent(inout) :: ux(:,:,:),uy(:,:,:),uz(:,:,:),pp(:,:,:)
+    integer :: i,j,k,gj,ny_denom
+    real(mytype) :: eta
+    if (.not.enabled) return
+    ny_denom=max(1,ny-1)
+    do k=1,size(ux,3)
+      do j=1,size(ux,2)
+        gj=xstart(2)+j-1
+        eta=real(gj-1,mytype)/real(ny_denom,mytype)
+        do i=1,size(ux,1)
+          ux(i,j,k)=4.0_mytype*eta*(1.0_mytype-eta)
+          uy(i,j,k)=0.0_mytype
+          uz(i,j,k)=0.0_mytype
+          pp(i,j,k)=0.0_mytype
+        end do
+      end do
+    end do
+    decomp_invariant_init_status=1
+  end subroutine
+
+  subroutine stage9_9_record_initial_signature(ux,uy,uz,pp)
+    real(mytype), intent(in) :: ux(:,:,:),uy(:,:,:),uz(:,:,:),pp(:,:,:)
+    real(mytype) :: vals(9)
+    integer :: ierr, loc, glob
+    if (.not.enabled) return
+    if (initial_signature_recorded==1) return
+    vals(1)=sum(ux); vals(2)=sum(uy); vals(3)=sum(uz)
+    vals(4)=maxval(abs(ux)); vals(5)=maxval(abs(uy)); vals(6)=maxval(abs(uz))
+    vals(7)=sum(ux*ux); vals(8)=sum(uy*uy); vals(9)=sum(uz*uz)
+    call MPI_Allreduce(MPI_IN_PLACE,vals,3,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+    call MPI_Allreduce(MPI_IN_PLACE,vals(4),3,real_type,MPI_MAX,MPI_COMM_WORLD,ierr)
+    call MPI_Allreduce(MPI_IN_PLACE,vals(7),3,real_type,MPI_SUM,MPI_COMM_WORLD,ierr)
+    init_sig_sum_ux=real(vals(1),8); init_sig_sum_uy=real(vals(2),8); init_sig_sum_uz=real(vals(3),8)
+    init_sig_max_ux=real(vals(4),8); init_sig_max_uy=real(vals(5),8); init_sig_max_uz=real(vals(6),8)
+    init_sig_l2_ux=sqrt(max(0d0,real(vals(7),8)))
+    init_sig_l2_uy=sqrt(max(0d0,real(vals(8),8)))
+    init_sig_l2_uz=sqrt(max(0d0,real(vals(9),8)))
+    loc=merge(1,0,ieee_is_finite(init_sig_sum_ux) .and. ieee_is_finite(init_sig_sum_uy) .and. ieee_is_finite(init_sig_sum_uz) .and. &
+      ieee_is_finite(init_sig_max_ux) .and. ieee_is_finite(init_sig_max_uy) .and. ieee_is_finite(init_sig_max_uz) .and. &
+      ieee_is_finite(init_sig_l2_ux) .and. ieee_is_finite(init_sig_l2_uy) .and. ieee_is_finite(init_sig_l2_uz) .and. &
+      ieee_is_finite(maxval(abs(pp))))
+    call MPI_Allreduce(loc,glob,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,ierr)
+    velocity_finite_status=min(velocity_finite_status,glob)
+    pressure_finite_status=min(pressure_finite_status,glob)
+    initial_signature_recorded=1
   end subroutine
 
   subroutine stage9_9_record_field_signature(ux,uy,uz,pp)
@@ -181,6 +233,15 @@ contains
       write(u,*) 'stage9_9_divergence_finite_status ',divergence_finite_status
       write(u,*) 'stage9_9_cfl_finite_status ',cfl_finite_status
       write(u,*) 'stage9_9_massflux_finite_status ',massflux_finite_status
+      write(u,*) 'stage9_9_initial_signature_sum_ux ',init_sig_sum_ux
+      write(u,*) 'stage9_9_initial_signature_sum_uy ',init_sig_sum_uy
+      write(u,*) 'stage9_9_initial_signature_sum_uz ',init_sig_sum_uz
+      write(u,*) 'stage9_9_initial_signature_max_ux ',init_sig_max_ux
+      write(u,*) 'stage9_9_initial_signature_max_uy ',init_sig_max_uy
+      write(u,*) 'stage9_9_initial_signature_max_uz ',init_sig_max_uz
+      write(u,*) 'stage9_9_initial_signature_l2_ux ',init_sig_l2_ux
+      write(u,*) 'stage9_9_initial_signature_l2_uy ',init_sig_l2_uy
+      write(u,*) 'stage9_9_initial_signature_l2_uz ',init_sig_l2_uz
       write(u,*) 'stage9_9_signature_sum_ux ',sig_sum_ux
       write(u,*) 'stage9_9_signature_sum_uy ',sig_sum_uy
       write(u,*) 'stage9_9_signature_sum_uz ',sig_sum_uz

@@ -1,6 +1,6 @@
 # Stage 9.9 parallel no-fibre DNS consistency
 
-Stage 9.9 checks short no-fibre/no-coupling production channel DNS across MPI decompositions (`np=1,2,4`) with methodology guards.
+Stage 9.9 checks short no-fibre/no-coupling production channel DNS across MPI decompositions (`np=1,2,4`) using a deterministic Stage 9.9-only initial condition.
 
 - Stage 9.9 comes after Stage 9.8 restart I/O checks.
 - Stage 9.9 remains no-fibre/no-coupling/no-IBM-injection.
@@ -20,12 +20,15 @@ Plus finite statuses for velocity/pressure/divergence/CFL/massflux and final loc
 - `X3D_STAGE9_9_DIVERGENCE_TOL` (default `1.0e-8`)
 - `X3D_STAGE9_9_MASSFLUX_TOL` (default `1.0e-6`)
 
-Raw cross-np signature comparison is only valid when initialization is decomposition-invariant.
+Raw fresh channel initialization can be decomposition-dependent, so Stage 9.9 does **not** rely on checkpoint-based cross-decomposition restart.
 
-- Dat key `stage9_9_decomposition_invariant_initial_state_status` controls whether cross-np signature deltas are compared.
-- Stage 9.9 therefore generates a common reference checkpoint first, then runs `np=1/2/4` from restart inputs (`irestart=1`, `icheckpoint=1`, `ifirst=reference_steps+1`).
-- If that restart-based common initial state cannot be established (or status is not `1`), Stage 9.9 fails explicitly with `cross-decomposition restart initial state is unsupported or failed`.
-- This avoids claiming parallel inconsistency when fresh channel initialization itself is decomposition-dependent.
+- Stage 9.9 applies a deterministic analytic channel profile from global y-index:
+  - `ux = 4*eta*(1-eta)`, `uy = 0`, `uz = 0`, `p = 0`
+  - `eta = (global_j - 1)/max(1,ny-1)`
+- Dat key `stage9_9_decomposition_invariant_initial_state_status` is set only when this deterministic field is actually applied.
+- Initial signatures are compared across `np=1/2/4` first.
+- If initial signatures differ, Stage 9.9 fails before judging time-advance consistency.
+- If initial signatures match, final signatures are compared to judge parallel time-advance consistency.
 
 ## Not tested yet
 - Long-time statistical equivalence beyond short smoke steps.
