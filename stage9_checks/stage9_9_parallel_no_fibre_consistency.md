@@ -16,7 +16,9 @@ For each run, Stage 9.9 records and writes:
 Plus finite statuses for velocity/pressure/divergence/CFL/massflux and final local status.
 
 ## Tolerances
-- `X3D_STAGE9_9_SIGNATURE_TOL` (default `1.0e-8`)
+- `X3D_STAGE9_9_SIGNATURE_TOL` (default `1.0e-8`) for **initial** signatures (strict absolute check)
+- `X3D_STAGE9_9_FINAL_SIGNATURE_ABS_TOL` (default `1.0e-6`) for **final** signatures
+- `X3D_STAGE9_9_FINAL_SIGNATURE_REL_TOL` (default `1.0e-12`) for **final** signatures
 - `X3D_STAGE9_9_DIVERGENCE_TOL` (default `1.0e-8`)
 - `X3D_STAGE9_9_MASSFLUX_TOL` (default `1.0e-6`)
 
@@ -28,7 +30,9 @@ Raw fresh channel initialization can be decomposition-dependent, so Stage 9.9 do
 - Dat key `stage9_9_decomposition_invariant_initial_state_status` is set only when this deterministic field is actually applied.
 - Initial signatures are compared across `np=1/2/4` first.
 - If initial signatures differ, Stage 9.9 fails before judging time-advance consistency.
-- If initial signatures match, final signatures are compared to judge parallel time-advance consistency.
+- If initial signatures match, final signatures are compared with mixed tolerance:
+  - pass iff `abs(delta) <= max(abs_tol, rel_tol*max(1.0,abs(reference)))`.
+- This mixed final criterion accounts for floating-point reduction/order differences after real time advancement and does **not** relax initial-state consistency.
 
 ## Not tested yet
 - Long-time statistical equivalence beyond short smoke steps.

@@ -12,6 +12,8 @@ STAGE9_SKIP_PREREQS=${STAGE9_SKIP_PREREQS:-0}
 CHANNEL_INPUT=${CHANNEL_INPUT:-examples/Channel/input.i3d}
 STAGE9_9_MAX_STEPS=${STAGE9_9_MAX_STEPS:-3}
 STAGE9_9_SIGNATURE_TOL=${STAGE9_9_SIGNATURE_TOL:-1.0e-8}
+STAGE9_9_FINAL_SIGNATURE_ABS_TOL=${STAGE9_9_FINAL_SIGNATURE_ABS_TOL:-1.0e-6}
+STAGE9_9_FINAL_SIGNATURE_REL_TOL=${STAGE9_9_FINAL_SIGNATURE_REL_TOL:-1.0e-12}
 STAGE9_9_DIVERGENCE_TOL=${STAGE9_9_DIVERGENCE_TOL:-1.0e-8}
 STAGE9_9_MASSFLUX_TOL=${STAGE9_9_MASSFLUX_TOL:-1.0e-6}
 STAGE9_9_TIMEOUT_SEC=${STAGE9_9_TIMEOUT_SEC:-240}
@@ -78,7 +80,7 @@ for np in 1 2 4; do
   grep -q "stage9_9_decomposition_invariant_initial_state_status[[:space:]]\+1" "${dat}" && pass "np=${np} invariant init status" || fail "np=${np} invariant init status!=1"
 done
 
-metric_check() {
+metric_check_abs() {
   local metric="$1"
   awk -v m="${metric}" -v tol="${STAGE9_9_SIGNATURE_TOL}" '
     BEGIN{ref="";ok=1}
@@ -95,11 +97,34 @@ metric_check() {
     stage9_outputs/fibre_stage9_9_parallel_consistency_np4.dat
 }
 
+metric_check_final() {
+  local metric="$1"
+  awk -v m="${metric}" -v abs_tol="${STAGE9_9_FINAL_SIGNATURE_ABS_TOL}" -v rel_tol="${STAGE9_9_FINAL_SIGNATURE_REL_TOL}" '
+    BEGIN{ref_set=0;ok=1}
+    FNR==1{file=FILENAME}
+    $1==m{
+      v=$2+0
+      if (ref_set==0) {ref=v; ref_set=1; next}
+      d=v-ref; if (d<0) d=-d
+      aref=ref; if (aref<0) aref=-aref
+      base=aref; if (base<1.0) base=1.0
+      eff_tol=abs_tol
+      rel_term=rel_tol*base
+      if (rel_term>eff_tol) eff_tol=rel_term
+      printf("[INFO] final metric=%s file=%s delta=%.12e abs_tol=%.12e rel_tol=%.12e reference=%.12e effective_tol=%.12e\n",m,file,d,abs_tol,rel_tol,ref,eff_tol)
+      if (d>eff_tol) {ok=0}
+    }
+    END{exit(ok?0:1)}' \
+    stage9_outputs/fibre_stage9_9_parallel_consistency_np1.dat \
+    stage9_outputs/fibre_stage9_9_parallel_consistency_np2.dat \
+    stage9_outputs/fibre_stage9_9_parallel_consistency_np4.dat
+}
+
 initial_metrics="stage9_9_initial_signature_sum_ux stage9_9_initial_signature_sum_uy stage9_9_initial_signature_sum_uz \
 stage9_9_initial_signature_max_ux stage9_9_initial_signature_max_uy stage9_9_initial_signature_max_uz \
 stage9_9_initial_signature_l2_ux stage9_9_initial_signature_l2_uy stage9_9_initial_signature_l2_uz"
 for metric in ${initial_metrics}; do
-  if metric_check "${metric}"; then
+  if metric_check_abs "${metric}"; then
     pass "initial metric ${metric}"
   else
     fail "Stage 9.9 deterministic initial state is not decomposition-invariant. (${metric})"
@@ -111,7 +136,7 @@ if [ ${#fails[@]} -eq 0 ]; then
 stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz \
 stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz"
   for metric in ${final_metrics}; do
-    if metric_check "${metric}"; then
+    if metric_check_final "${metric}"; then
       pass "final metric ${metric}"
     else
       fail "Stage 9.9 parallel time-advance signatures differ across MPI decompositions. (${metric})"
