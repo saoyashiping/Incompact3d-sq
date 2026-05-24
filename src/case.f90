@@ -290,6 +290,7 @@ contains
 
     use turbine, only : turbine_output
     use probes, only : write_probes
+    use fibre_stage9_7_stats_visu_io_smoke, only : stage9_7_record_stats_path, stage9_7_record_visu_path
 
     real(mytype),dimension(xsize(1),xsize(2),xsize(3)), intent(in) :: ux1, uy1, uz1
     real(mytype),dimension(xsize(1),xsize(2),xsize(3),numscalar), intent(in) :: phi1
@@ -300,6 +301,7 @@ contains
     integer :: num
 
     if ((ivisu.ne.0).and.(mod(itime, ioutput).eq.0)) then
+       call stage9_7_record_visu_path(1,1)
        call write_snapshot(rho1, ux1, uy1, uz1, pp3, phi1, ep1, itime, num)
 
        ! XXX: Ultimate goal for ADIOS2 is to pass do all postproc online - do we need this?
@@ -308,10 +310,12 @@ contains
 
        call end_snapshot(itime, num)
     end if
+    if (.not.((ivisu.ne.0).and.(mod(itime, ioutput).eq.0))) call stage9_7_record_visu_path(0,1)
 
     call postprocess_case(rho1, ux1, uy1, uz1, pp3, phi1, ep1)
 
     call overall_statistic(ux1, uy1, uz1, phi1, pp3, ep1)
+    call stage9_7_record_stats_path(1,1)
 
     if (iturbine.ne.0) then 
       call turbine_output()
