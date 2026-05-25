@@ -6,7 +6,6 @@ MPIEXEC=${MPIEXEC:-mpirun}
 MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
 STAGE10_SKIP_PREREQS=${STAGE10_SKIP_PREREQS:-0}
-STAGE10_2_ALLOW_PRODUCTION_HOOKS=${STAGE10_2_ALLOW_PRODUCTION_HOOKS:-auto}
 
 
 ensure_build_dir() {
@@ -70,14 +69,6 @@ fi
 
 prod_files="src/xcompact3d.f90 src/navier.f90 src/time_integrators.f90 src/derive.f90 src/poisson.f90 src/Case-Channel.f90"
 
-if [ "$STAGE10_2_ALLOW_PRODUCTION_HOOKS" = "auto" ]; then
-  if grep -q "^[[:space:]]*if[[:space:]]*(stage10_reg)[[:space:]]*call[[:space:]]\+stage10_hook_" src/xcompact3d.f90; then
-    STAGE10_2_ALLOW_PRODUCTION_HOOKS=1
-  else
-    STAGE10_2_ALLOW_PRODUCTION_HOOKS=0
-  fi
-fi
-
 # Candidate site discovery (static, informational but required as status)
 hook_init_site_status=0
 hook_pre_step_site_status=0
@@ -123,28 +114,12 @@ else
 fi
 
 no_production_hook_call_status=1
-hook_scan_files="$prod_files"
-if [ "$STAGE10_2_ALLOW_PRODUCTION_HOOKS" = "1" ]; then
-  # Stage 10.3 and later intentionally connect guarded no-op hook calls in
-  # xcompact3d.f90.  In this mode the audit still forbids hook calls in the
-  # mathematical production kernels, but no longer treats the main-program
-  # guarded call sites as a Stage 10.2-style failure.
-  hook_scan_files="src/navier.f90 src/time_integrators.f90 src/derive.f90 src/poisson.f90 src/Case-Channel.f90"
-fi
 for sym in stage10_hook_init stage10_hook_pre_step stage10_hook_pre_rhs stage10_hook_post_projection stage10_hook_post_step stage10_hook_finalize; do
-  if grep -n "^[[:space:]]*call[[:space:]]\+$sym\>\|^[[:space:]]*use[[:space:]].*${sym}" $hook_scan_files >>"$log_file" 2>&1; then
+  if grep -n "$sym" $prod_files >>"$log_file" 2>&1; then
     no_production_hook_call_status=0
-    add_failure "forbidden production hook symbol found in production kernel files: $sym"
+    add_failure "forbidden production hook symbol found in production files: $sym"
   fi
 done
-if [ "$STAGE10_2_ALLOW_PRODUCTION_HOOKS" = "1" ]; then
-  for sym in stage10_hook_init stage10_hook_pre_step stage10_hook_pre_rhs stage10_hook_post_projection stage10_hook_post_step stage10_hook_finalize; do
-    if ! grep -n "^[[:space:]]*if[[:space:]]*(stage10_reg)[[:space:]]*call[[:space:]]\+$sym\>" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-      no_production_hook_call_status=0
-      add_failure "expected guarded Stage 10.3 xcompact3d hook call not found: $sym"
-    fi
-  done
-fi
 
 no_rhs_modification_status=1
 if grep -n "f_fsi\|fsi_force\|two_way\|twoway\|feedback_force" src/navier.f90 src/time_integrators.f90 >>"$log_file" 2>&1; then
@@ -177,20 +152,15 @@ if grep -n "stage10_hook_" stage9_checks/*.sh stage9_checks/*.md >>"$log_file" 2
 fi
 
 no_ibm_call_status=1
-# Check active Fortran use/call statements only.  Do not flag negative
-# diagnostic names such as no_ibm_call_status.
-if sed 's/!.*$//' src/fibre_stage10_noop_hook.f90 |    grep -nE '^[[:space:]]*use[[:space:]]+fibre_ibm|^[[:space:]]*use[[:space:]]+ibm|^[[:space:]]*call[[:space:]].*(ibm|spread|interpol)' >>"$log_file" 2>&1; then
+if grep -n "ibm\|spread\|interpol" src/fibre_stage10_noop_hook.f90 | grep -v "no_ibm_call_status" >>"$log_file" 2>&1; then
   no_ibm_call_status=0
-  add_failure "active IBM/interpolation/spreading call found in Stage 10 hook module"
+  add_failure "possible IBM-related activity found in Stage 10 hook module"
 fi
 
 no_structure_advance_status=1
-# Check active Fortran use/call statements only.  Do not flag the module name
-# fibre_stage10_noop_hook or negative diagnostics such as
-# no_structure_advance_status / no_fibre_state_status.
-if sed 's/!.*$//' src/fibre_stage10_noop_hook.f90 |    grep -nE '^[[:space:]]*use[[:space:]]+fibre_(structure|tension|bending)|^[[:space:]]*call[[:space:]].*(fibre_structure|structure_advance|advance_structure|tension|bending)' >>"$log_file" 2>&1; then
+if grep -n "structure\|fibre_" src/fibre_stage10_noop_hook.f90 | grep -v "no_structure_advance_status" >>"$log_file" 2>&1; then
   no_structure_advance_status=0
-  add_failure "active fibre structure/advance call found in Stage 10 hook module"
+  add_failure "possible fibre structure activity found in Stage 10 hook module"
 fi
 
 hook_site_audit_status=1
