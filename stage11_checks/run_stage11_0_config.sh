@@ -45,12 +45,20 @@ if ! cmake --build "$BUILD_DIR" --target fibre_stage11_config_check -j; then
 fi
 
 LOG_FILE=stage11_outputs/stage11_0_config.log
+CHECK_EXE="$BUILD_DIR/bin/fibre_stage11_config_check"
+if [ ! -x "$CHECK_EXE" ] && [ -x "$BUILD_DIR/src/fibre_stage11_config_check" ]; then
+    CHECK_EXE="$BUILD_DIR/src/fibre_stage11_config_check"
+fi
+
 if [ "$build_status" -eq 1 ]; then
-    if ! X3D_STAGE11_ONEWAY_HOOK=1 \
+    if [ ! -x "$CHECK_EXE" ]; then
+        echo "missing executable: $CHECK_EXE" > "$LOG_FILE"
+        config_check_status=0
+    elif ! X3D_STAGE11_ONEWAY_HOOK=1 \
          X3D_STAGE11_FORCE_READONLY=1 \
          X3D_STAGE11_MAX_POINTS=8 \
          X3D_STAGE11_MAX_STEPS=3 \
-         "$BUILD_DIR/src/fibre_stage11_config_check" > "$LOG_FILE" 2>&1; then
+         "$CHECK_EXE" > "$LOG_FILE" 2>&1; then
         config_check_status=0
     fi
 else
