@@ -9,6 +9,7 @@ BUILD_DIR=${BUILD_DIR:-build_stage9}
 MPIEXEC=${MPIEXEC:-mpirun}
 MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
+STAGE9_SKIP_PREREQS=${STAGE9_SKIP_PREREQS:-0}
 
 fails=()
 
@@ -65,7 +66,11 @@ fi
 
 # Stage 9.1 gate (only if configure+build succeeded)
 if [ ${configure_ok} -eq 1 ] && [ ${build_ok} -eq 1 ]; then
-  run_step "Stage 9.1 interface consistency" bash stage9_checks/run_stage9_1_interface_consistency.sh || stage9_1_ok=0
+  if [ "${STAGE9_SKIP_PREREQS}" = "1" ]; then
+    echo "[INFO] STAGE9_SKIP_PREREQS=1 -> skipping Stage 9.1 prerequisite"
+  else
+    run_step "Stage 9.1 interface consistency" bash stage9_checks/run_stage9_1_interface_consistency.sh || stage9_1_ok=0
+  fi
 else
   fail "build preconditions failed; skipping Stage 9.1 interface consistency"
   stage9_1_ok=0
