@@ -6,7 +6,7 @@ MPIEXEC=${MPIEXEC:-mpirun}
 MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
 STAGE10_SKIP_PREREQS=${STAGE10_SKIP_PREREQS:-0}
-
+STAGE10_2_ALLOW_PRODUCTION_HOOKS=${STAGE10_2_ALLOW_PRODUCTION_HOOKS:-auto}
 
 ensure_build_dir() {
   if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
@@ -21,22 +21,9 @@ log_file="stage10_outputs/stage10_2_hook_site_audit.log"
 : > "$log_file"
 
 failures=""
-
 add_failure() {
   local msg="$1"
-  if [ -z "$failures" ]; then
-    failures="$msg"
-  else
-    failures="$failures\n$msg"
-  fi
-}
-
-status_from_bool() {
-  if [ "$1" -eq 0 ]; then
-    echo 1
-  else
-    echo 0
-  fi
+  if [ -z "$failures" ]; then failures="$msg"; else failures="$failures\n$msg"; fi
 }
 
 build_status=1
@@ -51,6 +38,18 @@ run_build_target() {
     add_failure "build failed for target: $target"
   fi
 }
+
+strip_comments() {
+  # Stage 10 audit is intentionally conservative: strip comments before checking active code.
+  sed 's/!.*$//' "$1"
+}
+
+tmpdir="stage10_outputs/stage10_2_active_sources"
+rm -rf "$tmpdir"
+mkdir -p "$tmpdir"
+for f in src/xcompact3d.f90 src/navier.f90 src/time_integrators.f90 src/derive.f90 src/poisson.f90 src/Case-Channel.f90 src/fibre_stage10_noop_hook.f90; do
+  strip_comments "$f" > "$tmpdir/$(basename "$f").active"
+done
 
 run_build_target xcompact3d
 run_build_target fibre_stage10_config_check
@@ -67,9 +66,7 @@ if [ "$STAGE10_SKIP_PREREQS" != "1" ]; then
   fi
 fi
 
-prod_files="src/xcompact3d.f90 src/navier.f90 src/time_integrators.f90 src/derive.f90 src/poisson.f90 src/Case-Channel.f90"
-
-# Candidate site discovery (static, informational but required as status)
+# Candidate site discovery. These are placement evidence only; Stage 10.3+ may already have valid guarded calls.
 hook_init_site_status=0
 hook_pre_step_site_status=0
 hook_pre_rhs_site_status=0
@@ -77,72 +74,81 @@ hook_post_projection_site_status=0
 hook_post_step_site_status=0
 hook_finalize_site_status=0
 
-if grep -n "call init_xcompact3d" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_init_site_status=1
-else
-  add_failure "hook_init candidate not identified"
-fi
-
-if grep -n "do itime" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_pre_step_site_status=1
-else
-  add_failure "hook_pre_step candidate not identified"
-fi
-
-if grep -n "call momentum" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_pre_rhs_site_status=1
-else
-  add_failure "hook_pre_rhs candidate not identified"
-fi
-
-if grep -n "call pre_correc" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_post_projection_site_status=1
-else
-  add_failure "hook_post_projection candidate not identified"
-fi
-
-if grep -n "call test_speed_min_max" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_post_step_site_status=1
-else
-  add_failure "hook_post_step candidate not identified"
-fi
-
-if grep -n "call finalise_xcompact3d" src/xcompact3d.f90 >>"$log_file" 2>&1; then
-  hook_finalize_site_status=1
-else
-  add_failure "hook_finalize candidate not identified"
-fi
+grep -n "call init_xcompact3d" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_init_site_status=1 || add_failure "hook_init candidate not identified"
+grep -n "do itime" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_pre_step_site_status=1 || add_failure "hook_pre_step candidate not identified"
+grep -n "call momentum\|call calculate_transeq_rhs" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_pre_rhs_site_status=1 || add_failure "hook_pre_rhs candidate not identified"
+grep -n "call pre_correc\|call cor_vel" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_post_projection_site_status=1 || add_failure "hook_post_projection candidate not identified"
+grep -n "call test_speed_min_max\|call postprocessing" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_post_step_site_status=1 || add_failure "hook_post_step candidate not identified"
+grep -n "call finalise_xcompact3d" src/xcompact3d.f90 >>"$log_file" 2>&1 && hook_finalize_site_status=1 || add_failure "hook_finalize candidate not identified"
 
 no_production_hook_call_status=1
-for sym in stage10_hook_init stage10_hook_pre_step stage10_hook_pre_rhs stage10_hook_post_projection stage10_hook_post_step stage10_hook_finalize; do
-  if grep -n "$sym" $prod_files >>"$log_file" 2>&1; then
+x3d_active="$tmpdir/xcompact3d.f90.active"
+
+# After Stage 10.3, guarded hook calls in xcompact3d.f90 are valid and must not be rejected.
+allow_prod_hooks="$STAGE10_2_ALLOW_PRODUCTION_HOOKS"
+if [ "$allow_prod_hooks" = "auto" ]; then
+  if grep -Eiq '^[[:space:]]*if[[:space:]]*\([[:space:]]*stage10_reg[[:space:]]*\)[[:space:]]*call[[:space:]]*stage10_hook_' "$x3d_active"; then
+    allow_prod_hooks=1
+  else
+    allow_prod_hooks=0
+  fi
+fi
+
+if [ "$allow_prod_hooks" = "1" ]; then
+  # Fail only on unguarded hook calls in xcompact3d.f90.
+  if grep -Ein '^[[:space:]]*call[[:space:]]+stage10_hook_|^[[:space:]]*if[[:space:]]*\([^)]*\)[[:space:]]*call[[:space:]]*stage10_hook_' "$x3d_active" \
+      | grep -Eiv '^[0-9]+:[[:space:]]*if[[:space:]]*\([[:space:]]*stage10_reg[[:space:]]*\)[[:space:]]*call[[:space:]]*stage10_hook_' >>"$log_file" 2>&1; then
     no_production_hook_call_status=0
-    add_failure "forbidden production hook symbol found in production files: $sym"
+    add_failure "unguarded or incorrectly guarded Stage 10 hook call found in xcompact3d.f90"
+  fi
+else
+  if grep -Eiq 'stage10_hook_(init|pre_step|pre_rhs|post_projection|post_step|finalize)' "$x3d_active"; then
+    no_production_hook_call_status=0
+    add_failure "production hook call found before Stage 10.3 connection mode"
+  fi
+fi
+
+# Hook calls are forbidden in RHS/projection/Poisson/derivative/case production files.
+for f in navier.f90 time_integrators.f90 derive.f90 poisson.f90 Case-Channel.f90; do
+  if grep -Eiq 'stage10_hook_(init|pre_step|pre_rhs|post_projection|post_step|finalize)' "$tmpdir/$f.active"; then
+    no_production_hook_call_status=0
+    add_failure "forbidden Stage 10 hook call/reference found in $f"
   fi
 done
 
 no_rhs_modification_status=1
-if grep -n "f_fsi\|fsi_force\|two_way\|twoway\|feedback_force" src/navier.f90 src/time_integrators.f90 >>"$log_file" 2>&1; then
-  no_rhs_modification_status=0
-  add_failure "possible RHS-side coupling symbol found"
-fi
+for f in navier.f90 time_integrators.f90 Case-Channel.f90; do
+  if grep -Eiq '^[[:space:]]*use[[:space:]]+fibre_stage8_(twoway_force_density|oneway_forcing|feedback_candidate)|^[[:space:]]*use[[:space:]]+fibre_ibm_(spreading|feedback|force_buffer)' "$tmpdir/$f.active"; then
+    no_rhs_modification_status=0
+    add_failure "$f: active coupling module import in RHS-related path"
+  fi
+  if grep -Eiq '^[[:space:]]*call[[:space:]].*(twoway|feedback|spreading|force_density|rhs_injection|fibre.*force|ibm.*force)' "$tmpdir/$f.active"; then
+    no_rhs_modification_status=0
+    add_failure "$f: active coupling call in RHS-related path"
+  fi
+  if grep -Eiq '(f_fsi|f_ibm|f_feedback|force_density|fibre_force|twoway_force|rhs_fibre|rhs_ibm)' "$tmpdir/$f.active"; then
+    no_rhs_modification_status=0
+    add_failure "$f: active RHS coupling assignment/symbol found"
+  fi
+done
 
 no_poisson_modification_status=1
-if grep -n "stage10_hook_" src/poisson.f90 >>"$log_file" 2>&1; then
+if grep -Eiq 'stage10_hook_|^[[:space:]]*use[[:space:]]+fibre_.*(force|ibm)' "$tmpdir/poisson.f90.active"; then
   no_poisson_modification_status=0
-  add_failure "forbidden hook reference found in poisson solver"
+  add_failure "forbidden hook/coupling reference found in Poisson solver"
 fi
 
 no_projection_modification_status=1
-if grep -n "stage10_hook_" src/time_integrators.f90 src/derive.f90 >>"$log_file" 2>&1; then
+if grep -Eiq 'stage10_hook_|^[[:space:]]*use[[:space:]]+fibre_.*(force|ibm)' "$tmpdir/time_integrators.f90.active" "$tmpdir/derive.f90.active"; then
   no_projection_modification_status=0
-  add_failure "forbidden hook reference found in projection/derivative path"
+  add_failure "forbidden hook/coupling reference found in projection/derivative path"
 fi
 
 no_restart_logic_modification_status=1
-if grep -n "stage10_hook_" src/xcompact3d.f90 | grep -n "restart" >>"$log_file" 2>&1; then
+# Valid guarded hook calls in xcompact3d are allowed. Only reject a hook line that explicitly references restart text.
+if grep -Ein 'stage10_hook_.*restart|restart.*stage10_hook_' "$x3d_active" >>"$log_file" 2>&1; then
   no_restart_logic_modification_status=0
-  add_failure "forbidden hook reference found near restart logic"
+  add_failure "Stage 10 hook reference found directly in restart logic"
 fi
 
 no_stage9_logic_modification_status=1
@@ -152,15 +158,16 @@ if grep -n "stage10_hook_" stage9_checks/*.sh stage9_checks/*.md >>"$log_file" 2
 fi
 
 no_ibm_call_status=1
-if grep -n "ibm\|spread\|interpol" src/fibre_stage10_noop_hook.f90 | grep -v "no_ibm_call_status" >>"$log_file" 2>&1; then
+hook_active="$tmpdir/fibre_stage10_noop_hook.f90.active"
+if grep -Eiq '^[[:space:]]*use[[:space:]]+fibre_ibm|^[[:space:]]*call[[:space:]].*(ibm|spread|interpol)' "$hook_active"; then
   no_ibm_call_status=0
-  add_failure "possible IBM-related activity found in Stage 10 hook module"
+  add_failure "active IBM use/call found in Stage 10 no-op hook module"
 fi
 
 no_structure_advance_status=1
-if grep -n "structure\|fibre_" src/fibre_stage10_noop_hook.f90 | grep -v "no_structure_advance_status" >>"$log_file" 2>&1; then
+if grep -Eiq '^[[:space:]]*use[[:space:]]+fibre_(structure|tension|bending)|^[[:space:]]*call[[:space:]].*(structure_advance|advance_structure|tension|bending)' "$hook_active"; then
   no_structure_advance_status=0
-  add_failure "possible fibre structure activity found in Stage 10 hook module"
+  add_failure "active fibre-structure use/call found in Stage 10 no-op hook module"
 fi
 
 hook_site_audit_status=1
@@ -171,9 +178,7 @@ for v in \
   $no_production_hook_call_status $no_rhs_modification_status $no_poisson_modification_status \
   $no_projection_modification_status $no_restart_logic_modification_status $no_stage9_logic_modification_status \
   $no_ibm_call_status $no_structure_advance_status; do
-  if [ "$v" -ne 1 ]; then
-    hook_site_audit_status=0
-  fi
+  [ "$v" -eq 1 ] || hook_site_audit_status=0
 done
 
 {
