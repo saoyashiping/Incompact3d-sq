@@ -11,9 +11,9 @@ STAGE10_5_INVARIANCE_REL_TOL=${STAGE10_5_INVARIANCE_REL_TOL:-1.0e-14}
 STAGE10_5_TIMEOUT_SEC=${STAGE10_5_TIMEOUT_SEC:-240}
 
 ensure_build_dir() {
-  if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
-    cmake -S . -B "$BUILD_DIR"
-  fi
+    if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+        cmake -S . -B "$BUILD_DIR"
+    fi
 }
 
 mkdir -p stage10_outputs stage9_outputs
@@ -21,7 +21,11 @@ mkdir -p stage10_outputs stage9_outputs
 failures=""
 add_failure() {
   local msg="$1"
-  if [ -z "$failures" ]; then failures="$msg"; else failures="$failures\n$msg"; fi
+  if [ -z "$failures" ]; then
+    failures="$msg"
+  else
+    failures="$failures\n$msg"
+  fi
 }
 
 build_status=1
@@ -46,35 +50,15 @@ build_target xcompact3d
 build_target fibre_stage10_config_check
 build_target fibre_stage10_noop_hook_check
 
-# Do not run Stage 10.2 or Stage 10.3 from Stage 10.5 by default.
-# Optional prereq mode may run only the already higher-level 10.4 gate.
 if [ "$STAGE10_5_RUN_PREREQS" = "1" ]; then
-  if ! DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
-       bash stage10_checks/run_stage10_4_noop_invariance_np1.sh; then
-    add_failure "optional Stage 10.4 prerequisite failed"
-  fi
+  DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" bash stage10_checks/run_stage10_4_noop_invariance_np1.sh || add_failure "optional Stage 10.4 prerequisite failed"
 fi
 
-run_stage99_baseline() {
-  env DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
-      STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
-      X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 \
-      STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 \
-      timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
+run_stage99() {
+  timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
 }
 
-run_stage99_hook() {
-  env DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
-      X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_3_MAIN_NOOP_HOOK=1 \
-      STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
-      X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 \
-      STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 \
-      timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
-}
-
-rm -f stage10_outputs/fibre_stage10_3_main_noop_hook.dat
-
-if ! run_stage99_baseline; then
+if ! env STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 run_stage99; then
   baseline_run_status=0
   add_failure "baseline stage9.9 run failed"
 fi
@@ -90,7 +74,7 @@ for np in 1 2 4; do
   fi
 done
 
-if ! run_stage99_hook; then
+if ! env X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_3_MAIN_NOOP_HOOK=1 STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 run_stage99; then
   hook_run_status=0
   add_failure "hook-enabled stage9.9 run failed"
 fi
@@ -111,9 +95,25 @@ if [ ! -s stage10_outputs/fibre_stage10_3_main_noop_hook.dat ]; then
   add_failure "missing stage10_outputs/fibre_stage10_3_main_noop_hook.dat"
 fi
 
-getv() { awk -v k="$1" '$1==k{print $2}' "$2" 2>/dev/null | tail -n1; }
-need_one() { [ "$(getv "$1" "$2")" = "1" ]; }
-need_zero() { [ "$(getv "$1" "$2")" = "0" ]; }
+getv() {
+  awk -v k="$1" '$1==k{print $2}' "$2" 2>/dev/null | tail -n1
+}
+
+need_one() {
+  local key="$1"
+  local file="$2"
+  local v
+  v=$(getv "$key" "$file")
+  [ "$v" = "1" ]
+}
+
+need_zero() {
+  local key="$1"
+  local file="$2"
+  local v
+  v=$(getv "$key" "$file")
+  [ "$v" = "0" ]
+}
 
 for np in 1 2 4; do
   b="stage10_outputs/stage10_5_baseline_np${np}.dat"
@@ -125,13 +125,7 @@ for np in 1 2 4; do
 done
 
 hk="stage10_outputs/fibre_stage10_3_main_noop_hook.dat"
-for k in stage10_3_requested_flag stage10_3_noop_mode_status stage10_3_hook_init_status \
-         stage10_3_hook_pre_step_status stage10_3_hook_pre_rhs_status \
-         stage10_3_hook_post_projection_status stage10_3_hook_post_step_status \
-         stage10_3_hook_finalize_status stage10_3_no_fibre_state_status \
-         stage10_3_no_force_status stage10_3_no_rhs_injection_status \
-         stage10_3_no_ibm_call_status stage10_3_no_structure_advance_status \
-         stage10_3_main_noop_hook_status; do
+for k in stage10_3_requested_flag stage10_3_noop_mode_status stage10_3_hook_init_status stage10_3_hook_pre_step_status stage10_3_hook_pre_rhs_status stage10_3_hook_post_projection_status stage10_3_hook_post_step_status stage10_3_hook_finalize_status stage10_3_no_fibre_state_status stage10_3_no_force_status stage10_3_no_rhs_injection_status stage10_3_no_ibm_call_status stage10_3_no_structure_advance_status stage10_3_main_noop_hook_status; do
   need_one "$k" "$hk" || { noop_safety_status=0; add_failure "hook dat: ${k} !=1"; }
 done
 need_zero stage10_3_field_modified_status "$hk" || { noop_safety_status=0; add_failure "hook dat: stage10_3_field_modified_status !=0"; }
@@ -160,9 +154,7 @@ cmp_metric() {
 }
 
 for np in 1 2 4; do
-  for m in stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz \
-           stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz \
-           stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz; do
+  for m in stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz; do
     cmp_metric "$np" "$m"
   done
 done

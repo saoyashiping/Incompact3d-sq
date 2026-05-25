@@ -66,10 +66,7 @@ program xcompact3d
   stage9_8_phase = stage9_8_get_phase()
   stage9_8_steps = merge(stage9_8_get_max_steps_after_restart(3), stage9_8_get_max_steps_before_restart(3), stage9_8_phase==1)
   stage9_8_sig_tol = stage9_8_get_signature_tol(1.0d-8)
-  ! Stage 9.8 is initialised inside init_xcompact3d() immediately after
-  ! parameter(InputFN), before any production restart-read branch.  Do not
-  ! call stage9_8_begin() here: doing so resets restart-read diagnostics and
-  ! erases the signature comparison recorded during init_xcompact3d().
+  call stage9_8_begin(stage9_8_reg, stage9_8_phase, stage9_8_steps, stage9_8_sig_tol)
   stage9_9_reg = stage9_9_requested()
   stage9_9_max_steps = stage9_9_get_max_steps(3)
   call stage9_9_get_tolerances(stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol)
@@ -174,7 +171,6 @@ program xcompact3d
         else
            call stage9_8_record_restart_file_status(0,0)
         endif
-        if (stage9_8_phase==0) call stage9_8_record_signature(ux1,uy1,uz1)
      endif
 
      call simu_stats(3)
@@ -194,7 +190,7 @@ program xcompact3d
      call stage9_7_after_completed_step()
      if (stage9_8_reg) then
        call stage9_8_record_field_finite_status(ux1,uy1,uz1,pp3(:,:,:,1),divu3)
-       if (stage9_8_phase==1) call stage9_8_record_signature(ux1,uy1,uz1)
+       call stage9_8_record_signature(ux1,uy1,uz1)
        call stage9_8_after_completed_step()
        stage9_8_stop_now=stage9_8_should_stop()
        if (stage9_8_stop_now) then
@@ -321,6 +317,7 @@ subroutine init_xcompact3d()
 
   use mhd, only: mhd_init
   use particle,  only : particle_report,local_domain_size
+  use fibre_stage9_8_restart_io_regression, only : stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, stage9_8_record_signature
 
   implicit none
 
