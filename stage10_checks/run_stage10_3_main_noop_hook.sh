@@ -37,22 +37,36 @@ s10_0=1; s10_1=1; s10_2=1
 if [ "$STAGE10_SKIP_PREREQS" != "1" ]; then
   DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" bash stage10_checks/run_stage10_0_config.sh || { s10_0=0; add_failure "stage10.0 prereq failed"; }
   DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" STAGE10_SKIP_PREREQS=1 bash stage10_checks/run_stage10_1_hook_build.sh || { s10_1=0; add_failure "stage10.1 prereq failed"; }
-  DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" STAGE10_SKIP_PREREQS=1 bash stage10_checks/run_stage10_2_hook_site_audit.sh || { s10_2=0; add_failure "stage10.2 prereq failed"; }
+  DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" STAGE10_SKIP_PREREQS=1 STAGE10_2_ALLOW_PRODUCTION_HOOKS=1 bash stage10_checks/run_stage10_2_hook_site_audit.sh || { s10_2=0; add_failure "stage10.2 prereq failed"; }
 fi
 
 run_log="stage10_outputs/stage10_3_main_noop_hook.log"
 rm -f "$run_log"
 
-cmd="$MPIEXEC $MPIEXEC_FLAGS -np 1 $BUILD_DIR/bin/xcompact3d"
-if ! env X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_MAX_STEPS=3 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 timeout "$STAGE10_3_TIMEOUT_SEC" sh -c "$cmd" >"$run_log" 2>&1; then
-  add_failure "xcompact3d stage10.3 smoke run failed"
+# Do not naked-run xcompact3d here.  Use the already validated Stage 9.9
+# deterministic no-fibre gate so that input generation, short-run setup,
+# signatures, MPI launcher handling, and output paths remain source-matched.
+if ! timeout "$STAGE10_3_TIMEOUT_SEC" env \
+  DECOMP2D_ROOT="$DECOMP2D_ROOT" \
+  BUILD_DIR="$BUILD_DIR" \
+  MPIEXEC="$MPIEXEC" \
+  MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
+  STAGE9_SKIP_PREREQS=1 \
+  X3D_STAGE10_PRODUCTION_HOOK=1 \
+  X3D_STAGE10_FORCE_NOOP=1 \
+  X3D_STAGE10_3_MAIN_NOOP_HOOK=1 \
+  X3D_STAGE10_MAX_STEPS=3 \
+  X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
+  X3D_STAGE9_9_DETERMINISTIC_INIT=1 \
+  X3D_STAGE9_9_MAX_STEPS=3 \
+  bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh >"$run_log" 2>&1; then
+  add_failure "Stage 9.9 deterministic no-fibre smoke with Stage 10 no-op hook failed"
 fi
 
 hook_dat="stage10_outputs/fibre_stage10_1_noop_hook.dat"
-if [ ! -s "$hook_dat" ]; then
-  if ! env X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_MAX_STEPS=3 "$BUILD_DIR/bin/fibre_stage10_noop_hook_check" >/dev/null 2>&1; then
-    add_failure "failed to generate hook status dat via fibre_stage10_noop_hook_check"
-  fi
+rm -f "$hook_dat"
+if ! env X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_MAX_STEPS=3 "$BUILD_DIR/bin/fibre_stage10_noop_hook_check" >/dev/null 2>&1; then
+  add_failure "failed to generate hook status dat via fibre_stage10_noop_hook_check"
 fi
 
 s99="stage9_outputs/fibre_stage9_9_parallel_consistency_np1.dat"
@@ -69,6 +83,10 @@ for v in "$req" "$noop" "$hi" "$hs" "$hr" "$hp" "$hps" "$hf" "$nf" "$nfo" "$nrhs
   [ "$v" = "1" ] || main_status=0
 done
 [ "$field_modified_status" = "0" ] || main_status=0
+[ "$s10_0" = "1" ] || main_status=0
+[ "$s10_1" = "1" ] || main_status=0
+[ "$s10_2" = "1" ] || main_status=0
+[ -s "$s99" ] || main_status=0
 
 if [ "$STAGE10_3_RUN_STAGE9_GUARD" = "1" ]; then
   DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" STAGE9_SKIP_PREREQS=1 bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh || add_failure "optional stage9.9 guard failed"
