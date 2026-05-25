@@ -63,7 +63,6 @@ contains
 
   subroutine stage10_hook_finalize()
     finalize_status = 1
-    call stage10_hook_write_main_noop_dat_if_requested()
   end subroutine stage10_hook_finalize
 
   subroutine stage10_hook_get_status_values(requested, noop_mode, init_status, pre_step, pre_rhs, &
@@ -88,84 +87,5 @@ contains
     no_ibm_call = no_ibm_call_status
     no_structure_advance = no_structure_advance_status
   end subroutine stage10_hook_get_status_values
-
-  subroutine stage10_hook_write_main_noop_dat_if_requested()
-    character(len=64) :: value
-    integer :: env_status, unit_id, ios
-    integer :: field_modified_status, main_noop_hook_status
-
-    call get_environment_variable('X3D_STAGE10_3_MAIN_NOOP_HOOK', value=value, status=env_status)
-    if (env_status /= 0) return
-    if (trim(adjustl(value)) /= '1') return
-    if (.not. stage10_hook_is_rank0()) return
-
-    field_modified_status = 0
-    main_noop_hook_status = 1
-
-    if (requested_flag /= 1) main_noop_hook_status = 0
-    if (noop_mode_status /= 1) main_noop_hook_status = 0
-    if (initialized_status /= 1) main_noop_hook_status = 0
-    if (pre_step_status /= 1) main_noop_hook_status = 0
-    if (pre_rhs_status /= 1) main_noop_hook_status = 0
-    if (post_projection_status /= 1) main_noop_hook_status = 0
-    if (post_step_status /= 1) main_noop_hook_status = 0
-    if (finalize_status /= 1) main_noop_hook_status = 0
-    if (no_fibre_state_status /= 1) main_noop_hook_status = 0
-    if (no_force_status /= 1) main_noop_hook_status = 0
-    if (no_rhs_injection_status /= 1) main_noop_hook_status = 0
-    if (no_ibm_call_status /= 1) main_noop_hook_status = 0
-    if (no_structure_advance_status /= 1) main_noop_hook_status = 0
-    if (field_modified_status /= 0) main_noop_hook_status = 0
-
-    open(newunit=unit_id, file='stage10_outputs/fibre_stage10_3_main_noop_hook.dat', &
-         status='replace', action='write', iostat=ios)
-    if (ios /= 0) return
-
-    write(unit_id, '(A,1X,I0)') 'stage10_3_requested_flag', requested_flag
-    write(unit_id, '(A,1X,I0)') 'stage10_3_noop_mode_status', noop_mode_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_init_status', initialized_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_pre_step_status', pre_step_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_pre_rhs_status', pre_rhs_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_post_projection_status', post_projection_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_post_step_status', post_step_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_hook_finalize_status', finalize_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_no_fibre_state_status', no_fibre_state_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_no_force_status', no_force_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_no_rhs_injection_status', no_rhs_injection_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_no_ibm_call_status', no_ibm_call_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_no_structure_advance_status', no_structure_advance_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_field_modified_status', field_modified_status
-    write(unit_id, '(A,1X,I0)') 'stage10_3_main_noop_hook_status', main_noop_hook_status
-
-    close(unit_id)
-  end subroutine stage10_hook_write_main_noop_dat_if_requested
-
-  logical function stage10_hook_is_rank0()
-    character(len=64) :: value
-    integer :: env_status, ios, rank_value
-
-    stage10_hook_is_rank0 = .true.
-
-    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=env_status)
-    if (env_status == 0) then
-      read(value, *, iostat=ios) rank_value
-      if (ios == 0) stage10_hook_is_rank0 = (rank_value == 0)
-      return
-    endif
-
-    call get_environment_variable('PMI_RANK', value=value, status=env_status)
-    if (env_status == 0) then
-      read(value, *, iostat=ios) rank_value
-      if (ios == 0) stage10_hook_is_rank0 = (rank_value == 0)
-      return
-    endif
-
-    call get_environment_variable('PMIX_RANK', value=value, status=env_status)
-    if (env_status == 0) then
-      read(value, *, iostat=ios) rank_value
-      if (ios == 0) stage10_hook_is_rank0 = (rank_value == 0)
-      return
-    endif
-  end function stage10_hook_is_rank0
 
 end module fibre_stage10_noop_hook
