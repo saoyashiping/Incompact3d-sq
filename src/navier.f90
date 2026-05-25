@@ -1377,7 +1377,6 @@ contains
 
     use param
     use var
-    use fibre_stage9_5_projection_regression, only : stage9_5_record_projection_divergence_pair
     use ibm_param, only: rai
     use MPI
 
