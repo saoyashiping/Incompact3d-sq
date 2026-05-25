@@ -9,7 +9,7 @@ module fibre_stage9_5_projection_regression
   integer, parameter :: max_track_steps=64
 
   logical, save :: proj_enabled=.false.
-  integer, save :: requested_max_steps=0, completed_steps=0, projection_samples=0, finalise_reached=0
+  integer, save :: requested_max_steps=0, completed_steps=0, projection_pair_count=0, open_pair_index=0, finalise_reached=0
   real(8), save :: div_max_tol=1.0d-8, div_mean_tol=1.0d-9
   real(8), save :: before_max(max_track_steps)=0d0, before_mean(max_track_steps)=0d0
   real(8), save :: after_max(max_track_steps)=0d0, after_mean(max_track_steps)=0d0
@@ -48,7 +48,7 @@ contains
   subroutine stage9_5_begin(enabled,max_steps,max_tol,mean_tol)
     logical,intent(in)::enabled; integer,intent(in)::max_steps; real(8),intent(in)::max_tol,mean_tol
     proj_enabled=enabled; requested_max_steps=max_steps; div_max_tol=max_tol; div_mean_tol=mean_tol
-    completed_steps=0; projection_samples=0; finalise_reached=0; pressure_finite_status=1; velocity_finite_status=1
+    completed_steps=0; projection_pair_count=0; open_pair_index=0; finalise_reached=0; pressure_finite_status=1; velocity_finite_status=1
     before_max=0d0; before_mean=0d0; after_max=0d0; after_mean=0d0; before_seen=.false.; after_seen=.false.
   end subroutine
 
@@ -56,19 +56,32 @@ contains
   subroutine stage9_5_record_projection_divergence_pair(nlock, div_max, div_mean)
     integer, intent(in) :: nlock
     real(mytype), intent(in) :: div_max, div_mean
+    integer :: pair_idx
+
     if (.not.proj_enabled) return
-    if (nlock == 1) then
-      if (projection_samples>=max_track_steps) return
-      projection_samples = projection_samples + 1
-      before_max(projection_samples) = real(div_max,8)
-      before_mean(projection_samples) = real(div_mean,8)
-      before_seen(projection_samples) = .true.
-    else if (nlock == 2) then
-      if (projection_samples<=0 .or. projection_samples>max_track_steps) return
-      after_max(projection_samples) = real(div_max,8)
-      after_mean(projection_samples) = real(div_mean,8)
-      after_seen(projection_samples) = .true.
-    end if
+
+    select case (nlock)
+    case (1)
+      pair_idx = projection_pair_count + 1
+      if (pair_idx<1 .or. pair_idx>max_track_steps) return
+      before_max(pair_idx) = real(div_max,8)
+      before_mean(pair_idx) = real(div_mean,8)
+      before_seen(pair_idx) = .true.
+      after_seen(pair_idx) = .false.
+      open_pair_index = pair_idx
+    case (2)
+      pair_idx = open_pair_index
+      if (pair_idx<1 .or. pair_idx>max_track_steps) return
+      if (.not.before_seen(pair_idx)) return
+      if (after_seen(pair_idx)) return
+      after_max(pair_idx) = real(div_max,8)
+      after_mean(pair_idx) = real(div_mean,8)
+      after_seen(pair_idx) = .true.
+      projection_pair_count = pair_idx
+      open_pair_index = 0
+    case default
+      return
+    end select
   end subroutine
   subroutine stage9_5_record_pressure_finite_status(pp,px,py,pz,ux,uy,uz)
     real(8),intent(in)::pp(:,:,:,:),px(:,:,:),py(:,:,:),pz(:,:,:),ux(:,:,:),uy(:,:,:),uz(:,:,:)
@@ -93,10 +106,10 @@ contains
     real(8)::tinyv,rrm,rra
     rank=nrank; tinyv=1.0d-300
     s_case=merge(1,0,itype==itype_channel); s_nocouple=1; s_time=merge(1,0,completed_steps>=1 .and. completed_steps<=requested_max_steps)
-    s_path=merge(1,0,projection_samples>=1)
-    s_pair=1
+    s_path=merge(1,0,projection_pair_count>=1)
+    s_pair=merge(1,0,completed_steps>=1 .and. projection_pair_count>=completed_steps .and. completed_steps<=max_track_steps)
     s_bfin=1; s_afin=1; s_reduc=1; s_amax=1; s_amean=1
-    do i=1,projection_samples
+    do i=1,min(completed_steps,projection_pair_count)
       if (.not.(before_seen(i).and.after_seen(i))) s_pair=0
       if (.not.ieee_is_finite(before_max(i)) .or. .not.ieee_is_finite(before_mean(i))) s_bfin=0
       if (.not.ieee_is_finite(after_max(i)) .or. .not.ieee_is_finite(after_mean(i))) s_afin=0
@@ -130,8 +143,7 @@ contains
       write(u,*) 'stage9_5_no_nan_inf_status ',s_nonan
       write(u,*) 'stage9_5_finalise_reached_status ',finalise_reached
       write(u,*) 'stage9_5_projection_regression_status ',s_final
-      do i=1,projection_samples
-        if (.not.(before_seen(i).and.after_seen(i))) cycle
+      do i=1,min(completed_steps,projection_pair_count)
         rra=after_max(i)/max(before_max(i),tinyv); rrm=after_mean(i)/max(before_mean(i),tinyv)
         write(key,'(A,I0,A)') 'stage9_5_step_',i,'_div_before_max'
         write(u,*) trim(key),' ',before_max(i)
