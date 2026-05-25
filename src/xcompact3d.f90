@@ -27,6 +27,8 @@ program xcompact3d
   use fibre_stage9_7_stats_visu_io_smoke, only : stage9_7_requested, stage9_7_get_max_steps, stage9_7_get_requirements, stage9_7_begin, stage9_7_record_coarse_io_path, stage9_7_record_output_file_status, stage9_7_record_field_finite_status, stage9_7_after_completed_step, stage9_7_should_stop, stage9_7_progress_note, stage9_7_finalise_mark, stage9_7_final_audit
   use fibre_stage9_8_restart_io_regression, only : stage9_8_requested, stage9_8_get_phase, stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, stage9_8_get_signature_tol, stage9_8_begin, stage9_8_record_restart_write_path, stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, stage9_8_record_field_finite_status, stage9_8_record_signature, stage9_8_after_completed_step, stage9_8_should_stop, stage9_8_finalise_mark, stage9_8_final_audit
   use fibre_stage9_9_parallel_consistency, only : stage9_9_requested, stage9_9_get_max_steps, stage9_9_get_tolerances, stage9_9_begin, stage9_9_apply_deterministic_initial_condition, stage9_9_record_initial_signature, stage9_9_record_field_signature, stage9_9_record_divergence_status, stage9_9_record_massflux_status, stage9_9_record_cfl_status, stage9_9_after_completed_step, stage9_9_should_stop, stage9_9_finalise_mark, stage9_9_final_audit
+  use fibre_stage10_config, only : stage10_config_load, stage10_requested, stage10_noop_mode
+  use fibre_stage10_noop_hook, only : stage10_hook_init, stage10_hook_pre_step, stage10_hook_pre_rhs, stage10_hook_post_projection, stage10_hook_post_step, stage10_hook_finalize
 
   implicit none
 
@@ -35,7 +37,7 @@ program xcompact3d
   integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
   real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit, stage9_8_sig_tol
   real(8) :: stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol
-  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists
+  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists, stage10_reg
   integer :: stage9_8_checkpoint_size
 
   call init_xcompact3d()
@@ -73,6 +75,10 @@ program xcompact3d
      call stage9_9_apply_deterministic_initial_condition(ux1,uy1,uz1,pp3(:,:,:,1))
      call stage9_9_record_initial_signature(ux1,uy1,uz1,pp3(:,:,:,1))
   endif
+  call stage10_config_load()
+  stage10_reg = stage10_requested() .and. stage10_noop_mode()
+  if (stage10_reg) call stage10_hook_init()
+
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      call finalise_xcompact3d()
@@ -80,6 +86,7 @@ program xcompact3d
   endif
 
   do itime=ifirst,ilast
+     if (stage10_reg) call stage10_hook_pre_step()
      !t=itime*dt
      t=t0 + (itime0 + itime + 1 - ifirst)*dt
      
@@ -95,6 +102,8 @@ program xcompact3d
         call filter(C_filter)
         call apply_spatial_filter(ux1,uy1,uz1,phi1)
      endif
+
+     if (stage10_reg) call stage10_hook_pre_rhs()
 
      do itr=1,iadvance_time
         call stage9_6_record_rk_substep()
@@ -147,6 +156,8 @@ program xcompact3d
 
      enddo !! End sub timesteps
 
+     if (stage10_reg) call stage10_hook_post_projection()
+
      if(particle_active) then
        call intt_particles(ux1,uy1,uz1,t)
      endif
@@ -166,6 +177,8 @@ program xcompact3d
 
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
+     if (stage10_reg) call stage10_hook_post_step()
+
      call stage9_4_after_completed_step()
      call stage9_5_after_completed_step()
      call stage9_6_record_cfl_status(ux1,uy1,uz1)
@@ -184,6 +197,7 @@ program xcompact3d
           if (nrank==0) write(*,'(A)') "[STAGE9.8] final audit starting"
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
+          if (stage10_reg) call stage10_hook_finalize()
           call finalise_xcompact3d()
           stop
        endif
@@ -196,7 +210,8 @@ program xcompact3d
         if (stage9_9_stop_now) then
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
-           call finalise_xcompact3d()
+           if (stage10_reg) call stage10_hook_finalize()
+          call finalise_xcompact3d()
            stop
         endif
      endif
@@ -209,7 +224,8 @@ program xcompact3d
            call stage9_7_record_coarse_io_path(1,1,1,1)
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
-           call finalise_xcompact3d()
+           if (stage10_reg) call stage10_hook_finalize()
+          call finalise_xcompact3d()
            stop
         endif
      endif
@@ -251,6 +267,7 @@ program xcompact3d
      call stage9_9_final_audit()
   endif
 
+  if (stage10_reg) call stage10_hook_finalize()
   call finalise_xcompact3d()
 
 end program xcompact3d

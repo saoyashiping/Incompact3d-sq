@@ -7,6 +7,13 @@ MPIEXEC_FLAGS=${MPIEXEC_FLAGS:-}
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-}
 STAGE10_SKIP_PREREQS=${STAGE10_SKIP_PREREQS:-0}
 
+
+ensure_build_dir() {
+  if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
+    cmake -S . -B "$BUILD_DIR"
+  fi
+}
+
 mkdir -p stage10_outputs
 
 failures=""
@@ -22,6 +29,7 @@ record_fail() {
 
 build_target() {
   local tgt="$1"
+  ensure_build_dir
   if ! DECOMP2D_ROOT="$DECOMP2D_ROOT" cmake --build "$BUILD_DIR" --target "$tgt" -j; then
     record_fail "build failed: $tgt"
     return 1
