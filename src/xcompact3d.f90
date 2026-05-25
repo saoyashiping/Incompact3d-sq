@@ -282,6 +282,12 @@ subroutine init_xcompact3d()
   use case
   use sandbox, only : init_sandbox
   use forces
+  use fibre_stage9_8_restart_io_regression, only : &
+       stage9_8_requested, stage9_8_get_phase, &
+       stage9_8_get_max_steps_before_restart, stage9_8_get_max_steps_after_restart, &
+       stage9_8_get_signature_tol, stage9_8_begin, &
+       stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, &
+       stage9_8_record_signature
 
   use var
 
@@ -424,6 +430,12 @@ subroutine init_xcompact3d()
   end if
   ! compute diffusion number of simulation
   call compute_cfldiff()
+
+  ! Stage 9.8 was already initialised immediately after parameter(InputFN),
+  ! before the possible production restart-read branch.  Do not reinitialise
+  ! it here, otherwise restart-read diagnostics/signatures recorded above can
+  ! be reset before the main program audits them.
+
   !####################################################################
   if (irestart==0) then
      call init(rho1,ux1,uy1,uz1,ep1,phi1,drho1,dux1,duy1,duz1,dphi1,pp3,px1,py1,pz1)
