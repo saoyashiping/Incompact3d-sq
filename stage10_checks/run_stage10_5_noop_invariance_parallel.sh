@@ -12,7 +12,11 @@ STAGE10_5_TIMEOUT_SEC=${STAGE10_5_TIMEOUT_SEC:-240}
 
 ensure_build_dir() {
     if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
-        cmake -S . -B "$BUILD_DIR"
+        if [ -n "$DECOMP2D_ROOT" ]; then
+            cmake -S . -B "$BUILD_DIR" -DCMAKE_PREFIX_PATH="$DECOMP2D_ROOT"
+        else
+            cmake -S . -B "$BUILD_DIR"
+        fi
     fi
 }
 
@@ -24,7 +28,8 @@ add_failure() {
   if [ -z "$failures" ]; then
     failures="$msg"
   else
-    failures="$failures\n$msg"
+    failures="$failures
+$msg"
   fi
 }
 
@@ -46,21 +51,69 @@ build_target() {
   fi
 }
 
+getv() {
+  local key="$1"
+  local file="$2"
+  awk -v k="$key" '$1==k {print $2; found=1} END{if(!found) exit 1}' "$file" 2>/dev/null
+}
+
+check_key_one() {
+  local key="$1"
+  local file="$2"
+  local val
+  val=$(getv "$key" "$file") || { add_failure "$file: missing $key"; return 1; }
+  [ "$val" = "1" ] || { add_failure "$file: $key !=1"; return 1; }
+  return 0
+}
+
+check_key_zero() {
+  local key="$1"
+  local file="$2"
+  local val
+  val=$(getv "$key" "$file") || { add_failure "$file: missing $key"; return 1; }
+  [ "$val" = "0" ] || { add_failure "$file: $key !=0"; return 1; }
+  return 0
+}
+
 build_target xcompact3d
 build_target fibre_stage10_config_check
 build_target fibre_stage10_noop_hook_check
 
+# Do not run Stage 10.2 or Stage 10.3 here by default. That avoids
+# re-entering any obsolete false-positive audit policy. Stage 10.5 validates
+# runtime evidence directly.
 if [ "$STAGE10_5_RUN_PREREQS" = "1" ]; then
-  DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" bash stage10_checks/run_stage10_4_noop_invariance_np1.sh || add_failure "optional Stage 10.4 prerequisite failed"
+  DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" STAGE10_4_INVARIANCE_ABS_TOL="$STAGE10_5_INVARIANCE_ABS_TOL" STAGE10_4_INVARIANCE_REL_TOL="$STAGE10_5_INVARIANCE_REL_TOL" bash stage10_checks/run_stage10_4_noop_invariance_np1.sh || add_failure "optional Stage10.4 prerequisite failed"
 fi
 
-run_stage99() {
-  timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
+run_stage99_baseline() {
+  env \
+    STAGE9_SKIP_PREREQS=1 \
+    X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
+    X3D_STAGE9_9_DETERMINISTIC_INIT=1 \
+    X3D_STAGE9_9_MAX_STEPS=3 \
+    STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 \
+    STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 \
+    timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
 }
 
-if ! env STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 run_stage99; then
+run_stage99_hook() {
+  env \
+    X3D_STAGE10_PRODUCTION_HOOK=1 \
+    X3D_STAGE10_FORCE_NOOP=1 \
+    X3D_STAGE10_3_MAIN_NOOP_HOOK=1 \
+    STAGE9_SKIP_PREREQS=1 \
+    X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
+    X3D_STAGE9_9_DETERMINISTIC_INIT=1 \
+    X3D_STAGE9_9_MAX_STEPS=3 \
+    STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 \
+    STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 \
+    timeout "$STAGE10_5_TIMEOUT_SEC" bash stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
+}
+
+if ! run_stage99_baseline; then
   baseline_run_status=0
-  add_failure "baseline stage9.9 run failed"
+  add_failure "baseline Stage9.9 deterministic run failed"
 fi
 
 for np in 1 2 4; do
@@ -70,13 +123,15 @@ for np in 1 2 4; do
     cp "$src" "$dst"
   else
     baseline_run_status=0
-    add_failure "missing baseline dat for np=${np}"
+    add_failure "missing baseline np${np} dat"
   fi
 done
 
-if ! env X3D_STAGE10_PRODUCTION_HOOK=1 X3D_STAGE10_FORCE_NOOP=1 X3D_STAGE10_3_MAIN_NOOP_HOOK=1 STAGE9_SKIP_PREREQS=1 X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 X3D_STAGE9_9_DETERMINISTIC_INIT=1 X3D_STAGE9_9_MAX_STEPS=3 STAGE9_9_FINAL_SIGNATURE_ABS_TOL=1.0e-6 STAGE9_9_FINAL_SIGNATURE_REL_TOL=1.0e-12 run_stage99; then
+rm -f stage10_outputs/fibre_stage10_3_main_noop_hook.dat
+
+if ! run_stage99_hook; then
   hook_run_status=0
-  add_failure "hook-enabled stage9.9 run failed"
+  add_failure "hook-enabled Stage9.9 deterministic run failed"
 fi
 
 for np in 1 2 4; do
@@ -86,81 +141,80 @@ for np in 1 2 4; do
     cp "$src" "$dst"
   else
     hook_run_status=0
-    add_failure "missing hook dat for np=${np}"
+    add_failure "missing hook np${np} dat"
   fi
 done
 
-if [ ! -s stage10_outputs/fibre_stage10_3_main_noop_hook.dat ]; then
+main_hook_dat="stage10_outputs/fibre_stage10_3_main_noop_hook.dat"
+if [ ! -s "$main_hook_dat" ]; then
   hook_active_status=0
-  add_failure "missing stage10_outputs/fibre_stage10_3_main_noop_hook.dat"
+  noop_safety_status=0
+  add_failure "missing $main_hook_dat"
+else
+  for key in \
+    stage10_3_requested_flag \
+    stage10_3_noop_mode_status \
+    stage10_3_hook_init_status \
+    stage10_3_hook_pre_step_status \
+    stage10_3_hook_pre_rhs_status \
+    stage10_3_hook_post_projection_status \
+    stage10_3_hook_post_step_status \
+    stage10_3_hook_finalize_status \
+    stage10_3_no_fibre_state_status \
+    stage10_3_no_force_status \
+    stage10_3_no_rhs_injection_status \
+    stage10_3_no_ibm_call_status \
+    stage10_3_no_structure_advance_status \
+    stage10_3_main_noop_hook_status; do
+    check_key_one "$key" "$main_hook_dat" || { hook_active_status=0; noop_safety_status=0; }
+  done
+  check_key_zero stage10_3_field_modified_status "$main_hook_dat" || { hook_active_status=0; noop_safety_status=0; }
 fi
 
-getv() {
-  awk -v k="$1" '$1==k{print $2}' "$2" 2>/dev/null | tail -n1
-}
+sig_keys="stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz"
 
-need_one() {
-  local key="$1"
-  local file="$2"
-  local v
-  v=$(getv "$key" "$file")
-  [ "$v" = "1" ]
-}
-
-need_zero() {
-  local key="$1"
-  local file="$2"
-  local v
-  v=$(getv "$key" "$file")
-  [ "$v" = "0" ]
-}
-
-for np in 1 2 4; do
-  b="stage10_outputs/stage10_5_baseline_np${np}.dat"
-  h="stage10_outputs/stage10_5_hook_np${np}.dat"
-  need_one stage9_9_parallel_consistency_local_status "$b" || { add_failure "baseline np=${np}: local status !=1"; eval "np${np}_status=0"; }
-  need_one stage9_9_decomposition_invariant_initial_state_status "$b" || { add_failure "baseline np=${np}: invariant init status !=1"; eval "np${np}_status=0"; }
-  need_one stage9_9_parallel_consistency_local_status "$h" || { add_failure "hook np=${np}: local status !=1"; eval "np${np}_status=0"; }
-  need_one stage9_9_decomposition_invariant_initial_state_status "$h" || { add_failure "hook np=${np}: invariant init status !=1"; eval "np${np}_status=0"; }
-done
-
-hk="stage10_outputs/fibre_stage10_3_main_noop_hook.dat"
-for k in stage10_3_requested_flag stage10_3_noop_mode_status stage10_3_hook_init_status stage10_3_hook_pre_step_status stage10_3_hook_pre_rhs_status stage10_3_hook_post_projection_status stage10_3_hook_post_step_status stage10_3_hook_finalize_status stage10_3_no_fibre_state_status stage10_3_no_force_status stage10_3_no_rhs_injection_status stage10_3_no_ibm_call_status stage10_3_no_structure_advance_status stage10_3_main_noop_hook_status; do
-  need_one "$k" "$hk" || { noop_safety_status=0; add_failure "hook dat: ${k} !=1"; }
-done
-need_zero stage10_3_field_modified_status "$hk" || { noop_safety_status=0; add_failure "hook dat: stage10_3_field_modified_status !=0"; }
-
-cmp_metric() {
+check_np_invariance() {
   local np="$1"
-  local metric="$2"
-  local bfile="stage10_outputs/stage10_5_baseline_np${np}.dat"
-  local hfile="stage10_outputs/stage10_5_hook_np${np}.dat"
-  local b h d eff pass
-  b=$(getv "$metric" "$bfile")
-  h=$(getv "$metric" "$hfile")
-  if [ -z "$b" ] || [ -z "$h" ]; then
-    add_failure "np=${np} missing metric ${metric}"
-    eval "np${np}_status=0"
-    return
-  fi
-  d=$(awk -v b="$b" -v h="$h" 'BEGIN{x=h-b;if(x<0)x=-x;printf "%.17g",x}')
-  eff=$(awk -v a="$STAGE10_5_INVARIANCE_ABS_TOL" -v r="$STAGE10_5_INVARIANCE_REL_TOL" -v b="$b" 'BEGIN{ab=b;if(ab<0)ab=-ab;t=r*((ab>1)?ab:1);printf "%.17g",(a>t)?a:t}')
-  pass=$(awk -v d="$d" -v e="$eff" 'BEGIN{if(d<=e)print "PASS"; else print "FAIL"}')
-  echo "np=${np} metric=${metric} baseline=${b} hook=${h} delta=${d} abs_tol=${STAGE10_5_INVARIANCE_ABS_TOL} rel_tol=${STAGE10_5_INVARIANCE_REL_TOL} effective_tol=${eff} status=${pass}"
-  if [ "$pass" != "PASS" ]; then
-    add_failure "np=${np} metric ${metric} failed"
-    eval "np${np}_status=0"
-  fi
+  local base="stage10_outputs/stage10_5_baseline_np${np}.dat"
+  local hook="stage10_outputs/stage10_5_hook_np${np}.dat"
+  local status=1
+
+  check_key_one stage9_9_parallel_consistency_local_status "$base" || status=0
+  check_key_one stage9_9_decomposition_invariant_initial_state_status "$base" || status=0
+  check_key_one stage9_9_parallel_consistency_local_status "$hook" || status=0
+  check_key_one stage9_9_decomposition_invariant_initial_state_status "$hook" || status=0
+
+  for key in $sig_keys; do
+    local b h cmp
+    b=$(getv "$key" "$base") || { add_failure "np${np}: missing baseline $key"; status=0; continue; }
+    h=$(getv "$key" "$hook") || { add_failure "np${np}: missing hook $key"; status=0; continue; }
+    cmp=$(awk -v b="$b" -v h="$h" -v abs="$STAGE10_5_INVARIANCE_ABS_TOL" -v rel="$STAGE10_5_INVARIANCE_REL_TOL" -v key="$key" -v np="$np" '
+      BEGIN {
+        db=b+0.0; dh=h+0.0
+        delta=db-dh; if (delta<0) delta=-delta
+        ref=db; if (ref<0) ref=-ref
+        scale=ref; if (scale<1.0) scale=1.0
+        eff=rel*scale; if (eff<abs) eff=abs
+        ok=(delta<=eff) ? 1 : 0
+        printf("np=%s metric=%s baseline=%.17g hook=%.17g delta=%.17g abs_tol=%s rel_tol=%s effective_tol=%.17g status=%s\n", np, key, db, dh, delta, abs, rel, eff, ok ? "PASS" : "FAIL")
+        exit(ok ? 0 : 1)
+      }')
+    echo "$cmp"
+    if ! echo "$cmp" | grep -q 'status=PASS'; then
+      status=0
+      add_failure "np${np}: invariant signature mismatch for $key"
+    fi
+  done
+
+  return $([ "$status" -eq 1 ] && echo 0 || echo 1)
 }
 
-for np in 1 2 4; do
-  for m in stage9_9_signature_sum_ux stage9_9_signature_sum_uy stage9_9_signature_sum_uz stage9_9_signature_max_ux stage9_9_signature_max_uy stage9_9_signature_max_uz stage9_9_signature_l2_ux stage9_9_signature_l2_uy stage9_9_signature_l2_uz; do
-    cmp_metric "$np" "$m"
-  done
-done
+check_np_invariance 1 || np1_status=0
+check_np_invariance 2 || np2_status=0
+check_np_invariance 4 || np4_status=0
 
 final_status=1
-for v in $build_status $baseline_run_status $hook_run_status $hook_active_status $noop_safety_status $np1_status $np2_status $np4_status; do
+for v in "$build_status" "$baseline_run_status" "$hook_run_status" "$hook_active_status" "$noop_safety_status" "$np1_status" "$np2_status" "$np4_status"; do
   [ "$v" -eq 1 ] || final_status=0
 done
 
