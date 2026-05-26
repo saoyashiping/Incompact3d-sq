@@ -49,6 +49,7 @@ add_executable(xcompact3d
                     fibre_stage9_9_parallel_consistency.f90
                     fibre_stage10_config.f90
                     fibre_stage10_noop_hook.f90
+                    fibre_stage11_config.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -100,6 +101,39 @@ target_link_libraries(fibre_stage10_noop_hook_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage10_noop_hook_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage11_config_check
+                    fibre_stage11_config.f90
+                    fibre_stage11_config_check.f90)
+
+target_link_libraries(fibre_stage11_config_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage11_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage11_lagrangian_state_check
+                    fibre_stage11_config.f90
+                    fibre_stage11_lagrangian_state.f90
+                    fibre_stage11_lagrangian_state_check.f90)
+
+target_link_libraries(fibre_stage11_lagrangian_state_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage11_lagrangian_state_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage11_grid_metadata_check
+                    fibre_stage11_config.f90
+                    fibre_stage11_lagrangian_state.f90
+                    fibre_stage11_grid_metadata.f90
+                    fibre_stage11_grid_metadata_check.f90)
+
+target_link_libraries(fibre_stage11_grid_metadata_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage11_grid_metadata_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
 add_executable(fibre_structure_check
