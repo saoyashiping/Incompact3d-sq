@@ -50,6 +50,7 @@ add_executable(xcompact3d
                     fibre_stage10_config.f90
                     fibre_stage10_noop_hook.f90
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -105,6 +106,7 @@ endif (MPI_FOUND)
 
 add_executable(fibre_stage11_config_check
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     fibre_stage11_config_check.f90)
 
 target_link_libraries(fibre_stage11_config_check PRIVATE decomp2d)
@@ -115,6 +117,7 @@ endif (MPI_FOUND)
 
 add_executable(fibre_stage11_lagrangian_state_check
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     fibre_stage11_lagrangian_state.f90
                     fibre_stage11_lagrangian_state_check.f90)
 
@@ -126,6 +129,7 @@ endif (MPI_FOUND)
 
 add_executable(fibre_stage11_grid_metadata_check
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     fibre_stage11_lagrangian_state.f90
                     fibre_stage11_grid_metadata.f90
                     fibre_stage11_grid_metadata_check.f90)
@@ -138,6 +142,7 @@ endif (MPI_FOUND)
 
 add_executable(fibre_stage11_oneway_interpolation_check
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     fibre_stage11_lagrangian_state.f90
                     fibre_stage11_grid_metadata.f90
                     fibre_stage11_oneway_interpolation.f90
@@ -151,6 +156,7 @@ endif (MPI_FOUND)
 
 add_executable(fibre_stage11_controlled_interpolation_check
                     fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
                     fibre_stage11_lagrangian_state.f90
                     fibre_stage11_grid_metadata.f90
                     fibre_stage11_controlled_interpolation.f90
@@ -160,6 +166,17 @@ target_link_libraries(fibre_stage11_controlled_interpolation_check PRIVATE decom
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage11_controlled_interpolation_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage11_production_oneway_hook_check
+                    fibre_stage11_config.f90
+                    fibre_stage11_production_oneway_hook.f90
+                    fibre_stage11_production_oneway_hook_check.f90)
+
+target_link_libraries(fibre_stage11_production_oneway_hook_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage11_production_oneway_hook_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
 add_executable(fibre_structure_check
