@@ -6,7 +6,7 @@ mkdir -p stage11_outputs stage9_outputs
 ensure_build_dir(){ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then cmake -S . -B "$BUILD_DIR"; fi; }
 ensure_build_dir
 [ "$STAGE11_5_RUN_STAGE11_4" = "1" ] && sh stage11_checks/run_stage11_4_controlled_interpolation.sh
-build_status=1; standalone_check_status=1; production_smoke_status=1; hook_diagnostics_status=1; gate_status=1; reasons=""
+build_status=1; standalone_check_status=1; production_smoke_status=1; gate_status=1; reasons=""
 for tgt in xcompact3d fibre_stage10_config_check fibre_stage10_noop_hook_check fibre_stage11_config_check fibre_stage11_lagrangian_state_check fibre_stage11_grid_metadata_check fibre_stage11_oneway_interpolation_check fibre_stage11_controlled_interpolation_check fibre_stage11_production_oneway_hook_check; do
   cmake --build "$BUILD_DIR" --target "$tgt" -j || build_status=0
 done
@@ -25,17 +25,10 @@ hook_active_status=0; sample_performed_status=0; sampled_velocity_finite_status=
 if [ -f "$DAT" ]; then
  requested_flag=$(getv stage11_5_requested_flag); hook_active_status=$(getv stage11_5_hook_sample_called_status); sample_performed_status=$(getv stage11_5_sample_performed_status); sampled_velocity_finite_status=$(getv stage11_5_sampled_velocity_finite_status); field_modified_status=$(getv stage11_5_field_modified_status); rhs_modified_status=$(getv stage11_5_rhs_modified_status); no_rhs_injection_status=$(getv stage11_5_no_rhs_injection_status); no_ibm_spreading_status=$(getv stage11_5_no_ibm_spreading_status); no_feedback_force_status=$(getv stage11_5_no_feedback_force_status); no_twoway_force_status=$(getv stage11_5_no_twoway_force_status); no_structure_advance_status=$(getv stage11_5_no_structure_advance_status)
 fi
-if [ ! -f "$DAT" ]; then
-  hook_diagnostics_status=0
-  reasons="$reasons missing_production_hook_dat;"
-elif [ "$requested_flag" != "1" ] || [ "$hook_active_status" != "1" ] || [ "$sample_performed_status" != "1" ] || [ "$sampled_velocity_finite_status" != "1" ] || [ "$field_modified_status" != "0" ] || [ "$rhs_modified_status" != "0" ] || [ "$no_rhs_injection_status" != "1" ] || [ "$no_ibm_spreading_status" != "1" ] || [ "$no_feedback_force_status" != "1" ] || [ "$no_twoway_force_status" != "1" ] || [ "$no_structure_advance_status" != "1" ]; then
-  hook_diagnostics_status=0
-  reasons="$reasons hook_diagnostics_failed;"
-fi
+if [ "$requested_flag" != "1" ] || [ "$hook_active_status" != "1" ] || [ "$sample_performed_status" != "1" ] || [ "$sampled_velocity_finite_status" != "1" ] || [ "$field_modified_status" != "0" ] || [ "$rhs_modified_status" != "0" ] || [ "$no_rhs_injection_status" != "1" ] || [ "$no_ibm_spreading_status" != "1" ] || [ "$no_feedback_force_status" != "1" ] || [ "$no_twoway_force_status" != "1" ] || [ "$no_structure_advance_status" != "1" ]; then gate_status=0; fi
 [ "$build_status" -eq 1 ] || { reasons="$reasons build_failed;"; gate_status=0; }
 [ "$standalone_check_status" -eq 1 ] || { reasons="$reasons standalone_check_failed;"; gate_status=0; }
 [ "$production_smoke_status" -eq 1 ] || { reasons="$reasons production_smoke_failed;"; gate_status=0; }
-[ "$hook_diagnostics_status" -eq 1 ] || gate_status=0
 cat > stage11_outputs/stage11_5_production_oneway_hook_gate.dat <<EOD
 stage11_5_gate_requested_flag $requested_flag
 stage11_5_gate_build_status $build_status

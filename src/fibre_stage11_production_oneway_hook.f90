@@ -35,30 +35,8 @@ contains
     call update_status()
   end subroutine
   subroutine stage11_production_oneway_finalize()
-    integer :: io, ios
     call update_status()
-    if (.not. stage11_production_oneway_is_rank0()) return
-    if (requested_flag /= 1) return
-    call execute_command_line('mkdir -p stage11_outputs', exitstat=ios)
-    open(newunit=io,file='stage11_outputs/fibre_stage11_5_production_oneway_hook.dat',status='replace',action='write',iostat=ios)
-    if (ios == 0) then
-       call stage11_production_oneway_write_diagnostics(io)
-       close(io)
-    endif
   end subroutine
-
-  logical function stage11_production_oneway_is_rank0()
-    character(len=32) :: env
-    integer :: istat, rank_value
-    stage11_production_oneway_is_rank0 = .true.
-    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=env, status=istat)
-    if (istat /= 0) call get_environment_variable('PMI_RANK', value=env, status=istat)
-    if (istat /= 0) call get_environment_variable('PMIX_RANK', value=env, status=istat)
-    if (istat /= 0) return
-    read(env,*,iostat=istat) rank_value
-    if (istat == 0) stage11_production_oneway_is_rank0 = (rank_value == 0)
-  end function
-
   logical function finitev(x)
     real(mytype), intent(in) :: x
     finitev=(x==x).and.(abs(x)<huge(x))
