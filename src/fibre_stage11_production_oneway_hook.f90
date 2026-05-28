@@ -35,7 +35,20 @@ contains
     call update_status()
   end subroutine
   subroutine stage11_production_oneway_finalize()
+    integer :: diag_unit
+    integer :: ios
+
     call update_status()
+
+    if (stage11_production_oneway_rank0()) then
+       open(newunit=diag_unit, &
+            file='stage11_outputs/fibre_stage11_5_production_oneway_hook.dat', &
+            status='replace', action='write', iostat=ios)
+       if (ios == 0) then
+          call stage11_production_oneway_write_diagnostics(diag_unit)
+          close(diag_unit)
+       endif
+    endif
   end subroutine
   logical function finitev(x)
     real(mytype), intent(in) :: x
@@ -77,4 +90,49 @@ contains
   subroutine update_status()
     production_oneway_hook_status=merge(1,0,requested_flag==1.and.readonly_mode_status==1.and.hook_initialized_status==1.and.hook_sample_called_status==1.and.sample_performed_status==1.and.sample_count_status==1.and.sampled_velocity_finite_status==1.and.sampled_velocity_signature_status==1.and.field_modified_status==0.and.rhs_modified_status==0.and.no_rhs_injection_status==1.and.no_ibm_spreading_status==1.and.no_feedback_force_status==1.and.no_twoway_force_status==1.and.no_structure_advance_status==1)
   end subroutine
+
+  logical function stage11_production_oneway_rank0()
+    character(len=64) :: value
+    integer :: status
+    integer :: ios
+    integer :: rank
+
+    stage11_production_oneway_rank0 = .true.
+
+    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=status)
+    if (status == 0) then
+       read(value, *, iostat=ios) rank
+       if (ios == 0) then
+          stage11_production_oneway_rank0 = (rank == 0)
+          return
+       endif
+    endif
+
+    call get_environment_variable('PMI_RANK', value=value, status=status)
+    if (status == 0) then
+       read(value, *, iostat=ios) rank
+       if (ios == 0) then
+          stage11_production_oneway_rank0 = (rank == 0)
+          return
+       endif
+    endif
+
+    call get_environment_variable('MPI_RANK', value=value, status=status)
+    if (status == 0) then
+       read(value, *, iostat=ios) rank
+       if (ios == 0) then
+          stage11_production_oneway_rank0 = (rank == 0)
+          return
+       endif
+    endif
+
+    call get_environment_variable('SLURM_PROCID', value=value, status=status)
+    if (status == 0) then
+       read(value, *, iostat=ios) rank
+       if (ios == 0) then
+          stage11_production_oneway_rank0 = (rank == 0)
+          return
+       endif
+    endif
+  end function
 end module
