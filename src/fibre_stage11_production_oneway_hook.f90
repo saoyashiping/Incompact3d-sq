@@ -36,31 +36,7 @@ contains
   end subroutine
   subroutine stage11_production_oneway_finalize()
     call update_status()
-    call write_default_diagnostics()
   end subroutine
-
-  subroutine write_default_diagnostics()
-    integer :: unit, ios
-    if (.not. stage11_is_rank0()) return
-    open(newunit=unit, file='stage11_outputs/fibre_stage11_5_production_oneway_hook.dat', &
-         status='replace', action='write', iostat=ios)
-    if (ios /= 0) return
-    call stage11_production_oneway_write_diagnostics(unit)
-    close(unit)
-  end subroutine
-
-  logical function stage11_is_rank0()
-    integer :: rank, stat
-    character(len=32) :: value
-    stage11_is_rank0 = .true.
-    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=stat)
-    if (stat /= 0) call get_environment_variable('PMI_RANK', value=value, status=stat)
-    if (stat /= 0) call get_environment_variable('SLURM_PROCID', value=value, status=stat)
-    if (stat == 0) then
-       read(value,*,iostat=stat) rank
-       if (stat == 0) stage11_is_rank0 = (rank == 0)
-    endif
-  end function
   logical function finitev(x)
     real(mytype), intent(in) :: x
     finitev=(x==x).and.(abs(x)<huge(x))

@@ -36,14 +36,7 @@ no_restart_contamination_status=0
 no_stats_visu_contamination_status=0
 final_status=1
 requested_flag=0
-reasons=""
-add_reason(){
-    if [ -z "$reasons" ]; then
-        reasons="$1"
-    else
-        reasons="$reasons;$1"
-    fi
-}
+reasons="init"
 
 for tgt in xcompact3d fibre_stage10_config_check fibre_stage10_noop_hook_check fibre_stage11_config_check fibre_stage11_lagrangian_state_check fibre_stage11_grid_metadata_check fibre_stage11_oneway_interpolation_check fibre_stage11_controlled_interpolation_check fibre_stage11_production_oneway_hook_check; do
     cmake --build "$BUILD_DIR" --target "$tgt" -j || build_status=0
@@ -78,7 +71,7 @@ get_val(){ awk -v k="$1" '$1==k{print $2}' "$2"; }
 check_hook_diag() {
     phase=$1
     if [ ! -f "$HOOK" ]; then
-        add_reason "missing_stage11_5_hook_diagnostics_after_${phase}"
+        reasons="missing_stage11_5_hook_diagnostics_after_${phase}"
         return 1
     fi
     for k in stage11_5_requested_flag stage11_5_readonly_mode_status stage11_5_hook_initialized_status stage11_5_hook_sample_called_status stage11_5_sample_performed_status stage11_5_sample_count_status stage11_5_sampled_velocity_finite_status stage11_5_sampled_velocity_signature_status stage11_5_field_modified_status stage11_5_rhs_modified_status stage11_5_no_rhs_injection_status stage11_5_no_ibm_spreading_status stage11_5_no_feedback_force_status stage11_5_no_twoway_force_status stage11_5_no_structure_advance_status stage11_5_production_oneway_hook_status; do
@@ -88,7 +81,7 @@ check_hook_diag() {
             *) exp=1 ;;
         esac
         if [ "$v" != "$exp" ]; then
-            add_reason "${k}_${phase}_expected_${exp}_got_${v:-missing}"
+            reasons="${k}_${phase}"
             return 1
         fi
     done
@@ -153,7 +146,7 @@ fi
 if [ "$final_status" -eq 1 ]; then
   if [ "$build_status" -ne 1 ] || [ "$stage9_7_status" -ne 1 ] || [ "$stage9_8_status" -ne 1 ] || [ "$stage9_7_hook_active_status" -ne 1 ] || [ "$stage9_8_hook_active_status" -ne 1 ] || [ "$sample_performed_status" -ne 1 ] || [ "$sampled_velocity_finite_status" -ne 1 ] || [ "$no_field_modification_status" -ne 1 ] || [ "$no_rhs_modification_status" -ne 1 ] || [ "$no_rhs_injection_status" -ne 1 ] || [ "$no_ibm_spreading_status" -ne 1 ] || [ "$no_feedback_force_status" -ne 1 ] || [ "$no_twoway_force_status" -ne 1 ] || [ "$no_structure_advance_status" -ne 1 ] || [ "$no_restart_contamination_status" -ne 1 ] || [ "$no_stats_visu_contamination_status" -ne 1 ]; then
     final_status=0
-    [ -z "$reasons" ] && reasons="io_restart_or_hook_checks_failed"
+    [ "$reasons" = "init" ] && reasons="io_restart_or_hook_checks_failed"
   fi
 fi
 
@@ -182,7 +175,7 @@ if [ "$final_status" -eq 1 ]; then
   echo "STAGE 11.8 IO RESTART STATS VISU ONEWAY VERDICT: PASS"
   echo "STAGE 11.8 FINAL VERDICT: PASS"
 else
-  [ -z "$reasons" ] && reasons="unknown_failure"
+  [ "$reasons" = "init" ] && reasons="unknown_failure"
   echo "STAGE 11.8 IO RESTART STATS VISU ONEWAY VERDICT: FAIL"
   echo "STAGE 11.8 FINAL VERDICT: FAIL"
   echo "Reasons:$reasons"
