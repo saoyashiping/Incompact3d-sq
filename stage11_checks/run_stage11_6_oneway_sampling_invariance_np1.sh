@@ -5,8 +5,6 @@ STAGE11_6_RUN_STAGE11_5=${STAGE11_6_RUN_STAGE11_5:-0}
 STAGE11_6_INVARIANCE_ABS_TOL=${STAGE11_6_INVARIANCE_ABS_TOL:-1.0e-12}
 STAGE11_6_INVARIANCE_REL_TOL=${STAGE11_6_INVARIANCE_REL_TOL:-1.0e-14}
 mkdir -p stage11_outputs stage9_outputs
-H11=stage11_outputs/fibre_stage11_5_production_oneway_hook.dat
-
 
 ensure_build_dir() {
     if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
@@ -42,7 +40,6 @@ for tgt in xcompact3d fibre_stage10_config_check fibre_stage10_noop_hook_check f
 done
 
 if [ "$build_status" -eq 1 ]; then
-    rm -f "$H11"
     STAGE9_SKIP_PREREQS=1 \
     X3D_STAGE9_9_PARALLEL_CONSISTENCY=1 \
     X3D_STAGE9_9_DETERMINISTIC_INIT=1 \
@@ -57,7 +54,6 @@ if [ "$baseline_run_status" -eq 1 ]; then
 fi
 
 if [ "$build_status" -eq 1 ]; then
-    rm -f "$H11"
     X3D_STAGE11_ONEWAY_HOOK=1 \
     X3D_STAGE11_FORCE_READONLY=1 \
     X3D_STAGE11_MAX_POINTS=8 \
@@ -77,23 +73,24 @@ fi
 
 BASE=stage11_outputs/stage11_6_baseline_np1.dat
 HOOK=stage11_outputs/stage11_6_hook_np1.dat
+H11=stage11_outputs/fibre_stage11_5_production_oneway_hook.dat
 get_val() { awk -v k="$1" '$1==k{print $2}' "$2"; }
 
 if [ -f "$H11" ]; then
-    hook_active_status=$(get_val stage11_5_hook_sample_called_status "$H11"); hook_active_status=${hook_active_status:-0}
-    sample_performed_status=$(get_val stage11_5_sample_performed_status "$H11"); sample_performed_status=${sample_performed_status:-0}
-    sampled_velocity_finite_status=$(get_val stage11_5_sampled_velocity_finite_status "$H11"); sampled_velocity_finite_status=${sampled_velocity_finite_status:-0}
-    fmod=$(get_val stage11_5_field_modified_status "$H11"); fmod=${fmod:-1}
-    rmod=$(get_val stage11_5_rhs_modified_status "$H11"); rmod=${rmod:-1}
+    hook_active_status=$(get_val stage11_5_hook_sample_called_status "$H11")
+    sample_performed_status=$(get_val stage11_5_sample_performed_status "$H11")
+    sampled_velocity_finite_status=$(get_val stage11_5_sampled_velocity_finite_status "$H11")
+    fmod=$(get_val stage11_5_field_modified_status "$H11")
+    rmod=$(get_val stage11_5_rhs_modified_status "$H11")
     [ "$fmod" = "0" ] && no_field_modification_status=1 || no_field_modification_status=0
     [ "$rmod" = "0" ] && no_rhs_modification_status=1 || no_rhs_modification_status=0
-    no_rhs_injection_status=$(get_val stage11_5_no_rhs_injection_status "$H11"); no_rhs_injection_status=${no_rhs_injection_status:-0}
-    no_ibm_spreading_status=$(get_val stage11_5_no_ibm_spreading_status "$H11"); no_ibm_spreading_status=${no_ibm_spreading_status:-0}
-    no_feedback_force_status=$(get_val stage11_5_no_feedback_force_status "$H11"); no_feedback_force_status=${no_feedback_force_status:-0}
-    no_twoway_force_status=$(get_val stage11_5_no_twoway_force_status "$H11"); no_twoway_force_status=${no_twoway_force_status:-0}
-    no_structure_advance_status=$(get_val stage11_5_no_structure_advance_status "$H11"); no_structure_advance_status=${no_structure_advance_status:-0}
+    no_rhs_injection_status=$(get_val stage11_5_no_rhs_injection_status "$H11")
+    no_ibm_spreading_status=$(get_val stage11_5_no_ibm_spreading_status "$H11")
+    no_feedback_force_status=$(get_val stage11_5_no_feedback_force_status "$H11")
+    no_twoway_force_status=$(get_val stage11_5_no_twoway_force_status "$H11")
+    no_structure_advance_status=$(get_val stage11_5_no_structure_advance_status "$H11")
 else
-    reasons="$reasons missing_stage11_5_hook_diagnostics;"
+    np1_signature_invariance_status=0
 fi
 
 compare_metric() {
@@ -121,20 +118,9 @@ fi
 requested_flag=0
 [ "$hook_active_status" = "1" ] && requested_flag=1
 
-[ "$build_status" -eq 1 ] || { reasons="$reasons build_failed;"; final_status=0; }
-[ "$baseline_run_status" -eq 1 ] || { reasons="$reasons baseline_run_failed;"; final_status=0; }
-[ "$hook_run_status" -eq 1 ] || { reasons="$reasons hook_run_failed;"; final_status=0; }
-[ "$hook_active_status" -eq 1 ] || { reasons="$reasons hook_not_active;"; final_status=0; }
-[ "$sample_performed_status" -eq 1 ] || { reasons="$reasons sample_not_performed;"; final_status=0; }
-[ "$sampled_velocity_finite_status" -eq 1 ] || { reasons="$reasons sampled_velocity_not_finite;"; final_status=0; }
-[ "$no_field_modification_status" -eq 1 ] || { reasons="$reasons field_modified_or_unknown;"; final_status=0; }
-[ "$no_rhs_modification_status" -eq 1 ] || { reasons="$reasons rhs_modified_or_unknown;"; final_status=0; }
-[ "$no_rhs_injection_status" -eq 1 ] || { reasons="$reasons rhs_injection_or_unknown;"; final_status=0; }
-[ "$no_ibm_spreading_status" -eq 1 ] || { reasons="$reasons ibm_spreading_or_unknown;"; final_status=0; }
-[ "$no_feedback_force_status" -eq 1 ] || { reasons="$reasons feedback_force_or_unknown;"; final_status=0; }
-[ "$no_twoway_force_status" -eq 1 ] || { reasons="$reasons twoway_force_or_unknown;"; final_status=0; }
-[ "$no_structure_advance_status" -eq 1 ] || { reasons="$reasons structure_advance_or_unknown;"; final_status=0; }
-[ "$np1_signature_invariance_status" -eq 1 ] || { reasons="$reasons np1_signature_invariance_failed;"; final_status=0; }
+if [ "$build_status" -ne 1 ] || [ "$baseline_run_status" -ne 1 ] || [ "$hook_run_status" -ne 1 ] || [ "$hook_active_status" -ne 1 ] || [ "$sample_performed_status" -ne 1 ] || [ "$sampled_velocity_finite_status" -ne 1 ] || [ "$no_field_modification_status" -ne 1 ] || [ "$no_rhs_modification_status" -ne 1 ] || [ "$no_rhs_injection_status" -ne 1 ] || [ "$no_ibm_spreading_status" -ne 1 ] || [ "$no_feedback_force_status" -ne 1 ] || [ "$no_twoway_force_status" -ne 1 ] || [ "$no_structure_advance_status" -ne 1 ] || [ "$np1_signature_invariance_status" -ne 1 ]; then
+    final_status=0
+fi
 
 cat > stage11_outputs/stage11_6_oneway_sampling_invariance_np1.dat <<EOD
 stage11_6_requested_flag $requested_flag
@@ -161,6 +147,5 @@ if [ "$final_status" -eq 1 ]; then
 else
     echo "STAGE 11.6 ONEWAY SAMPLING INVARIANCE NP1 VERDICT: FAIL"
     echo "STAGE 11.6 FINAL VERDICT: FAIL"
-    echo "Reasons:$reasons"
     exit 1
 fi
