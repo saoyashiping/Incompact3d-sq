@@ -31,6 +31,9 @@ program xcompact3d
   use fibre_stage10_noop_hook, only : stage10_hook_init, stage10_hook_pre_step, stage10_hook_pre_rhs, stage10_hook_post_projection, stage10_hook_post_step, stage10_hook_finalize
   use fibre_stage11_config, only : stage11_config_load, stage11_requested, stage11_readonly_mode
   use fibre_stage11_production_oneway_hook, only : stage11_production_oneway_init, stage11_production_oneway_sample, stage11_production_oneway_finalize
+  use fibre_stage12_config, only : stage12_config_load, stage12_requested, stage12_readonly_mode
+  use fibre_stage12_production_feedback_candidate, only : stage12_production_feedback_candidate_init, &
+       stage12_production_feedback_candidate_sample, stage12_production_feedback_candidate_finalize
 
   implicit none
 
@@ -39,7 +42,8 @@ program xcompact3d
   integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
   real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit, stage9_8_sig_tol
   real(8) :: stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol
-  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists, stage10_reg, stage11_oneway_reg
+  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists
+  logical :: stage10_reg, stage11_oneway_reg, stage12_feedback_reg
   integer :: stage9_8_checkpoint_size
 
   call init_xcompact3d()
@@ -82,9 +86,13 @@ program xcompact3d
   call stage11_config_load()
   stage11_oneway_reg = stage11_requested() .and. stage11_readonly_mode()
   if (stage11_oneway_reg) call stage11_production_oneway_init()
+  call stage12_config_load()
+  stage12_feedback_reg = stage12_requested() .and. stage12_readonly_mode()
+  if (stage12_feedback_reg) call stage12_production_feedback_candidate_init()
 
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
+     if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
      call finalise_xcompact3d()
      stop
   endif
@@ -183,6 +191,7 @@ program xcompact3d
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
      if (stage11_oneway_reg) call stage11_production_oneway_sample(ux1,uy1,uz1)
+     if (stage12_feedback_reg) call stage12_production_feedback_candidate_sample(ux1,uy1,uz1)
 
      if (stage10_reg) call stage10_hook_post_step()
 
@@ -205,7 +214,7 @@ program xcompact3d
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
           if (stage10_reg) call stage10_hook_finalize()
-          if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+          if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
           call finalise_xcompact3d()
           stop
        endif
@@ -219,8 +228,8 @@ program xcompact3d
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
-           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
-           call finalise_xcompact3d()
+           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+          call finalise_xcompact3d()
            stop
         endif
      endif
@@ -234,8 +243,8 @@ program xcompact3d
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
-           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
-           call finalise_xcompact3d()
+           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+          call finalise_xcompact3d()
            stop
         endif
      endif
@@ -279,6 +288,7 @@ program xcompact3d
 
   if (stage10_reg) call stage10_hook_finalize()
   if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+  if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
   call finalise_xcompact3d()
 
 end program xcompact3d
