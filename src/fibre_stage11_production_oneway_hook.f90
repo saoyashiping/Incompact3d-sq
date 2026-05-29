@@ -35,56 +35,7 @@ contains
     call update_status()
   end subroutine
   subroutine stage11_production_oneway_finalize()
-    integer :: diag_unit, ios
     call update_status()
-    if (.not. stage11_is_rank0_env()) return
-    open(newunit=diag_unit, file='stage11_outputs/fibre_stage11_5_production_oneway_hook.dat', &
-         status='replace', action='write', iostat=ios)
-    if (ios == 0) then
-      call stage11_production_oneway_write_diagnostics(diag_unit)
-      close(diag_unit)
-    end if
-  end subroutine
-
-  logical function stage11_is_rank0_env()
-    character(len=64) :: value
-    integer :: status, ios, rank_value
-
-    stage11_is_rank0_env = .true.
-    call read_rank_env('OMPI_COMM_WORLD_RANK', value, status, ios, rank_value)
-    if (status == 0 .and. ios == 0) then
-      stage11_is_rank0_env = (rank_value == 0)
-      return
-    end if
-    call read_rank_env('PMI_RANK', value, status, ios, rank_value)
-    if (status == 0 .and. ios == 0) then
-      stage11_is_rank0_env = (rank_value == 0)
-      return
-    end if
-    call read_rank_env('MPI_RANK', value, status, ios, rank_value)
-    if (status == 0 .and. ios == 0) then
-      stage11_is_rank0_env = (rank_value == 0)
-      return
-    end if
-    call read_rank_env('SLURM_PROCID', value, status, ios, rank_value)
-    if (status == 0 .and. ios == 0) then
-      stage11_is_rank0_env = (rank_value == 0)
-      return
-    end if
-  end function
-
-  subroutine read_rank_env(name, value, status, ios, rank_value)
-    character(len=*), intent(in) :: name
-    character(len=*), intent(out) :: value
-    integer, intent(out) :: status, ios, rank_value
-
-    value = ''
-    rank_value = 0
-    ios = 1
-    call get_environment_variable(name, value=value, status=status)
-    if (status == 0) then
-      read(value, *, iostat=ios) rank_value
-    end if
   end subroutine
   logical function finitev(x)
     real(mytype), intent(in) :: x

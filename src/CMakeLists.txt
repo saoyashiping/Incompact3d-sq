@@ -179,6 +179,16 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage11_production_oneway_hook_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage12_config_check
+                    fibre_stage12_config.f90
+                    fibre_stage12_config_check.f90)
+
+target_link_libraries(fibre_stage12_config_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage12_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_structure_check
                     fibre_types.f90
                     fibre_parameters.f90
