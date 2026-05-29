@@ -200,6 +200,17 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage12_force_buffer_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage12_prescribed_velocity_check
+                    fibre_stage12_config.f90
+                    fibre_stage12_prescribed_velocity.f90
+                    fibre_stage12_prescribed_velocity_check.f90)
+
+target_link_libraries(fibre_stage12_prescribed_velocity_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage12_prescribed_velocity_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_structure_check
                     fibre_types.f90
                     fibre_parameters.f90
