@@ -224,6 +224,17 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage12_feedback_formula_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage12_sign_convention_audit_check
+                    fibre_stage12_config.f90
+                    fibre_stage12_sign_convention_audit.f90
+                    fibre_stage12_sign_convention_audit_check.f90)
+
+target_link_libraries(fibre_stage12_sign_convention_audit_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage12_sign_convention_audit_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_structure_check
                     fibre_types.f90
                     fibre_parameters.f90
