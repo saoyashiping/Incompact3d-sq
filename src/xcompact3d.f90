@@ -214,6 +214,7 @@ program xcompact3d
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
           if (stage10_reg) call stage10_hook_finalize()
+          if (stage11_oneway_reg) call stage11_production_oneway_finalize()
           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
           call finalise_xcompact3d()
           stop
@@ -228,6 +229,7 @@ program xcompact3d
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
+           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
           call finalise_xcompact3d()
            stop
@@ -243,6 +245,7 @@ program xcompact3d
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
+           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
           call finalise_xcompact3d()
            stop
