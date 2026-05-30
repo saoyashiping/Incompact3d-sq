@@ -142,6 +142,20 @@ contains
     real(mytype) :: max_input_force
 
     call reset_diagnostics()
+    ! Stage 13.3 executes multiple independent controlled spreading tests
+    ! through the same module instance.  Reset all per-spreading-call
+    ! result statuses here so that a successful zero-force test cannot be
+    ! inherited by later non-zero-force tests, and vice versa.
+    zero_force_spreading_status = 0
+    single_point_spreading_status = 0
+    compact_support_status = 1
+    weight_normalization_status = 1
+    nonnegative_weight_status = 1
+    component_spreading_status = 1
+    boundary_safe_status = 1
+    integrated_force_conservation_status = 1
+    finite_force_density_status = 1
+    force_density_norm_finite_status = 1
     nlag = size(x_lag)
     max_support_count = 0
     valid_point_count = 0
