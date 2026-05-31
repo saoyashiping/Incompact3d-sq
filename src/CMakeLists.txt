@@ -351,6 +351,17 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage14_config_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage14_rhs_accumulator_check
+                    fibre_stage14_config.f90
+                    fibre_stage14_rhs_accumulator.f90
+                    fibre_stage14_rhs_accumulator_check.f90)
+
+target_link_libraries(fibre_stage14_rhs_accumulator_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage14_rhs_accumulator_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_structure_check
                     fibre_types.f90
                     fibre_parameters.f90
