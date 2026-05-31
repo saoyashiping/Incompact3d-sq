@@ -374,6 +374,19 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage14_rhs_addition_formula_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage14_rhs_sign_scaling_audit_check
+                    fibre_stage14_config.f90
+                    fibre_stage14_rhs_accumulator.f90
+                    fibre_stage14_rhs_addition_formula.f90
+                    fibre_stage14_rhs_sign_scaling_audit.f90
+                    fibre_stage14_rhs_sign_scaling_audit_check.f90)
+
+target_link_libraries(fibre_stage14_rhs_sign_scaling_audit_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage14_rhs_sign_scaling_audit_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_structure_check
                     fibre_types.f90
                     fibre_parameters.f90
