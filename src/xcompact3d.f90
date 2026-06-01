@@ -40,6 +40,12 @@ program xcompact3d
        stage13_production_force_density_candidate_init, &
        stage13_production_force_density_candidate_sample, &
        stage13_production_force_density_candidate_finalize
+  use fibre_stage14_config, only : stage14_config_load, stage14_requested, &
+       stage14_rhs_injection_enabled, stage14_require_stage13, stage14_get_injection_gain
+  use fibre_stage14_production_rhs_injection, only : &
+       stage14_production_rhs_injection_init, &
+       stage14_production_rhs_injection_apply, &
+       stage14_production_rhs_injection_finalize
 
   implicit none
 
@@ -50,6 +56,7 @@ program xcompact3d
   real(8) :: stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol
   logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists
   logical :: stage10_reg, stage11_oneway_reg, stage12_feedback_reg, stage13_force_density_reg
+  logical :: stage14_rhs_reg
   integer :: stage9_8_checkpoint_size
 
   call init_xcompact3d()
@@ -99,11 +106,17 @@ program xcompact3d
   stage13_force_density_reg = stage13_requested() .and. stage13_readonly_mode() .and. &
        stage13_spreading_readonly_mode()
   if (stage13_force_density_reg) call stage13_production_force_density_candidate_init()
+  call stage14_config_load()
+  stage14_rhs_reg = stage14_requested() .and. stage14_rhs_injection_enabled() .and. &
+       stage14_require_stage13() .and. stage13_force_density_reg .and. &
+       stage14_get_injection_gain() == 0.0
+  if (stage14_rhs_reg) call stage14_production_rhs_injection_init()
 
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
      if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
      if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+     if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
      call finalise_xcompact3d()
      stop
   endif
@@ -143,6 +156,8 @@ program xcompact3d
         endif
         call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
         call stage9_6_record_rhs_finite_status(drho1,dux1,duy1,duz1)
+        if (stage14_rhs_reg) call stage14_production_rhs_injection_apply( &
+             dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1))
 
 #ifdef DEBG
         call check_transients()
@@ -229,6 +244,7 @@ program xcompact3d
           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
            if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
            call finalise_xcompact3d()
           stop
        endif
@@ -245,6 +261,7 @@ program xcompact3d
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
            if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
            call finalise_xcompact3d()
            stop
         endif
@@ -262,6 +279,7 @@ program xcompact3d
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
            if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
            call finalise_xcompact3d()
            stop
         endif
@@ -308,6 +326,7 @@ program xcompact3d
   if (stage11_oneway_reg) call stage11_production_oneway_finalize()
   if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
   if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+  if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
   call finalise_xcompact3d()
 
 end program xcompact3d

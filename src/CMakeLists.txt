@@ -58,6 +58,8 @@ add_executable(xcompact3d
                     fibre_stage13_volume_normalization_audit.f90
                     fibre_stage13_conservation_sign_audit.f90
                     fibre_stage13_production_force_density_candidate.f90
+                    fibre_stage14_config.f90
+                    fibre_stage14_production_rhs_injection.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -397,6 +399,17 @@ target_link_libraries(fibre_stage14_rk_timing_audit_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage14_rk_timing_audit_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage14_production_rhs_injection_check
+                    fibre_stage14_config.f90
+                    fibre_stage14_production_rhs_injection.f90
+                    fibre_stage14_production_rhs_injection_check.f90)
+
+target_link_libraries(fibre_stage14_production_rhs_injection_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage14_production_rhs_injection_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
 add_executable(fibre_structure_check
