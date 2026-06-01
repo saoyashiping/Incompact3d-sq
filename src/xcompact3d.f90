@@ -29,6 +29,23 @@ program xcompact3d
   use fibre_stage9_9_parallel_consistency, only : stage9_9_requested, stage9_9_get_max_steps, stage9_9_get_tolerances, stage9_9_begin, stage9_9_apply_deterministic_initial_condition, stage9_9_record_initial_signature, stage9_9_record_field_signature, stage9_9_record_divergence_status, stage9_9_record_massflux_status, stage9_9_record_cfl_status, stage9_9_after_completed_step, stage9_9_should_stop, stage9_9_finalise_mark, stage9_9_final_audit
   use fibre_stage10_config, only : stage10_config_load, stage10_requested, stage10_noop_mode
   use fibre_stage10_noop_hook, only : stage10_hook_init, stage10_hook_pre_step, stage10_hook_pre_rhs, stage10_hook_post_projection, stage10_hook_post_step, stage10_hook_finalize
+  use fibre_stage11_config, only : stage11_config_load, stage11_requested, stage11_readonly_mode
+  use fibre_stage11_production_oneway_hook, only : stage11_production_oneway_init, stage11_production_oneway_sample, stage11_production_oneway_finalize
+  use fibre_stage12_config, only : stage12_config_load, stage12_requested, stage12_readonly_mode
+  use fibre_stage12_production_feedback_candidate, only : stage12_production_feedback_candidate_init, &
+       stage12_production_feedback_candidate_sample, stage12_production_feedback_candidate_finalize
+  use fibre_stage13_config, only : stage13_config_load, stage13_requested, stage13_readonly_mode, &
+       stage13_spreading_readonly_mode
+  use fibre_stage13_production_force_density_candidate, only : &
+       stage13_production_force_density_candidate_init, &
+       stage13_production_force_density_candidate_sample, &
+       stage13_production_force_density_candidate_finalize
+  use fibre_stage14_config, only : stage14_config_load, stage14_requested, &
+       stage14_rhs_injection_enabled, stage14_require_stage13, stage14_get_injection_gain
+  use fibre_stage14_production_rhs_injection, only : &
+       stage14_production_rhs_injection_init, &
+       stage14_production_rhs_injection_apply, &
+       stage14_production_rhs_injection_finalize
 
   implicit none
 
@@ -37,7 +54,9 @@ program xcompact3d
   integer :: stage9_7_require_stats, stage9_7_require_visu, stage9_7_require_coarse
   real(8) :: stage9_5_div_max_tol, stage9_5_div_mean_tol, stage9_6_mass_flux_tol, stage9_6_cfl_max_limit, stage9_8_sig_tol
   real(8) :: stage9_9_sig_tol, stage9_9_div_tol, stage9_9_massflux_tol
-  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists, stage10_reg
+  logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists
+  logical :: stage10_reg, stage11_oneway_reg, stage12_feedback_reg, stage13_force_density_reg
+  logical :: stage14_rhs_reg
   integer :: stage9_8_checkpoint_size
 
   call init_xcompact3d()
@@ -77,9 +96,27 @@ program xcompact3d
   call stage10_config_load()
   stage10_reg = stage10_requested() .and. stage10_noop_mode()
   if (stage10_reg) call stage10_hook_init()
+  call stage11_config_load()
+  stage11_oneway_reg = stage11_requested() .and. stage11_readonly_mode()
+  if (stage11_oneway_reg) call stage11_production_oneway_init()
+  call stage12_config_load()
+  stage12_feedback_reg = stage12_requested() .and. stage12_readonly_mode()
+  if (stage12_feedback_reg) call stage12_production_feedback_candidate_init()
+  call stage13_config_load()
+  stage13_force_density_reg = stage13_requested() .and. stage13_readonly_mode() .and. &
+       stage13_spreading_readonly_mode()
+  if (stage13_force_density_reg) call stage13_production_force_density_candidate_init()
+  call stage14_config_load()
+  stage14_rhs_reg = stage14_requested() .and. stage14_rhs_injection_enabled() .and. &
+       stage14_require_stage13() .and. stage13_force_density_reg .and. &
+       stage14_get_injection_gain() == 0.0
+  if (stage14_rhs_reg) call stage14_production_rhs_injection_init()
 
   if (stage9_3_dryrun) then
      call stage9_3_channel_init_dryrun_audit()
+     if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+     if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+     if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
      call finalise_xcompact3d()
      stop
   endif
@@ -119,6 +156,8 @@ program xcompact3d
         endif
         call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
         call stage9_6_record_rhs_finite_status(drho1,dux1,duy1,duz1)
+        if (stage14_rhs_reg) call stage14_production_rhs_injection_apply( &
+             dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1))
 
 #ifdef DEBG
         call check_transients()
@@ -177,6 +216,10 @@ program xcompact3d
 
      call postprocessing(rho1,ux1,uy1,uz1,pp3,phi1,ep1)
 
+     if (stage11_oneway_reg) call stage11_production_oneway_sample(ux1,uy1,uz1)
+     if (stage12_feedback_reg) call stage12_production_feedback_candidate_sample(ux1,uy1,uz1)
+     if (stage13_force_density_reg) call stage13_production_force_density_candidate_sample(ux1,uy1,uz1)
+
      if (stage10_reg) call stage10_hook_post_step()
 
      call stage9_4_after_completed_step()
@@ -198,7 +241,11 @@ program xcompact3d
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
           if (stage10_reg) call stage10_hook_finalize()
-          call finalise_xcompact3d()
+          if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+          if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+           if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
+           call finalise_xcompact3d()
           stop
        endif
      endif
@@ -211,7 +258,11 @@ program xcompact3d
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
-          call finalise_xcompact3d()
+           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+           if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
+           call finalise_xcompact3d()
            stop
         endif
      endif
@@ -225,7 +276,11 @@ program xcompact3d
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
            if (stage10_reg) call stage10_hook_finalize()
-          call finalise_xcompact3d()
+           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+           if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+           if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
+           call finalise_xcompact3d()
            stop
         endif
      endif
@@ -268,6 +323,10 @@ program xcompact3d
   endif
 
   if (stage10_reg) call stage10_hook_finalize()
+  if (stage11_oneway_reg) call stage11_production_oneway_finalize()
+  if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
+  if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
+  if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
   call finalise_xcompact3d()
 
 end program xcompact3d
