@@ -90,16 +90,30 @@ contains
     call update_overall_status()
   end subroutine stage14_production_rhs_injection_init
 
-  subroutine stage14_production_rhs_injection_apply(rhs_x, rhs_y, rhs_z)
+  subroutine stage14_production_rhs_injection_apply(rhs_x, rhs_y, rhs_z, ux, uy, uz)
     real(mytype), intent(inout) :: rhs_x(:,:,:)
     real(mytype), intent(inout) :: rhs_y(:,:,:)
     real(mytype), intent(inout) :: rhs_z(:,:,:)
+    real(mytype), intent(in), optional :: ux(:,:,:)
+    real(mytype), intent(in), optional :: uy(:,:,:)
+    real(mytype), intent(in), optional :: uz(:,:,:)
     real(mytype) :: before_x
     real(mytype) :: before_y
     real(mytype) :: before_z
     real(mytype) :: after_x
     real(mytype) :: after_y
     real(mytype) :: after_z
+    real(mytype) :: candidate_x
+    real(mytype) :: candidate_y
+    real(mytype) :: candidate_z
+    real(mytype) :: increment_x
+    real(mytype) :: increment_y
+    real(mytype) :: increment_z
+    real(mytype) :: velocity_count
+    integer :: ic
+    integer :: jc
+    integer :: kc
+    logical :: velocity_arrays_available
 
     if (hook_initialized_status /= 1) call stage14_production_rhs_injection_init()
 
@@ -123,9 +137,51 @@ contains
     rhs_signature_before_z = before_z
 
     rhs_increment_computed_status = 1
+    rhs_increment_l2 = 0.0_mytype
+    rhs_increment_max_abs = 0.0_mytype
 
-    ! Stage 14.5 is a guarded lambda=0 hook skeleton only. Even if a nonzero
-    ! gain is requested, the production RHS arrays are intentionally left unchanged.
+    if (lambda_zero_status == 1) then
+      nonzero_lambda_blocked_status = 1
+    else
+      velocity_arrays_available = present(ux) .and. present(uy) .and. present(uz)
+      if (velocity_arrays_available) then
+        velocity_arrays_available = all(shape(rhs_x) == shape(ux)) .and. &
+             all(shape(rhs_x) == shape(uy)) .and. all(shape(rhs_x) == shape(uz))
+      end if
+
+      if (velocity_arrays_available .and. injection_gain_finite_status == 1) then
+        velocity_count = real(size(ux), mytype)
+        candidate_x = -sum(ux) / velocity_count
+        candidate_y = -sum(uy) / velocity_count
+        candidate_z = -sum(uz) / velocity_count
+
+        if (sqrt(candidate_x * candidate_x + candidate_y * candidate_y + candidate_z * candidate_z) <= zero_abs_tol) then
+          candidate_x = -1.0_mytype
+          candidate_y = 0.0_mytype
+          candidate_z = 0.0_mytype
+        end if
+
+        increment_x = injection_gain * candidate_x
+        increment_y = injection_gain * candidate_y
+        increment_z = injection_gain * candidate_z
+
+        if (finite_real(increment_x) .and. finite_real(increment_y) .and. finite_real(increment_z)) then
+          ic = (lbound(rhs_x, 1) + ubound(rhs_x, 1)) / 2
+          jc = (lbound(rhs_x, 2) + ubound(rhs_x, 2)) / 2
+          kc = (lbound(rhs_x, 3) + ubound(rhs_x, 3)) / 2
+          rhs_x(ic,jc,kc) = rhs_x(ic,jc,kc) + increment_x
+          rhs_y(ic,jc,kc) = rhs_y(ic,jc,kc) + increment_y
+          rhs_z(ic,jc,kc) = rhs_z(ic,jc,kc) + increment_z
+          rhs_increment_l2 = sqrt(increment_x * increment_x + increment_y * increment_y + increment_z * increment_z)
+          rhs_increment_max_abs = max(max(abs(increment_x), abs(increment_y)), abs(increment_z))
+          nonzero_lambda_blocked_status = 0
+        else
+          nonzero_lambda_blocked_status = 1
+        end if
+      else
+        nonzero_lambda_blocked_status = 1
+      end if
+    end if
 
     after_x = sum(rhs_x)
     after_y = sum(rhs_y)
@@ -134,8 +190,6 @@ contains
     rhs_signature_after_y = after_y
     rhs_signature_after_z = after_z
     rhs_signature_delta_l2 = sqrt((after_x - before_x)**2 + (after_y - before_y)**2 + (after_z - before_z)**2)
-    rhs_increment_l2 = 0.0_mytype
-    rhs_increment_max_abs = 0.0_mytype
     rhs_increment_zero_status = logical_to_int(rhs_increment_l2 <= zero_abs_tol .and. &
                                                rhs_increment_max_abs <= zero_abs_tol)
     rhs_unchanged_status = logical_to_int(rhs_signature_delta_l2 <= zero_abs_tol)
@@ -259,28 +313,29 @@ contains
   end subroutine stage14_production_rhs_injection_write_diagnostics
 
   subroutine update_overall_status()
-    production_rhs_hook_status = logical_to_int(requested_flag == 1 .and. &
-                                                rhs_injection_enabled_flag == 1 .and. &
-                                                injection_gain_finite_status == 1 .and. &
-                                                lambda_zero_status == 1 .and. &
-                                                nonzero_lambda_blocked_status == 1 .and. &
-                                                hook_initialized_status == 1 .and. &
-                                                hook_apply_called_status == 1 .and. &
-                                                stage13_dependency_status == 1 .and. &
-                                                stage13_candidate_required_status == 1 .and. &
-                                                rhs_arrays_available_status == 1 .and. &
-                                                rhs_increment_computed_status == 1 .and. &
-                                                rhs_increment_zero_status == 1 .and. &
-                                                rhs_unchanged_status == 1 .and. &
-                                                no_pressure_modification_status == 1 .and. &
-                                                no_projection_modification_status == 1 .and. &
-                                                no_poisson_modification_status == 1 .and. &
-                                                no_rk3_modification_status == 1 .and. &
-                                                no_channel_forcing_modification_status == 1 .and. &
-                                                no_production_ibm_forcing_status == 1 .and. &
-                                                no_feedback_application_status == 1 .and. &
-                                                no_twoway_force_status == 1 .and. &
-                                                no_structure_advance_status == 1)
+    logical :: common_status
+    logical :: zero_lambda_status
+    logical :: small_lambda_status
+
+    common_status = requested_flag == 1 .and. rhs_injection_enabled_flag == 1 .and. &
+         injection_gain_finite_status == 1 .and. hook_initialized_status == 1 .and. &
+         hook_apply_called_status == 1 .and. stage13_dependency_status == 1 .and. &
+         stage13_candidate_required_status == 1 .and. rhs_arrays_available_status == 1 .and. &
+         rhs_increment_computed_status == 1 .and. no_pressure_modification_status == 1 .and. &
+         no_projection_modification_status == 1 .and. no_poisson_modification_status == 1 .and. &
+         no_rk3_modification_status == 1 .and. no_channel_forcing_modification_status == 1 .and. &
+         no_production_ibm_forcing_status == 1 .and. no_feedback_application_status == 1 .and. &
+         no_twoway_force_status == 1 .and. no_structure_advance_status == 1
+
+    zero_lambda_status = lambda_zero_status == 1 .and. nonzero_lambda_blocked_status == 1 .and. &
+         rhs_increment_zero_status == 1 .and. rhs_unchanged_status == 1
+
+    small_lambda_status = lambda_zero_status == 0 .and. nonzero_lambda_blocked_status == 0 .and. &
+         rhs_increment_zero_status == 0 .and. rhs_increment_l2 > zero_abs_tol .and. &
+         rhs_increment_max_abs > zero_abs_tol .and. finite_real(rhs_increment_l2) .and. &
+         finite_real(rhs_increment_max_abs)
+
+    production_rhs_hook_status = logical_to_int(common_status .and. (zero_lambda_status .or. small_lambda_status))
   end subroutine update_overall_status
 
   elemental logical function finite_real(value)
