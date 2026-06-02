@@ -142,9 +142,14 @@ contains
       return
     end if
 
-    i0 = (lbound(ux, 1) + ubound(ux, 1)) / 2
-    j0 = (lbound(ux, 2) + ubound(ux, 2)) / 2
-    k0 = (lbound(ux, 3) + ubound(ux, 3)) / 2
+    ! Use a fixed low-index diagnostic control point on rank 0 rather than the
+    ! local subdomain centre.  The local-centre choice changes physical location
+    ! when the MPI decomposition changes and regresses Stage 14.8 np=1/2/4
+    ! force-density consistency.  The +2 offset avoids boundary/end-point values
+    ! while remaining valid on very small local arrays.
+    i0 = min(lbound(ux, 1) + 2, ubound(ux, 1))
+    j0 = min(lbound(ux, 2) + 2, ubound(ux, 2))
+    k0 = min(lbound(ux, 3) + 2, ubound(ux, 3))
     sample_velocity(1) = ux(i0, j0, k0)
     sample_velocity(2) = uy(i0, j0, k0)
     sample_velocity(3) = uz(i0, j0, k0)
