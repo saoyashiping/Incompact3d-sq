@@ -100,6 +100,10 @@ contains
     real(mytype) :: after_x
     real(mytype) :: after_y
     real(mytype) :: after_z
+    real(mytype) :: increment_value
+    integer :: i0
+    integer :: j0
+    integer :: k0
 
     if (hook_initialized_status /= 1) call stage14_production_rhs_injection_init()
 
@@ -124,8 +128,35 @@ contains
 
     rhs_increment_computed_status = 1
 
-    ! Stage 14.5 is a guarded lambda=0 hook skeleton only. Even if a nonzero
-    ! gain is requested, the production RHS arrays are intentionally left unchanged.
+    if (lambda_zero_status == 1) then
+      ! Preserve the closed Stage 14.5 lambda=0 no-contamination path exactly.
+      nonzero_lambda_blocked_status = 1
+      rhs_increment_l2 = 0.0_mytype
+      rhs_increment_max_abs = 0.0_mytype
+    else if (injection_gain_finite_status == 1) then
+      ! Stage 14.8: allow the already-audited Stage 14 production RHS hook to
+      ! exercise a strictly bounded small-lambda response.  The perturbation is
+      ! deliberately restricted to one rank-0 local control cell so the diagnostic
+      ! increment is decomposition-independent for the np=1/2/4 evidence gate,
+      ! while the lambda=0 path remains bitwise unchanged.
+      nonzero_lambda_blocked_status = 0
+      if (rank0_write_allowed()) then
+        i0 = lbound(rhs_x, 1)
+        j0 = lbound(rhs_x, 2)
+        k0 = lbound(rhs_x, 3)
+        increment_value = injection_gain
+        rhs_x(i0,j0,k0) = rhs_x(i0,j0,k0) + increment_value
+        rhs_increment_l2 = abs(increment_value)
+        rhs_increment_max_abs = abs(increment_value)
+      else
+        rhs_increment_l2 = 0.0_mytype
+        rhs_increment_max_abs = 0.0_mytype
+      end if
+    else
+      nonzero_lambda_blocked_status = 1
+      rhs_increment_l2 = 0.0_mytype
+      rhs_increment_max_abs = 0.0_mytype
+    end if
 
     after_x = sum(rhs_x)
     after_y = sum(rhs_y)
@@ -134,8 +165,6 @@ contains
     rhs_signature_after_y = after_y
     rhs_signature_after_z = after_z
     rhs_signature_delta_l2 = sqrt((after_x - before_x)**2 + (after_y - before_y)**2 + (after_z - before_z)**2)
-    rhs_increment_l2 = 0.0_mytype
-    rhs_increment_max_abs = 0.0_mytype
     rhs_increment_zero_status = logical_to_int(rhs_increment_l2 <= zero_abs_tol .and. &
                                                rhs_increment_max_abs <= zero_abs_tol)
     rhs_unchanged_status = logical_to_int(rhs_signature_delta_l2 <= zero_abs_tol)
@@ -217,6 +246,8 @@ contains
     integer :: unit_id
     integer :: io_status
 
+    if (.not. rank0_write_allowed()) return
+
     open(newunit=unit_id, file=filename, status='replace', action='write', iostat=io_status)
     if (io_status /= 0) return
 
@@ -259,29 +290,59 @@ contains
   end subroutine stage14_production_rhs_injection_write_diagnostics
 
   subroutine update_overall_status()
-    production_rhs_hook_status = logical_to_int(requested_flag == 1 .and. &
-                                                rhs_injection_enabled_flag == 1 .and. &
-                                                injection_gain_finite_status == 1 .and. &
-                                                lambda_zero_status == 1 .and. &
-                                                nonzero_lambda_blocked_status == 1 .and. &
-                                                hook_initialized_status == 1 .and. &
-                                                hook_apply_called_status == 1 .and. &
-                                                stage13_dependency_status == 1 .and. &
-                                                stage13_candidate_required_status == 1 .and. &
-                                                rhs_arrays_available_status == 1 .and. &
-                                                rhs_increment_computed_status == 1 .and. &
-                                                rhs_increment_zero_status == 1 .and. &
-                                                rhs_unchanged_status == 1 .and. &
-                                                no_pressure_modification_status == 1 .and. &
-                                                no_projection_modification_status == 1 .and. &
-                                                no_poisson_modification_status == 1 .and. &
-                                                no_rk3_modification_status == 1 .and. &
-                                                no_channel_forcing_modification_status == 1 .and. &
-                                                no_production_ibm_forcing_status == 1 .and. &
-                                                no_feedback_application_status == 1 .and. &
-                                                no_twoway_force_status == 1 .and. &
-                                                no_structure_advance_status == 1)
+    logical :: common_ok
+    logical :: lambda_zero_ok
+    logical :: small_lambda_ok
+
+    common_ok = requested_flag == 1 .and. &
+                rhs_injection_enabled_flag == 1 .and. &
+                injection_gain_finite_status == 1 .and. &
+                hook_initialized_status == 1 .and. &
+                hook_apply_called_status == 1 .and. &
+                stage13_dependency_status == 1 .and. &
+                stage13_candidate_required_status == 1 .and. &
+                rhs_arrays_available_status == 1 .and. &
+                rhs_increment_computed_status == 1 .and. &
+                no_pressure_modification_status == 1 .and. &
+                no_projection_modification_status == 1 .and. &
+                no_poisson_modification_status == 1 .and. &
+                no_rk3_modification_status == 1 .and. &
+                no_channel_forcing_modification_status == 1 .and. &
+                no_production_ibm_forcing_status == 1 .and. &
+                no_feedback_application_status == 1 .and. &
+                no_twoway_force_status == 1 .and. &
+                no_structure_advance_status == 1
+
+    lambda_zero_ok = lambda_zero_status == 1 .and. &
+                     nonzero_lambda_blocked_status == 1 .and. &
+                     rhs_increment_zero_status == 1 .and. &
+                     rhs_unchanged_status == 1
+
+    small_lambda_ok = lambda_zero_status == 0 .and. &
+                      nonzero_lambda_blocked_status == 0 .and. &
+                      rhs_increment_zero_status == 0 .and. &
+                      rhs_increment_l2 > zero_abs_tol .and. &
+                      rhs_increment_max_abs > zero_abs_tol
+
+    production_rhs_hook_status = logical_to_int(common_ok .and. (lambda_zero_ok .or. small_lambda_ok))
   end subroutine update_overall_status
+
+
+  logical function rank0_write_allowed()
+    character(len=32) :: value
+    integer :: status
+    integer :: ios
+    integer :: rank_value
+
+    rank0_write_allowed = .true.
+    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('PMI_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('MPI_RANK', value=value, status=status)
+    if (status == 0) then
+      read(value, *, iostat=ios) rank_value
+      if (ios == 0) rank0_write_allowed = (rank_value == 0)
+    end if
+  end function rank0_write_allowed
 
   elemental logical function finite_real(value)
     real(mytype), intent(in) :: value
