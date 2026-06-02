@@ -36,7 +36,9 @@ contains
   end subroutine
   subroutine stage11_production_oneway_finalize()
     call update_status()
-  end subroutine
+    if (rank0_write_allowed()) call stage11_production_oneway_write_file( &
+         'stage11_outputs/fibre_stage11_5_production_oneway_hook.dat')
+  end subroutine stage11_production_oneway_finalize
   logical function finitev(x)
     real(mytype), intent(in) :: x
     finitev=(x==x).and.(abs(x)<huge(x))
@@ -74,6 +76,34 @@ contains
     write(unit,'(A,1X,ES24.16E3)') 'stage11_5_sample_l2_v', sample_l2_v
     write(unit,'(A,1X,ES24.16E3)') 'stage11_5_sample_l2_w', sample_l2_w
   end subroutine
+
+  subroutine stage11_production_oneway_write_file(filename)
+    character(len=*), intent(in) :: filename
+    integer :: io_unit
+    integer :: ios
+
+    open(newunit=io_unit, file=trim(filename), status='replace', action='write', iostat=ios)
+    if (ios /= 0) return
+    call stage11_production_oneway_write_diagnostics(io_unit)
+    close(io_unit)
+  end subroutine stage11_production_oneway_write_file
+
+  logical function rank0_write_allowed()
+    character(len=32) :: value
+    integer :: status
+    integer :: ios
+    integer :: rank_value
+
+    rank0_write_allowed = .true.
+    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('PMI_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('MPI_RANK', value=value, status=status)
+    if (status == 0) then
+      read(value, *, iostat=ios) rank_value
+      if (ios == 0) rank0_write_allowed = (rank_value == 0)
+    end if
+  end function rank0_write_allowed
+
   subroutine update_status()
     production_oneway_hook_status=merge(1,0,requested_flag==1.and.readonly_mode_status==1.and.hook_initialized_status==1.and.hook_sample_called_status==1.and.sample_performed_status==1.and.sample_count_status==1.and.sampled_velocity_finite_status==1.and.sampled_velocity_signature_status==1.and.field_modified_status==0.and.rhs_modified_status==0.and.no_rhs_injection_status==1.and.no_ibm_spreading_status==1.and.no_feedback_force_status==1.and.no_twoway_force_status==1.and.no_structure_advance_status==1)
   end subroutine
