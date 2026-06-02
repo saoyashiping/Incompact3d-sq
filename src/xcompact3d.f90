@@ -108,8 +108,7 @@ program xcompact3d
   if (stage13_force_density_reg) call stage13_production_force_density_candidate_init()
   call stage14_config_load()
   stage14_rhs_reg = stage14_requested() .and. stage14_rhs_injection_enabled() .and. &
-       stage14_require_stage13() .and. stage13_force_density_reg .and. &
-       stage14_get_injection_gain() == 0.0
+       stage14_require_stage13() .and. stage13_force_density_reg
   if (stage14_rhs_reg) call stage14_production_rhs_injection_init()
 
   if (stage9_3_dryrun) then
