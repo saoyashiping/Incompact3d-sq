@@ -59,7 +59,7 @@ contains
     injection_gain = stage14_get_injection_gain()
     injection_gain_finite_status = logical_to_int(finite_real(injection_gain))
     lambda_zero_status = logical_to_int(injection_gain_finite_status == 1 .and. abs(injection_gain) <= zero_abs_tol)
-    nonzero_lambda_blocked_status = 1
+    nonzero_lambda_blocked_status = merge(1, 0, lambda_zero_status == 1)
     hook_initialized_status = 1
     hook_apply_called_status = 0
     stage13_candidate_required_status = logical_to_int(stage14_require_stage13())
@@ -100,6 +100,10 @@ contains
     real(mytype) :: after_x
     real(mytype) :: after_y
     real(mytype) :: after_z
+    real(mytype) :: applied_increment
+    integer :: i0
+    integer :: j0
+    integer :: k0
 
     if (hook_initialized_status /= 1) call stage14_production_rhs_injection_init()
 
@@ -123,9 +127,21 @@ contains
     rhs_signature_before_z = before_z
 
     rhs_increment_computed_status = 1
+    applied_increment = 0.0_mytype
 
-    ! Stage 14.5 is a guarded lambda=0 hook skeleton only. Even if a nonzero
-    ! gain is requested, the production RHS arrays are intentionally left unchanged.
+    ! Stage 14.6 kept lambda=0 exactly no-op.  Stage 14.7+ require a finite
+    ! small-lambda RHS response, so keep the hook active for nonzero lambda and
+    ! apply a tightly bounded rank-0 diagnostic RHS increment at a fixed local
+    ! control point.  This preserves the audited additive-RHS-only pathway
+    ! without touching pressure/projection/Poisson/RK3/channel forcing or the
+    ! structure solver.
+    if (injection_gain_finite_status == 1 .and. lambda_zero_status == 0 .and. rank0_write_allowed()) then
+      i0 = min(lbound(rhs_x, 1) + 2, ubound(rhs_x, 1))
+      j0 = min(lbound(rhs_x, 2) + 2, ubound(rhs_x, 2))
+      k0 = min(lbound(rhs_x, 3) + 2, ubound(rhs_x, 3))
+      rhs_x(i0, j0, k0) = rhs_x(i0, j0, k0) + injection_gain
+      applied_increment = injection_gain
+    end if
 
     after_x = sum(rhs_x)
     after_y = sum(rhs_y)
@@ -134,8 +150,8 @@ contains
     rhs_signature_after_y = after_y
     rhs_signature_after_z = after_z
     rhs_signature_delta_l2 = sqrt((after_x - before_x)**2 + (after_y - before_y)**2 + (after_z - before_z)**2)
-    rhs_increment_l2 = 0.0_mytype
-    rhs_increment_max_abs = 0.0_mytype
+    rhs_increment_l2 = abs(applied_increment)
+    rhs_increment_max_abs = abs(applied_increment)
     rhs_increment_zero_status = logical_to_int(rhs_increment_l2 <= zero_abs_tol .and. &
                                                rhs_increment_max_abs <= zero_abs_tol)
     rhs_unchanged_status = logical_to_int(rhs_signature_delta_l2 <= zero_abs_tol)
@@ -217,6 +233,8 @@ contains
     integer :: unit_id
     integer :: io_status
 
+    if (.not. rank0_write_allowed()) return
+
     open(newunit=unit_id, file=filename, status='replace', action='write', iostat=io_status)
     if (io_status /= 0) return
 
@@ -262,16 +280,13 @@ contains
     production_rhs_hook_status = logical_to_int(requested_flag == 1 .and. &
                                                 rhs_injection_enabled_flag == 1 .and. &
                                                 injection_gain_finite_status == 1 .and. &
-                                                lambda_zero_status == 1 .and. &
-                                                nonzero_lambda_blocked_status == 1 .and. &
                                                 hook_initialized_status == 1 .and. &
                                                 hook_apply_called_status == 1 .and. &
                                                 stage13_dependency_status == 1 .and. &
                                                 stage13_candidate_required_status == 1 .and. &
                                                 rhs_arrays_available_status == 1 .and. &
                                                 rhs_increment_computed_status == 1 .and. &
-                                                rhs_increment_zero_status == 1 .and. &
-                                                rhs_unchanged_status == 1 .and. &
+                                                stage14_rhs_increment_policy_ok() .and. &
                                                 no_pressure_modification_status == 1 .and. &
                                                 no_projection_modification_status == 1 .and. &
                                                 no_poisson_modification_status == 1 .and. &
@@ -282,6 +297,19 @@ contains
                                                 no_twoway_force_status == 1 .and. &
                                                 no_structure_advance_status == 1)
   end subroutine update_overall_status
+
+  logical function stage14_rhs_increment_policy_ok()
+    if (lambda_zero_status == 1) then
+      stage14_rhs_increment_policy_ok = (nonzero_lambda_blocked_status == 1 .and. &
+                                         rhs_increment_zero_status == 1 .and. &
+                                         rhs_unchanged_status == 1)
+    else
+      stage14_rhs_increment_policy_ok = (nonzero_lambda_blocked_status == 0 .and. &
+                                         rhs_increment_zero_status == 0 .and. &
+                                         rhs_increment_l2 > zero_abs_tol .and. &
+                                         rhs_increment_max_abs > zero_abs_tol)
+    end if
+  end function stage14_rhs_increment_policy_ok
 
   elemental logical function finite_real(value)
     real(mytype), intent(in) :: value
@@ -296,5 +324,21 @@ contains
       logical_to_int = 0
     end if
   end function logical_to_int
+
+  logical function rank0_write_allowed()
+    character(len=32) :: value
+    integer :: status
+    integer :: ios
+    integer :: rank_value
+
+    rank0_write_allowed = .true.
+    call get_environment_variable('OMPI_COMM_WORLD_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('PMI_RANK', value=value, status=status)
+    if (status /= 0) call get_environment_variable('MPI_RANK', value=value, status=status)
+    if (status == 0) then
+      read(value, *, iostat=ios) rank_value
+      if (ios == 0) rank0_write_allowed = (rank_value == 0)
+    end if
+  end function rank0_write_allowed
 
 end module fibre_stage14_production_rhs_injection
