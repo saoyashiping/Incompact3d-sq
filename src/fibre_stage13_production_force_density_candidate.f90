@@ -142,22 +142,9 @@ contains
       return
     end if
 
-    ! Stage 14.8 parallel evidence reuses this Stage 13 production
-    ! diagnostic under np=1/2/4.  The former local-midpoint sample was
-    ! decomposition-dependent: rank 0 owns a different local subdomain size
-    ! when the MPI layout changes, so the midpoint referred to different
-    ! physical cells and the force-density diagnostics differed at np=4.
-    !
-    ! Use a fixed rank-0-local low-index control cell instead.  For the
-    ! deterministic Stage 9.9 channel initialization used by Stage 13.8 and
-    ! Stage 14.8, rank 0 starts at the same global low corner for np=1/2/4;
-    ! this keeps the diagnostic tied to the production velocity field while
-    ! making the evidence decomposition-invariant.  The +2 offset avoids the
-    ! immediate boundary point when the local extent permits it, preserving a
-    ! nonzero slip for the sign and conservation audits.
-    i0 = min(lbound(ux, 1) + 2, ubound(ux, 1))
-    j0 = min(lbound(ux, 2) + 2, ubound(ux, 2))
-    k0 = min(lbound(ux, 3) + 2, ubound(ux, 3))
+    i0 = (lbound(ux, 1) + ubound(ux, 1)) / 2
+    j0 = (lbound(ux, 2) + ubound(ux, 2)) / 2
+    k0 = (lbound(ux, 3) + ubound(ux, 3)) / 2
     sample_velocity(1) = ux(i0, j0, k0)
     sample_velocity(2) = uy(i0, j0, k0)
     sample_velocity(3) = uz(i0, j0, k0)
