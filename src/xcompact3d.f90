@@ -108,7 +108,8 @@ program xcompact3d
   if (stage13_force_density_reg) call stage13_production_force_density_candidate_init()
   call stage14_config_load()
   stage14_rhs_reg = stage14_requested() .and. stage14_rhs_injection_enabled() .and. &
-       stage14_require_stage13() .and. stage13_force_density_reg
+       stage14_require_stage13() .and. stage13_force_density_reg .and. &
+       stage14_get_injection_gain() == 0.0
   if (stage14_rhs_reg) call stage14_production_rhs_injection_init()
 
   if (stage9_3_dryrun) then
@@ -156,7 +157,7 @@ program xcompact3d
         call calculate_transeq_rhs(drho1,dux1,duy1,duz1,dphi1,rho1,ux1,uy1,uz1,ep1,phi1,divu3)
         call stage9_6_record_rhs_finite_status(drho1,dux1,duy1,duz1)
         if (stage14_rhs_reg) call stage14_production_rhs_injection_apply( &
-             dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1),ux1,uy1,uz1)
+             dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1))
 
 #ifdef DEBG
         call check_transients()
