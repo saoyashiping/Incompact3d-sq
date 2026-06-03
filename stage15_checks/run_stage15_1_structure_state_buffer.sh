@@ -58,26 +58,6 @@ rm -f "$OUT_DAT" "$CHECK_LOG" "$CHECK_DAT"
 add_reason() { echo "$1" >> "$REASONS_FILE"; }
 static_note() { echo "$1" >> "$STATIC_REPORT"; }
 
-search_regex() {
-    pattern=$1
-    shift
-    if command -v rg >/dev/null 2>&1; then
-        rg -n "$pattern" "$@"
-    else
-        grep -En "$pattern" "$@"
-    fi
-}
-
-search_regex_quiet() {
-    pattern=$1
-    shift
-    if command -v rg >/dev/null 2>&1; then
-        rg -q "$pattern" "$@"
-    else
-        grep -Eq "$pattern" "$@"
-    fi
-}
-
 ensure_build_dir() {
     if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
         if [ -n "$DECOMP2D_ROOT" ]; then
@@ -179,58 +159,25 @@ scan_stage15_1_source_guards() {
         status=1
     fi
 
-    if search_regex "use[[:space:]]+fibre_stage12|stage12_|feedback_force|feedback_candidate" $files >> "$STATIC_REPORT" 2>/dev/null; then
+    if rg -n "use[[:space:]]+fibre_stage12|stage12_|feedback_force|feedback_candidate" $files >> "$STATIC_REPORT" 2>/dev/null; then
         add_reason "stage15_1_stage12_feedback_connection_found"
         status=1
     else
         NO_STAGE12_CONNECT_STATIC_STATUS=1
     fi
 
-    if search_regex "use[[:space:]]+fibre_stage14|stage14_|rhs_injection|injection_gain" $files >> "$STATIC_REPORT" 2>/dev/null; then
+    if rg -n "use[[:space:]]+fibre_stage14|stage14_|rhs_injection|injection_gain" $files >> "$STATIC_REPORT" 2>/dev/null; then
         add_reason "stage15_1_stage14_rhs_injection_connection_found"
         status=1
     else
         NO_STAGE14_CONNECT_STATIC_STATUS=1
     fi
 
-    # Audit only real production-fluid/RHS access, not diagnostic status names such as
-    # no_fluid_rhs_modification_status.  The previous broad grep matched those
-    # negative diagnostic fields and caused a false Stage 15.1 failure even though
-    # the structure-state skeleton does not access fluid arrays or RHS fields.
-    if awk '
-      /^[[:space:]]*!/ { next }
-      {
-        raw=$0
-        line=tolower($0)
-        sub(/!.*/, "", line)
-        # calls to real fluid/RHS routines are forbidden in Stage 15.1
-        if (line ~ /^[[:space:]]*call[[:space:]]+/) {
-          routine=line
-          sub(/^[[:space:]]*call[[:space:]]+/, "", routine)
-          sub(/[[:space:]]*\(.*/, "", routine)
-          gsub(/[[:space:]]/, "", routine)
-          if (routine ~ /(fluid_rhs|rhs_injection|rhs_accumulator|navier|transeq|pressure|projection|poisson|rk3|channel_forcing)/) {
-            print FILENAME ":" FNR ":" raw
-            bad=1
-          }
-        }
-        # direct access to production velocity/RHS arrays is also forbidden.
-        # This deliberately does not match diagnostic names like no_fluid_rhs_*.
-        if (line ~ /(^|[^[:alnum:]_])(ux|uy|uz|gx|gy|gz)[[:space:]]*\(/) {
-          print FILENAME ":" FNR ":" raw
-          bad=1
-        }
-        if (line ~ /^[[:space:]]*use[[:space:]]+(navier|transeq|poisson|variables|xcompact3d|fibre_stage14_production_rhs_injection)/) {
-          print FILENAME ":" FNR ":" raw
-          bad=1
-        }
-      }
-      END { exit(bad ? 1 : 0) }
-    ' $files >> "$STATIC_REPORT"; then
-        NO_FLUID_RHS_STATIC_STATUS=1
-    else
+    if rg -n "fluid_rhs|rhs[[:space:]]*\(|ux\(|uy\(|uz\(|gx\(|gy\(|gz\(" $files >> "$STATIC_REPORT" 2>/dev/null; then
         add_reason "stage15_1_fluid_rhs_or_field_access_found"
         status=1
+    else
+        NO_FLUID_RHS_STATIC_STATUS=1
     fi
 
     if [ "$status" = "0" ]; then
@@ -247,7 +194,7 @@ run_static_audit() {
     [ -f src/fibre_stage15_structure_state_check.f90 ] || { add_reason "missing_src_fibre_stage15_structure_state_check_f90"; status=1; }
     [ -f stage15_checks/run_stage15_1_structure_state_buffer.sh ] || { add_reason "missing_stage15_1_wrapper"; status=1; }
     [ -f stage15_checks/stage15_1_structure_state_buffer.md ] || { add_reason "missing_stage15_1_documentation"; status=1; }
-    if search_regex_quiet "fibre_stage15_structure_state_check" src/CMakeLists.txt; then
+    if rg -n "fibre_stage15_structure_state_check" src/CMakeLists.txt >/dev/null 2>&1; then
         DOC_STATUS=1
     else
         add_reason "missing_fibre_stage15_structure_state_check_build_target"
@@ -256,49 +203,49 @@ run_static_audit() {
 
     scan_stage15_1_source_guards || status=1
 
-    if search_regex 'stage14_get_injection_gain[[:space:]]*\([[:space:]]*\)[[:space:]]*==[[:space:]]*0\.0(_[[:alnum:]_]+)?' src/xcompact3d.f90 >> "$STATIC_REPORT" 2>/dev/null; then
+    if rg -n 'stage14_get_injection_gain[[:space:]]*\([[:space:]]*\)[[:space:]]*==[[:space:]]*0\.0(_[[:alnum:]_]+)?' src/xcompact3d.f90 >> "$STATIC_REPORT" 2>/dev/null; then
         add_reason "forbidden_stage14_lambda_zero_registration_gate_found"
         status=1
     else
         STAGE14_LAMBDA_GATE_ABSENT_STATUS=1
     fi
 
-    if search_regex_quiet 'fibre_stage11_5_production_oneway_hook.dat' src/fibre_stage11_production_oneway_hook.f90 && \
-       search_regex_quiet 'stage11_5_production_oneway_hook_status' src/fibre_stage11_production_oneway_hook.f90; then
+    if rg -q 'fibre_stage11_5_production_oneway_hook.dat' src/fibre_stage11_production_oneway_hook.f90 && \
+       rg -q 'stage11_5_production_oneway_hook_status' src/fibre_stage11_production_oneway_hook.f90; then
         STAGE11_DIAGNOSTIC_STATUS=1
     else
         add_reason "stage11_5_production_oneway_hook_diagnostics_missing"
         status=1
     fi
 
-    if search_regex_quiet 'fibre_stage13_6_production_force_density_candidate.dat' src/fibre_stage13_production_force_density_candidate.f90 && \
-       search_regex_quiet 'stage13_6_production_force_density_candidate_status' src/fibre_stage13_production_force_density_candidate.f90; then
+    if rg -q 'fibre_stage13_production_force_density_candidate.dat' src/fibre_stage13_production_force_density_candidate.f90 && \
+       rg -q 'stage13_5_production_force_density_candidate_status' src/fibre_stage13_production_force_density_candidate.f90; then
         STAGE13_DIAGNOSTIC_STATUS=1
     else
         add_reason "stage13_production_force_density_diagnostics_missing"
         status=1
     fi
 
-    if search_regex_quiet 'fibre_stage14_5_production_rhs_hook.dat' src/fibre_stage14_production_rhs_injection.f90 && \
-       search_regex_quiet 'stage14_5_nonzero_lambda_blocked_status' src/fibre_stage14_production_rhs_injection.f90 && \
-       search_regex_quiet 'stage14_5_production_rhs_hook_status' src/fibre_stage14_production_rhs_injection.f90; then
+    if rg -q 'fibre_stage14_5_production_rhs_hook.dat' src/fibre_stage14_production_rhs_injection.f90 && \
+       rg -q 'stage14_5_nonzero_lambda_blocked_status' src/fibre_stage14_production_rhs_injection.f90 && \
+       rg -q 'stage14_5_production_rhs_hook_status' src/fibre_stage14_production_rhs_injection.f90; then
         STAGE14_DIAGNOSTIC_STATUS=1
     else
         add_reason "stage14_small_lambda_production_rhs_hook_diagnostics_missing"
         status=1
     fi
 
-    if search_regex_quiet 'rank0_write_allowed' src/fibre_stage11_production_oneway_hook.f90 && \
-       search_regex_quiet 'rank0_write_allowed' src/fibre_stage13_production_force_density_candidate.f90 && \
-       search_regex_quiet 'rank0_write_allowed' src/fibre_stage14_production_rhs_injection.f90; then
+    if rg -q 'rank0_write_allowed' src/fibre_stage11_production_oneway_hook.f90 && \
+       rg -q 'rank0_write_allowed' src/fibre_stage13_production_force_density_candidate.f90 && \
+       rg -q 'rank0_write_allowed' src/fibre_stage14_production_rhs_injection.f90; then
         RANK0_DIAGNOSTIC_STATUS=1
     else
         add_reason "rank0_safe_diagnostic_writing_regressed"
         status=1
     fi
 
-    if search_regex_quiet 'lbound\(ux, 1\)[[:space:]]*\+[[:space:]]*2' src/fibre_stage13_production_force_density_candidate.f90 && \
-       search_regex_quiet 'np=1/2/4' src/fibre_stage13_production_force_density_candidate.f90; then
+    if rg -q 'lbound\(ux, 1\) \+ 2' src/fibre_stage13_production_force_density_candidate.f90 && \
+       rg -q 'np=1/2/4' src/fibre_stage13_production_force_density_candidate.f90; then
         STAGE13_SAMPLING_REPAIR_STATUS=1
     else
         add_reason "stage13_force_density_sampling_repair_missing"

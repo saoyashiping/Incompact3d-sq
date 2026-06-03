@@ -37,6 +37,8 @@ module fibre_stage15_structure_state
   public :: stage15_structure_state_clear
   public :: stage15_structure_state_is_allocated
   public :: stage15_structure_state_validate
+  public :: stage15_structure_state_set_velocity
+  public :: stage15_structure_state_get_velocity
   public :: stage15_structure_state_write_diagnostics
   public :: stage15_structure_state_finalize
   public :: stage15_structure_state_get_count
@@ -138,6 +140,43 @@ contains
   subroutine stage15_structure_state_validate()
     call update_status_values()
   end subroutine stage15_structure_state_validate
+
+  subroutine stage15_structure_state_set_velocity(v_in, set_status)
+    real(mytype), intent(in) :: v_in(:,:)
+    integer, intent(out), optional :: set_status
+    integer :: local_status
+
+    local_status = 0
+    if (stage15_structure_state_is_allocated()) then
+      if (size(v_in, 1) == n_points .and. size(v_in, 2) == 3) then
+        if (all_finite_rank2(v_in)) then
+          v_f(:, :) = v_in(:, :)
+          local_status = 1
+        end if
+      end if
+    end if
+    if (present(set_status)) set_status = local_status
+    call stage15_structure_state_validate()
+  end subroutine stage15_structure_state_set_velocity
+
+  subroutine stage15_structure_state_get_velocity(v_out, get_status)
+    real(mytype), intent(out) :: v_out(:,:)
+    integer, intent(out), optional :: get_status
+    integer :: local_status
+
+    local_status = 0
+    if (stage15_structure_state_is_allocated()) then
+      if (size(v_out, 1) == n_points .and. size(v_out, 2) == 3) then
+        v_out(:, :) = v_f(:, :)
+        local_status = 1
+      else
+        v_out(:, :) = 0.0_mytype
+      end if
+    else
+      v_out(:, :) = 0.0_mytype
+    end if
+    if (present(get_status)) get_status = local_status
+  end subroutine stage15_structure_state_get_velocity
 
   integer function stage15_structure_state_get_count()
     stage15_structure_state_get_count = n_points
