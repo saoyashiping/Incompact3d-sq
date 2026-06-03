@@ -184,13 +184,3 @@ Expected successful terminal evidence:
 STAGE 15.3 STRUCTURE ADVANCE FORMULA VERDICT: PASS
 STAGE 15.3 FINAL VERDICT: PASS
 ```
-
-
-## Stage 15.3 static-audit compatibility note
-
-Stage 13 production force-density diagnostics use the closed Stage 13.6 production diagnostic names:
-
-- `stage13_outputs/fibre_stage13_6_production_force_density_candidate.dat`
-- `stage13_6_production_force_density_candidate_status`
-
-Stage 15.3 must audit those current Stage 13.6 names. It must not regress to obsolete Stage 13.5 diagnostic names, because that causes a false `stage13_production_force_density_diagnostics_missing` failure even when the Stage 13 production diagnostic path is present and preserved.

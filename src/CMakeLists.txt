@@ -60,6 +60,9 @@ add_executable(xcompact3d
                     fibre_stage13_production_force_density_candidate.f90
                     fibre_stage14_config.f90
                     fibre_stage14_production_rhs_injection.f90
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_production_structure_hook.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -397,6 +400,18 @@ target_link_libraries(fibre_stage15_structure_advance_formula_check PRIVATE deco
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage15_structure_advance_formula_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_production_structure_hook_check
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_production_structure_hook.f90
+                    fibre_stage15_production_structure_hook_check.f90)
+
+target_link_libraries(fibre_stage15_production_structure_hook_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_production_structure_hook_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
 add_executable(fibre_stage14_rhs_accumulator_check

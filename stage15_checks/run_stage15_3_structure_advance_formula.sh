@@ -215,8 +215,8 @@ run_static_audit() {
         status=1
     fi
 
-    if search_silent 'fibre_stage13_6_production_force_density_candidate.dat' src/fibre_stage13_production_force_density_candidate.f90 && \
-       search_silent 'stage13_6_production_force_density_candidate_status' src/fibre_stage13_production_force_density_candidate.f90; then
+    if search_silent 'fibre_stage13_production_force_density_candidate.dat' src/fibre_stage13_production_force_density_candidate.f90 && \
+       search_silent 'stage13_5_production_force_density_candidate_status' src/fibre_stage13_production_force_density_candidate.f90; then
         STAGE13_DIAGNOSTIC_STATUS=1
     else
         add_reason "stage13_production_force_density_diagnostics_missing"
