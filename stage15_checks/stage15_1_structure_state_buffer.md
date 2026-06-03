@@ -154,3 +154,8 @@ Expected successful terminal evidence:
 STAGE 15.1 STRUCTURE STATE BUFFER VERDICT: PASS
 STAGE 15.1 FINAL VERDICT: PASS
 ```
+
+
+## 2026-06-03 robustness note
+
+The Stage 15.1 wrapper must not depend exclusively on `rg`/ripgrep being installed. Static audits use a grep-compatible fallback so that absence of `rg` cannot mask or fabricate Stage 11/13/14 regression evidence. The Stage 13 production force-density diagnostic evidence is keyed to the Stage 13.6 production diagnostic file and status fields (`fibre_stage13_6_production_force_density_candidate.dat`, `stage13_6_production_force_density_candidate_status`).
