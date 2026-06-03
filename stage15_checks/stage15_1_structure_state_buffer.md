@@ -159,3 +159,8 @@ STAGE 15.1 FINAL VERDICT: PASS
 ## 2026-06-03 robustness note
 
 The Stage 15.1 wrapper must not depend exclusively on `rg`/ripgrep being installed. Static audits use a grep-compatible fallback so that absence of `rg` cannot mask or fabricate Stage 11/13/14 regression evidence. The Stage 13 production force-density diagnostic evidence is keyed to the Stage 13.6 production diagnostic file and status fields (`fibre_stage13_6_production_force_density_candidate.dat`, `stage13_6_production_force_density_candidate_status`).
+
+
+## 2026-06-03 static-audit correction
+
+The Stage 15.1 static audit must distinguish real production-fluid/RHS access from negative diagnostic status fields.  Identifiers such as `no_fluid_rhs_modification_status` are required diagnostics and must not be treated as actual RHS or fluid-array access.  The audit therefore checks real `call` sites, production velocity/RHS array references, and forbidden production-fluid module imports, while allowing diagnostic names that document the absence of fluid/RHS modification.

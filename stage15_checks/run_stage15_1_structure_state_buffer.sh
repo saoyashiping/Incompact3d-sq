@@ -193,11 +193,44 @@ scan_stage15_1_source_guards() {
         NO_STAGE14_CONNECT_STATIC_STATUS=1
     fi
 
-    if search_regex "fluid_rhs|rhs[[:space:]]*\(|ux\(|uy\(|uz\(|gx\(|gy\(|gz\(" $files >> "$STATIC_REPORT" 2>/dev/null; then
+    # Audit only real production-fluid/RHS access, not diagnostic status names such as
+    # no_fluid_rhs_modification_status.  The previous broad grep matched those
+    # negative diagnostic fields and caused a false Stage 15.1 failure even though
+    # the structure-state skeleton does not access fluid arrays or RHS fields.
+    if awk '
+      /^[[:space:]]*!/ { next }
+      {
+        raw=$0
+        line=tolower($0)
+        sub(/!.*/, "", line)
+        # calls to real fluid/RHS routines are forbidden in Stage 15.1
+        if (line ~ /^[[:space:]]*call[[:space:]]+/) {
+          routine=line
+          sub(/^[[:space:]]*call[[:space:]]+/, "", routine)
+          sub(/[[:space:]]*\(.*/, "", routine)
+          gsub(/[[:space:]]/, "", routine)
+          if (routine ~ /(fluid_rhs|rhs_injection|rhs_accumulator|navier|transeq|pressure|projection|poisson|rk3|channel_forcing)/) {
+            print FILENAME ":" FNR ":" raw
+            bad=1
+          }
+        }
+        # direct access to production velocity/RHS arrays is also forbidden.
+        # This deliberately does not match diagnostic names like no_fluid_rhs_*.
+        if (line ~ /(^|[^[:alnum:]_])(ux|uy|uz|gx|gy|gz)[[:space:]]*\(/) {
+          print FILENAME ":" FNR ":" raw
+          bad=1
+        }
+        if (line ~ /^[[:space:]]*use[[:space:]]+(navier|transeq|poisson|variables|xcompact3d|fibre_stage14_production_rhs_injection)/) {
+          print FILENAME ":" FNR ":" raw
+          bad=1
+        }
+      }
+      END { exit(bad ? 1 : 0) }
+    ' $files >> "$STATIC_REPORT"; then
+        NO_FLUID_RHS_STATIC_STATUS=1
+    else
         add_reason "stage15_1_fluid_rhs_or_field_access_found"
         status=1
-    else
-        NO_FLUID_RHS_STATIC_STATUS=1
     fi
 
     if [ "$status" = "0" ]; then
