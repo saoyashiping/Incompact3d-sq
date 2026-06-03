@@ -66,12 +66,11 @@ The wrapper runs one small-lambda Stage 14 production smoke case with `STAGE14_1
 
 Stage 14.11 verifies existing PASS datfiles by default and can rerun closed prerequisites only when explicitly requested:
 
-- `STAGE14_11_RUN_STAGE14_8=1` force-reruns the Stage 14.8 np=1/2/4 parallel small-lambda response gate.
-- `STAGE14_11_RUN_STAGE14_9=1` force-reruns the Stage 14.9 restart/statistics/visualization/coarse-I/O compatibility gate.
-- `STAGE14_11_RUN_STAGE14_10=1` force-reruns the Stage 14.10 RHS/IBM/structure contamination audit.
-- `STAGE14_11_AUTO_RUN_MISSING_PREREQS=1` regenerates missing prerequisite dat evidence automatically when a freshly unpacked repository does not contain generated Stage 14.8/14.9/14.10 output files. This is the default.
+- `STAGE14_11_RUN_STAGE14_8=1` reruns the Stage 14.8 np=1/2/4 parallel small-lambda response gate.
+- `STAGE14_11_RUN_STAGE14_9=1` reruns the Stage 14.9 restart/statistics/visualization/coarse-I/O compatibility gate.
+- `STAGE14_11_RUN_STAGE14_10=1` reruns the Stage 14.10 RHS/IBM/structure contamination audit.
 
-By default, the three force-rerun flags are `0`, but missing Stage 14.8/14.9/14.10 dat files are regenerated rather than silently accepted or faked. Set `STAGE14_11_AUTO_RUN_MISSING_PREREQS=0` to fail closed immediately if prerequisite dat files are absent.
+By default, all three flags are `0`, so Stage 14.11 fails closed if the required prior evidence datfiles are missing or failed.
 
 ## Required artifacts
 
@@ -124,7 +123,6 @@ MPIEXEC_FLAGS="--mca btl self,vader,tcp" \
 STAGE14_11_RUN_STAGE14_8=0 \
 STAGE14_11_RUN_STAGE14_9=0 \
 STAGE14_11_RUN_STAGE14_10=0 \
-STAGE14_11_AUTO_RUN_MISSING_PREREQS=1 \
 STAGE14_11_SMALL_LAMBDA=1.0e-8 \
 STAGE14_11_MAX_RHS_INCREMENT=1.0e-4 \
 STAGE14_11_MAX_FLUID_DELTA=1.0e-4 \

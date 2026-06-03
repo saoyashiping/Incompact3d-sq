@@ -9,11 +9,6 @@ CHANNEL_INPUT=${CHANNEL_INPUT:-examples/Channel/input.i3d}
 STAGE14_11_RUN_STAGE14_8=${STAGE14_11_RUN_STAGE14_8:-0}
 STAGE14_11_RUN_STAGE14_9=${STAGE14_11_RUN_STAGE14_9:-0}
 STAGE14_11_RUN_STAGE14_10=${STAGE14_11_RUN_STAGE14_10:-0}
-# If the repository is freshly unpacked, prior Stage 14.8/14.9/14.10 output
-# dat files are normally absent. Keep the RUN_STAGE14_* flags as force-rerun
-# controls, but by default regenerate missing prerequisite evidence instead of
-# failing solely because generated artifacts were not packaged in the zip.
-STAGE14_11_AUTO_RUN_MISSING_PREREQS=${STAGE14_11_AUTO_RUN_MISSING_PREREQS:-1}
 STAGE14_11_SMALL_LAMBDA=${STAGE14_11_SMALL_LAMBDA:-1.0e-8}
 STAGE14_11_MAX_RHS_INCREMENT=${STAGE14_11_MAX_RHS_INCREMENT:-1.0e-4}
 STAGE14_11_MAX_FLUID_DELTA=${STAGE14_11_MAX_FLUID_DELTA:-1.0e-4}
@@ -605,45 +600,17 @@ verify_no_nan_inf() {
     return $status
 }
 
-maybe_run_stage14_prereq() {
-    stage_name=$1
-    dat_file=$2
-    run_flag=$3
-    log_file=$4
-    shift 4
-
-    if [ "$run_flag" = "1" ]; then
-        "$@" > "$log_file" 2>&1
-        return $?
-    fi
-
-    if [ -s "$dat_file" ]; then
-        return 0
-    fi
-
-    if [ "$STAGE14_11_AUTO_RUN_MISSING_PREREQS" = "1" ]; then
-        echo "Stage 14.11: missing ${stage_name} evidence ${dat_file}; regenerating prerequisite evidence." >> "$STATIC_REPORT"
-        "$@" > "$log_file" 2>&1
-        return $?
-    fi
-
-    return 2
-}
-
 verify_prior_stage14_8() {
     dat=stage14_outputs/stage14_8_parallel_small_lambda_response.dat
-    prereq_log="$OUTPUT_DIR/stage14_11_stage14_8_prereq.log"
-    maybe_run_stage14_prereq "Stage 14.8" "$dat" "$STAGE14_11_RUN_STAGE14_8" "$prereq_log" \
-        env DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
+    if [ "$STAGE14_11_RUN_STAGE14_8" = "1" ]; then
         STAGE14_8_SMALL_LAMBDA="$STAGE14_11_SMALL_LAMBDA" \
         STAGE14_8_MAX_RHS_INCREMENT="$STAGE14_11_MAX_RHS_INCREMENT" \
         STAGE14_8_MAX_FLUID_DELTA="$STAGE14_11_MAX_FLUID_DELTA" \
-        STAGE14_8_NP_LIST="$STAGE14_11_NP_LIST" \
-        bash stage14_checks/run_stage14_8_parallel_small_lambda_response.sh
-    prereq_status=$?
-    if [ "$prereq_status" = "1" ] || { [ "$prereq_status" = "0" ] && ! grep 'STAGE 14.8 FINAL VERDICT: PASS' "$prereq_log" >/dev/null 2>&1 && [ "$STAGE14_11_RUN_STAGE14_8" = "1" -o ! -s "$dat" ]; }; then
-        add_reason "stage14_8_prerequisite_failed"
-        return 1
+            bash stage14_checks/run_stage14_8_parallel_small_lambda_response.sh > "$OUTPUT_DIR/stage14_11_stage14_8_prereq.log" 2>&1
+        if [ $? -ne 0 ] || ! grep 'STAGE 14.8 FINAL VERDICT: PASS' "$OUTPUT_DIR/stage14_11_stage14_8_prereq.log" >/dev/null 2>&1; then
+            add_reason "stage14_8_prerequisite_failed"
+            return 1
+        fi
     fi
     require_file "$dat" "missing_stage14_8_parallel_small_lambda_response_dat" || return 1
     status=0
@@ -667,21 +634,18 @@ verify_prior_stage14_8() {
 
 verify_prior_stage14_9() {
     dat=stage14_outputs/stage14_9_io_restart_stats_visu_rhs_injection.dat
-    prereq_log="$OUTPUT_DIR/stage14_11_stage14_9_prereq.log"
-    maybe_run_stage14_prereq "Stage 14.9" "$dat" "$STAGE14_11_RUN_STAGE14_9" "$prereq_log" \
-        env DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
-        STAGE14_9_RUN_STAGE14_8=0 \
+    if [ "$STAGE14_11_RUN_STAGE14_9" = "1" ]; then
         STAGE14_9_SMALL_LAMBDA="$STAGE14_11_SMALL_LAMBDA" \
         STAGE14_9_MAX_RHS_INCREMENT="$STAGE14_11_MAX_RHS_INCREMENT" \
         STAGE14_9_MAX_FLUID_DELTA="$STAGE14_11_MAX_FLUID_DELTA" \
         STAGE14_9_MAX_RESTART_DELTA="$STAGE14_11_MAX_RESTART_DELTA" \
         STAGE14_9_MAX_IO_SIGNATURE_DELTA="$STAGE14_11_MAX_IO_SIGNATURE_DELTA" \
         STAGE14_9_NP="$STAGE14_11_NP" \
-        bash stage14_checks/run_stage14_9_io_restart_stats_visu_rhs_injection.sh
-    prereq_status=$?
-    if [ "$prereq_status" = "1" ] || { [ "$prereq_status" = "0" ] && ! grep 'STAGE 14.9 FINAL VERDICT: PASS' "$prereq_log" >/dev/null 2>&1 && [ "$STAGE14_11_RUN_STAGE14_9" = "1" -o ! -s "$dat" ]; }; then
-        add_reason "stage14_9_prerequisite_failed"
-        return 1
+            bash stage14_checks/run_stage14_9_io_restart_stats_visu_rhs_injection.sh > "$OUTPUT_DIR/stage14_11_stage14_9_prereq.log" 2>&1
+        if [ $? -ne 0 ] || ! grep 'STAGE 14.9 FINAL VERDICT: PASS' "$OUTPUT_DIR/stage14_11_stage14_9_prereq.log" >/dev/null 2>&1; then
+            add_reason "stage14_9_prerequisite_failed"
+            return 1
+        fi
     fi
     require_file "$dat" "missing_stage14_9_io_restart_stats_visu_rhs_injection_dat" || return 1
     status=0
@@ -706,19 +670,16 @@ verify_prior_stage14_9() {
 
 verify_prior_stage14_10() {
     dat=stage14_outputs/stage14_10_rhs_ibm_structure_contamination_audit.dat
-    prereq_log="$OUTPUT_DIR/stage14_11_stage14_10_prereq.log"
-    maybe_run_stage14_prereq "Stage 14.10" "$dat" "$STAGE14_11_RUN_STAGE14_10" "$prereq_log" \
-        env DECOMP2D_ROOT="$DECOMP2D_ROOT" BUILD_DIR="$BUILD_DIR" MPIEXEC="$MPIEXEC" MPIEXEC_FLAGS="$MPIEXEC_FLAGS" \
-        STAGE14_10_RUN_STAGE14_9=0 \
+    if [ "$STAGE14_11_RUN_STAGE14_10" = "1" ]; then
         STAGE14_10_SMALL_LAMBDA="$STAGE14_11_SMALL_LAMBDA" \
         STAGE14_10_MAX_RHS_INCREMENT="$STAGE14_11_MAX_RHS_INCREMENT" \
         STAGE14_10_MAX_FLUID_DELTA="$STAGE14_11_MAX_FLUID_DELTA" \
         STAGE14_10_NP="$STAGE14_11_NP" \
-        bash stage14_checks/run_stage14_10_rhs_ibm_structure_contamination_audit.sh
-    prereq_status=$?
-    if [ "$prereq_status" = "1" ] || { [ "$prereq_status" = "0" ] && ! grep 'STAGE 14.10 FINAL VERDICT: PASS' "$prereq_log" >/dev/null 2>&1 && [ "$STAGE14_11_RUN_STAGE14_10" = "1" -o ! -s "$dat" ]; }; then
-        add_reason "stage14_10_prerequisite_failed"
-        return 1
+            bash stage14_checks/run_stage14_10_rhs_ibm_structure_contamination_audit.sh > "$OUTPUT_DIR/stage14_11_stage14_10_prereq.log" 2>&1
+        if [ $? -ne 0 ] || ! grep 'STAGE 14.10 FINAL VERDICT: PASS' "$OUTPUT_DIR/stage14_11_stage14_10_prereq.log" >/dev/null 2>&1; then
+            add_reason "stage14_10_prerequisite_failed"
+            return 1
+        fi
     fi
     require_file "$dat" "missing_stage14_10_rhs_ibm_structure_contamination_audit_dat" || return 1
     status=0
