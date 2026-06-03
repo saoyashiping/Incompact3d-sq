@@ -83,7 +83,7 @@ STAGE15_2_MAX_VELOCITY_DIFF=1.0e-14
 STAGE15_2_MAX_FORCE_DIFF=1.0e-14
 ```
 
-If `BUILD_DIR` has no `CMakeCache.txt`, the wrapper configures it with CMake and `DECOMP2D_ROOT`, then builds only `fibre_stage15_velocity_source_adapter_check`. The static audit is portable: it uses `rg` when available and falls back to `grep -E` when `rg` is not installed, so missing ripgrep cannot create false regression failures.
+If `BUILD_DIR` has no `CMakeCache.txt`, the wrapper configures it with CMake and `DECOMP2D_ROOT`, then builds only `fibre_stage15_velocity_source_adapter_check`.
 
 ## Static audit gates
 
@@ -102,7 +102,7 @@ It also checks that:
 - The forbidden Stage 14 hook-registration gate `stage14_get_injection_gain() == 0.0` remains absent.
 - Stage 11.5, Stage 13, Stage 14, and Stage 15.1 production diagnostics remain present.
 - Rank0-safe Stage 11/13/14 diagnostic writing guards remain present.
-- The Stage 13 force-density sampling repair remains present, using the current Stage 13.6 production diagnostic names and fixed low-index sampling evidence rather than the old Stage 13.5/local-centre convention.
+- The Stage 13 force-density sampling repair remains present.
 - `stage14_checks/STAGE14_CLOSED.md` exists when required.
 - Stage 15.1 evidence exists, or the Stage 15.1 wrapper is explicitly requested with `STAGE15_2_RUN_STAGE15_1=1`.
 
