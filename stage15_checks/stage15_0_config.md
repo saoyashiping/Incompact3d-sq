@@ -121,3 +121,10 @@ bash stage15_checks/run_stage15_0_config.sh
 ```
 
 If `stage14_checks/STAGE14_CLOSED.md` is not present, rerun Stage 14.11 manually or set `STAGE15_0_RUN_STAGE14_11=1` to request the prerequisite from this wrapper.
+
+
+## Stage 15.0 repair notes
+
+The static call scanner checks only the called routine name. It must not flag ordinary configuration calls such as `get_environment_variable` merely because an environment-variable string contains words like `STRUCTURE_ADVANCE`.
+
+Stage 15.0 requires the versioned Stage 14 closure record `stage14_checks/STAGE14_CLOSED.md` unless `STAGE15_0_RUN_STAGE14_11=1` is explicitly used to regenerate closure evidence.

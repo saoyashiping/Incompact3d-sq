@@ -131,10 +131,17 @@ scan_active_use_call_forbidden() {
       BEGIN { bad=0 }
       /^[[:space:]]*!/ { next }
       {
+        raw=$0
         line=tolower($0)
+        sub(/!.*/, "", line)
         if (line ~ /^[[:space:]]*call[[:space:]]+/) {
-          if (line ~ /(structure_advance|advance_structure|bending|bend_solve|tension|position_update|velocity_update|wall|contact|multifibre|multi_fibre|ibm|immersed|poisson|projection|pressure|rk3|channel_forcing)/) {
-            print label ":" FILENAME ":" FNR ":" $0
+          routine=line
+          sub(/^[[:space:]]*call[[:space:]]+/, "", routine)
+          sub(/[[:space:]]*\(.*/, "", routine)
+          sub(/[[:space:]]*&.*/, "", routine)
+          gsub(/[[:space:]]/, "", routine)
+          if (routine ~ /^(structure_advance|advance_structure|bending|bend_solve|tension|position_update|velocity_update|wall|contact|multifibre|multi_fibre|ibm|immersed|poisson|projection|pressure|rk3|channel_forcing)/) {
+            print label ":" FILENAME ":" FNR ":" raw
             bad=1
           }
         }
@@ -243,6 +250,7 @@ run_static_audit() {
 
 verify_stage14_closed() {
     if [ "$STAGE15_0_REQUIRE_STAGE14_CLOSED" != "1" ]; then
+        STAGE14_11_PREREQ_STATUS=1
         STAGE14_CLOSED_STATUS=1
         return 0
     fi
@@ -253,8 +261,19 @@ verify_stage14_closed() {
             add_reason "stage14_11_prerequisite_failed"
             return 1
         fi
+    elif [ -s "$STAGE14_CLOSED_FILE" ]; then
+        STAGE14_11_PREREQ_STATUS=1
+    else
+        STAGE14_11_PREREQ_STATUS=0
+        add_reason "missing_stage14_closed_file"
+        return 1
     fi
     require_file "$STAGE14_CLOSED_FILE" "missing_stage14_closed_file" || return 1
+    if ! grep -q 'Stage 14 closed' "$STAGE14_CLOSED_FILE" && \
+       ! grep -q 'STAGE14_CLOSED=YES' "$STAGE14_CLOSED_FILE"; then
+        add_reason "stage14_closed_file_missing_closure_marker"
+        return 1
+    fi
     STAGE14_CLOSED_STATUS=1
     return 0
 }
