@@ -1,4 +1,12 @@
 # Stage 15.9: restart / stats / visu / coarse I/O compatibility with controlled structure state
+## Stage 15.9 RHS tolerance separation
+
+Stage 15.9 intentionally keeps two RHS-related tolerances separate:
+
+- `STAGE15_9_MAX_RHS_RESPONSE` is the strict Stage 15.7 diagnostic linkage bound for `rhs_response = lambda * Delta F`.
+- `STAGE15_9_MAX_STAGE14_RHS_INCREMENT` is the inherited Stage 14.9 production small-lambda RHS-increment bound used when Stage 15.9 reuses the Stage 14.9 restart/stats/visu/coarse-I/O smoke. Its default is `1.0e-4`, matching the existing Stage 14.9 controlled small-lambda production bound.
+
+Do not pass the much tighter Stage 15.7 diagnostic RHS-response tolerance into Stage 14.9 as `STAGE14_9_MAX_RHS_INCREMENT`; doing so falsely fails valid Stage 14.9 small-lambda production I/O evidence with `stage15_9_rhs_response_exceeds_tolerance`.
 
 ## Scope
 
