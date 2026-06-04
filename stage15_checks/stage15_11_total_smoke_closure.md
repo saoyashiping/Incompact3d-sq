@@ -216,3 +216,6 @@ The wrapper fails if any Stage 15.0-15.10 evidence is missing and cannot be rege
 Stage 15.11 accepts Stage 15.0--15.7 as closed early-stage evidence in a fresh unzip tree. When those historical runtime `stage15_outputs/*.dat` files are absent, the closure script must not leave `controlled_update_status` or `feedback_linkage_status` unset; those closure properties are inherited from the stronger Stage 15.8 parallel-consistency evidence and Stage 15.10 contamination-audit evidence.
 
 The wrapper now also emits explicit unmet-status reasons before failure, so `unknown_stage15_11_failure` cannot mask a missing closure gate.
+
+
+Stage 15.11 review note: `approved_stage12_13_14_chain_status` must be inherited from the stronger Stage 15.8/15.10 closure evidence when those diagnostics pass, so a fresh unzip tree does not fail after accepting Stage 15.0-15.7 closed static evidence. The final wrapper must also emit explicit failure reasons for any unmet closure gate.

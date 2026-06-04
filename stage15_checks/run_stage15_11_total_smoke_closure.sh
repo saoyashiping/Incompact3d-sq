@@ -412,7 +412,9 @@ collect_closure_statuses() {
         require_key_value "$d8" parallel_velocity_status 1 || status=1
         require_key_value "$d8" parallel_slip_status 1 || status=1
         require_key_value "$d8" parallel_force_status 1 || status=1
+        require_key_value "$d8" approved_stage12_13_14_chain_status 1 || status=1
         PARALLEL_CONSISTENCY_STATUS=1
+        APPROVED_STAGE12_13_14_CHAIN_STATUS=1
         # Stage 15.8 is the np=1/2/4 closure proof that the controlled
         # structure update and Stage 12 feedback linkage remain active and
         # decomposition-consistent. In a fresh unzip tree Stage 15.7 runtime
@@ -457,6 +459,7 @@ collect_closure_statuses() {
         FORCE_RESPONSE_BOUNDED_STATUS=1
         RHS_RESPONSE_BOUNDED_STATUS=1
         STAGE14_RHS_INCREMENT_BOUNDED_STATUS=1
+        APPROVED_STAGE12_13_14_CHAIN_STATUS=1
         NO_FULL_STRUCTURE_ADVANCE_STATUS=1
         NO_BENDING_SOLVE_STATUS=1
         NO_TENSION_SOLVE_STATUS=1

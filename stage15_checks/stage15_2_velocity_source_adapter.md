@@ -158,3 +158,6 @@ Expected successful terminal evidence:
 STAGE 15.2 VELOCITY SOURCE ADAPTER VERDICT: PASS
 STAGE 15.2 FINAL VERDICT: PASS
 ```
+
+
+Stage 15.11 review note: the wrapper must not require ripgrep; static searches use grep-compatible helpers so the check runs on systems without `rg`.
