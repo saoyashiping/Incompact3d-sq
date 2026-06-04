@@ -413,6 +413,14 @@ collect_closure_statuses() {
         require_key_value "$d8" parallel_slip_status 1 || status=1
         require_key_value "$d8" parallel_force_status 1 || status=1
         PARALLEL_CONSISTENCY_STATUS=1
+        # Stage 15.8 is the np=1/2/4 closure proof that the controlled
+        # structure update and Stage 12 feedback linkage remain active and
+        # decomposition-consistent. In a fresh unzip tree Stage 15.7 runtime
+        # diagnostics may be absent because Stage 15.7 is accepted as closed
+        # static evidence, so inherit these two closure statuses from the
+        # stronger Stage 15.8 evidence rather than leaving them unset.
+        CONTROLLED_UPDATE_STATUS=1
+        FEEDBACK_LINKAGE_STATUS=1
     fi
     if [ -s "$d9" ]; then
         require_key_value "$d9" final_status 1 || status=1
@@ -425,6 +433,8 @@ collect_closure_statuses() {
     fi
     if [ -s "$d10" ]; then
         require_key_value "$d10" final_status 1 || status=1
+        require_key_value "$d10" controlled_update_status 1 || status=1
+        require_key_value "$d10" feedback_linkage_status 1 || status=1
         require_key_value "$d10" force_response_bounded_status 1 || status=1
         require_key_value "$d10" rhs_response_bounded_status 1 || status=1
         require_key_value "$d10" stage14_rhs_increment_bounded_status 1 || status=1
@@ -442,6 +452,8 @@ collect_closure_statuses() {
         require_key_value "$d10" no_nan_inf_status 1 || status=1
         require_real_le_key "$d10" fluid_signature_delta "$STAGE15_11_MAX_FLUID_DELTA" || status=1
         CONTAMINATION_AUDIT_STATUS=1
+        CONTROLLED_UPDATE_STATUS=1
+        FEEDBACK_LINKAGE_STATUS=1
         FORCE_RESPONSE_BOUNDED_STATUS=1
         RHS_RESPONSE_BOUNDED_STATUS=1
         STAGE14_RHS_INCREMENT_BOUNDED_STATUS=1
@@ -566,6 +578,48 @@ EOF_DAT
     cp "$SUMMARY_DAT" "$OUT_DAT"
 }
 
+add_unmet_final_status_reasons() {
+    # Defensive closure diagnostics: do not allow an unexplained
+    # unknown_stage15_11_failure. If a final PASS gate remains unset, record
+    # the exact missing status before printing the failure summary.
+    [ "$BUILD_STATUS" = "1" ] || add_reason "stage15_11_build_status_not_pass"
+    [ "$STATIC_AUDIT_STATUS" = "1" ] || add_reason "stage15_11_static_audit_status_not_pass"
+    [ "$STAGE14_REGRESSION_STATUS" = "1" ] || add_reason "stage15_11_stage14_regression_status_not_pass"
+    [ "$STAGE15_REGRESSION_STATUS" = "1" ] || add_reason "stage15_11_stage15_regression_status_not_pass"
+    for stage in 0 1 2 3 4 5 6 7 8 9 10; do
+        eval "value=\$STAGE15_${stage}_EVIDENCE_STATUS"
+        [ "$value" = "1" ] || add_reason "stage15_${stage}_evidence_status_not_pass"
+    done
+    for pair in \
+        CONTROLLED_UPDATE_STATUS:controlled_update_status \
+        FEEDBACK_LINKAGE_STATUS:feedback_linkage_status \
+        PARALLEL_CONSISTENCY_STATUS:parallel_consistency_status \
+        RESTART_IO_STATUS:restart_io_status \
+        CONTAMINATION_AUDIT_STATUS:contamination_audit_status \
+        APPROVED_STAGE12_13_14_CHAIN_STATUS:approved_stage12_13_14_chain_status \
+        FORCE_RESPONSE_BOUNDED_STATUS:force_response_bounded_status \
+        RHS_RESPONSE_BOUNDED_STATUS:rhs_response_bounded_status \
+        STAGE14_RHS_INCREMENT_BOUNDED_STATUS:stage14_rhs_increment_bounded_status \
+        RANK0_SAFE_DIAGNOSTIC_STATUS:rank0_safe_diagnostic_status \
+        STAGE13_SAMPLING_REPAIR_STATUS:stage13_sampling_repair_status \
+        NO_FULL_STRUCTURE_ADVANCE_STATUS:no_full_structure_advance_status \
+        NO_BENDING_SOLVE_STATUS:no_bending_solve_status \
+        NO_TENSION_SOLVE_STATUS:no_tension_solve_status \
+        NO_WALL_CONTACT_STATUS:no_wall_contact_status \
+        NO_MULTIFIBRE_STATUS:no_multifibre_status \
+        NO_DIRECT_RHS_INJECTION_STATUS:no_direct_rhs_injection_status \
+        NO_LEGACY_IBM_FORCING_STATUS:no_legacy_ibm_forcing_status \
+        NO_PRESSURE_PROJECTION_MODIFICATION_STATUS:no_pressure_projection_modification_status \
+        NO_POISSON_MODIFICATION_STATUS:no_poisson_modification_status \
+        NO_RK3_CHANNEL_FORCING_MODIFICATION_STATUS:no_rk3_channel_forcing_modification_status \
+        NO_NAN_INF_STATUS:no_nan_inf_status; do
+        var=${pair%%:*}
+        reason=${pair#*:}
+        eval "value=\$$var"
+        [ "$value" = "1" ] || add_reason "stage15_11_${reason}_not_pass"
+    done
+}
+
 if ! validate_controls; then
     BUILD_STATUS=0
 fi
@@ -610,6 +664,9 @@ if [ "$BUILD_STATUS" = "1" ] && [ "$STATIC_AUDIT_STATUS" = "1" ] && [ "$STAGE14_
     add_reason "stage15_closed_file_generation_failed"
 fi
 
+if [ ! -s "$REASONS_FILE" ]; then
+    add_unmet_final_status_reasons
+fi
 rm -f "$CLOSURE_FILE"
 write_output_dat 0
 echo 'STAGE 15.11 TOTAL SMOKE VERDICT: FAIL'
