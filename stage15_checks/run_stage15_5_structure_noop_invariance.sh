@@ -212,8 +212,11 @@ check_xcompact_hook_insertion() {
       {
         line=tolower($0)
         sub(/!.*/, "", line)
-        if (line ~ /stage15_production_structure_hook_apply/ && line !~ /stage15_structure_hook_reg/) bad=1
-        if (line ~ /stage15_production_structure_hook_register\(1\)/ && line !~ /stage15_structure_hook_reg/) reg=1
+        # Only executable CALL statements require same-line guard evidence here.
+        # The USE-only import list also contains stage15_production_structure_hook_apply,
+        # but it is not an unguarded runtime invocation and must not fail the audit.
+        if (line ~ /call[[:space:]]+stage15_production_structure_hook_apply/ && line !~ /stage15_structure_hook_reg/) bad=1
+        if (line ~ /call[[:space:]]+stage15_production_structure_hook_register\(1\)/ && line !~ /stage15_structure_hook_reg/) reg=1
       }
       END { exit(bad ? 1 : 0) }
     ' src/xcompact3d.f90; then

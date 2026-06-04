@@ -154,3 +154,7 @@ and the required diagnostic file reports:
 - The wrapper inherits the existing Stage 9.9 production smoke driver to produce deterministic fluid signatures and existing Stage 14 lambda-zero RHS diagnostics.
 - With the strict default tolerances set to zero, any non-bitwise production signature drift is treated as contamination and fails closed.
 - If `STAGE15_5_RUN_BASELINE=0` or `STAGE15_5_RUN_PRODUCTION_SMOKE=0`, the wrapper does not silently skip validation; it requires existing Stage 15.5 evidence files and fails if they are missing.
+
+## Stage 15.5 static hook-guard audit note
+
+The xcompact3d hook-guard audit must distinguish executable `call stage15_production_structure_hook_apply(...)` statements from the `use fibre_stage15_production_structure_hook, only: ...` import list. Only real runtime `call` statements require same-line `stage15_structure_hook_reg` guard evidence. The import-only symbol list is not an unguarded hook invocation and must not trigger `xcompact3d_stage15_hook_apply_not_guarded`.
