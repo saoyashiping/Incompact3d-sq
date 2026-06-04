@@ -60,6 +60,9 @@ add_executable(xcompact3d
                     fibre_stage13_production_force_density_candidate.f90
                     fibre_stage14_config.f90
                     fibre_stage14_production_rhs_injection.f90
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_production_structure_hook.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -361,6 +364,74 @@ target_link_libraries(fibre_stage15_config_check PRIVATE decomp2d)
 
 if (MPI_FOUND)
   target_link_libraries(fibre_stage15_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_structure_state_check
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_structure_state_check.f90)
+
+target_link_libraries(fibre_stage15_structure_state_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_structure_state_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_velocity_source_adapter_check
+                    fibre_stage12_prescribed_velocity.f90
+                    fibre_stage12_feedback_formula.f90
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_velocity_source_adapter.f90
+                    fibre_stage15_velocity_source_adapter_check.f90)
+
+target_link_libraries(fibre_stage15_velocity_source_adapter_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_velocity_source_adapter_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_structure_advance_formula_check
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_advance_formula.f90
+                    fibre_stage15_structure_advance_formula_check.f90)
+
+target_link_libraries(fibre_stage15_structure_advance_formula_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_structure_advance_formula_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_production_structure_hook_check
+                    fibre_stage15_config.f90
+                    fibre_stage15_structure_state.f90
+                    fibre_stage15_production_structure_hook.f90
+                    fibre_stage15_production_structure_hook_check.f90)
+
+target_link_libraries(fibre_stage15_production_structure_hook_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_production_structure_hook_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_controlled_structure_step_check
+                    fibre_stage15_controlled_structure_step.f90
+                    fibre_stage15_controlled_structure_step_check.f90)
+
+target_link_libraries(fibre_stage15_controlled_structure_step_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_controlled_structure_step_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage15_feedback_linkage_check
+                    fibre_stage12_feedback_formula.f90
+                    fibre_stage15_feedback_linkage_check.f90)
+
+target_link_libraries(fibre_stage15_feedback_linkage_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage15_feedback_linkage_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
 add_executable(fibre_stage14_rhs_accumulator_check
