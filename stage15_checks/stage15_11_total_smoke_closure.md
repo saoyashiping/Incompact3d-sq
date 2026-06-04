@@ -1,5 +1,11 @@
 # Stage 15.11: Stage 15 total smoke and closure
 
+## Closed early-stage evidence handling
+
+Stage 15.11 treats Stage 15.0-15.7 as closed historical stages. In a fresh unzip tree, their runtime `stage15_outputs/*.dat` files may be absent even though the scripts, documentation, source modules, and check targets are present and the user has already manually passed those stages. Therefore `STAGE15_11_ACCEPT_CLOSED_EARLY_EVIDENCE=1` accepts static closed-stage evidence for Stage 15.0-15.7 and does not re-run or re-fail them just to reconstruct historical output.
+
+Stage 15.8, Stage 15.9, and Stage 15.10 remain the runtime closure prerequisites. If their `.dat` evidence is missing or invalid and `STAGE15_11_AUTO_RUN_MISSING_PREREQS=1`, Stage 15.11 regenerates those prerequisite checks. Stage 15.9 must receive the separated `STAGE15_9_MAX_STAGE14_RHS_INCREMENT` tolerance so that the Stage 15.7 diagnostic RHS-response bound is not incorrectly applied to the Stage 14.9 production RHS increment.
+
 ## Scope
 
 Stage 15.11 is the Stage 15 closure stage. It verifies the Stage 15.0-15.10 controlled structure-state evidence, preserves the Stage 14 and Stage 15 anti-regression protections, and writes the final closure file only after full PASS evidence:
