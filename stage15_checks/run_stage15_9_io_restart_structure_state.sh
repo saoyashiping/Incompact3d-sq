@@ -24,13 +24,6 @@ STAGE15_9_MAX_FLUID_RESTART_DELTA=${STAGE15_9_MAX_FLUID_RESTART_DELTA:-1.0e-8}
 STAGE15_9_MAX_IO_SIGNATURE_DELTA=${STAGE15_9_MAX_IO_SIGNATURE_DELTA:-1.0e-8}
 STAGE15_9_MAX_FORCE_RESPONSE=${STAGE15_9_MAX_FORCE_RESPONSE:-1.0e-8}
 STAGE15_9_MAX_RHS_RESPONSE=${STAGE15_9_MAX_RHS_RESPONSE:-1.0e-12}
-# Stage 15.9 uses two distinct RHS bounds:
-# - STAGE15_9_MAX_RHS_RESPONSE: strict diagnostic response bound for the Stage 15.7
-#   structure-velocity/feedback linkage check, where rhs_response = lambda * Delta F.
-# - STAGE15_9_MAX_STAGE14_RHS_INCREMENT: inherited Stage 14.9 production RHS-increment
-#   bound for the small-lambda I/O/restart smoke. Do not bind this to the much tighter
-#   Stage 15.7 diagnostic response tolerance.
-STAGE15_9_MAX_STAGE14_RHS_INCREMENT=${STAGE15_9_MAX_STAGE14_RHS_INCREMENT:-${STAGE15_9_MAX_RHS_INCREMENT:-1.0e-4}}
 STAGE15_9_RUN_RESTART=${STAGE15_9_RUN_RESTART:-1}
 STAGE15_9_RUN_STATS_VISU=${STAGE15_9_RUN_STATS_VISU:-1}
 STAGE15_9_RUN_COARSE_IO=${STAGE15_9_RUN_COARSE_IO:-1}
@@ -196,7 +189,7 @@ validate_number_defaults() {
                  "$STAGE15_9_FEEDBACK_ALPHA" "$STAGE15_9_LAMBDA" \
                  "$STAGE15_9_MAX_STRUCTURE_RESTART_DELTA" "$STAGE15_9_MAX_FLUID_RESTART_DELTA" \
                  "$STAGE15_9_MAX_IO_SIGNATURE_DELTA" "$STAGE15_9_MAX_FORCE_RESPONSE" \
-                 "$STAGE15_9_MAX_RHS_RESPONSE" "$STAGE15_9_MAX_STAGE14_RHS_INCREMENT"; do
+                 "$STAGE15_9_MAX_RHS_RESPONSE"; do
         is_finite_number "$value" || status=1
     done
     [ "$status" = "0" ] || add_reason "stage15_9_numeric_control_not_finite"
@@ -360,7 +353,7 @@ run_stage14_9_io_restart() {
     fi
     STAGE14_9_NP="$STAGE15_9_NP" \
     STAGE14_9_SMALL_LAMBDA="$STAGE15_9_LAMBDA" \
-    STAGE14_9_MAX_RHS_INCREMENT="$STAGE15_9_MAX_STAGE14_RHS_INCREMENT" \
+    STAGE14_9_MAX_RHS_INCREMENT="$STAGE15_9_MAX_RHS_RESPONSE" \
     STAGE14_9_MAX_FLUID_DELTA="$STAGE15_9_MAX_FLUID_RESTART_DELTA" \
     STAGE14_9_MAX_RESTART_DELTA="$STAGE15_9_MAX_FLUID_RESTART_DELTA" \
     STAGE14_9_MAX_IO_SIGNATURE_DELTA="$STAGE15_9_MAX_IO_SIGNATURE_DELTA" \
@@ -393,7 +386,7 @@ run_stage14_9_io_restart() {
     is_finite_number "$RHS_RESPONSE" || { add_reason "stage15_9_rhs_response_nonfinite"; status=1; }
     is_finite_number "$FLUID_RESTART_DELTA" || { add_reason "stage15_9_fluid_restart_delta_nonfinite"; status=1; }
     is_finite_number "$IO_SIGNATURE_DELTA" || { add_reason "stage15_9_io_signature_delta_nonfinite"; status=1; }
-    awk -v v="$RHS_RESPONSE" -v limit="$STAGE15_9_MAX_STAGE14_RHS_INCREMENT" 'BEGIN { exit !((v+0.0) <= (limit+0.0)) }' || { add_reason "stage15_9_stage14_rhs_increment_exceeds_tolerance"; status=1; }
+    awk -v v="$RHS_RESPONSE" -v limit="$STAGE15_9_MAX_RHS_RESPONSE" 'BEGIN { exit !((v+0.0) <= (limit+0.0)) }' || { add_reason "stage15_9_rhs_response_exceeds_tolerance"; status=1; }
     awk -v v="$FLUID_RESTART_DELTA" -v limit="$STAGE15_9_MAX_FLUID_RESTART_DELTA" 'BEGIN { exit !((v+0.0) <= (limit+0.0)) }' || { add_reason "stage15_9_fluid_restart_delta_exceeds_tolerance"; status=1; }
     awk -v v="$IO_SIGNATURE_DELTA" -v limit="$STAGE15_9_MAX_IO_SIGNATURE_DELTA" 'BEGIN { exit !((v+0.0) <= (limit+0.0)) }' || { add_reason "stage15_9_io_signature_delta_exceeds_tolerance"; status=1; }
     if [ "$status" = "0" ]; then
@@ -433,7 +426,6 @@ rho_tilde $STAGE15_9_RHO_TILDE
 test_force_magnitude $STAGE15_9_TEST_FORCE
 feedback_alpha $STAGE15_9_FEEDBACK_ALPHA
 lambda_value $STAGE15_9_LAMBDA
-stage15_9_max_stage14_rhs_increment $STAGE15_9_MAX_STAGE14_RHS_INCREMENT
 stage15_9_build_status $BUILD_STATUS
 stage15_9_static_audit_status $STATIC_AUDIT_STATUS
 stage15_9_source_guard_status $SOURCE_GUARD_STATUS
