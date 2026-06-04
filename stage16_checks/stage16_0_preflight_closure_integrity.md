@@ -136,3 +136,20 @@ This stage intentionally adds only Stage 16.0 audit scripts and documentation.
 It does not add one-fibre FSI physics, production structure advance, bending or
 tension solves, wall/contact handling, multi-fibre logic, fluid RHS changes,
 pressure/projection/Poisson changes, RK3 changes, or channel-forcing changes.
+
+## Stage 16.0 repair notes
+
+This Stage 16.0 audit must treat Stage 15 as a closed stage when
+`stage15_checks/STAGE15_CLOSED.md` is present and complete. In a fresh unpacked
+source tree, historical `stage15_outputs/*.dat` runtime files may be absent; the
+closure file is the versioned evidence that Stage 15.1--15.11 were closed.
+
+The preflight audit intentionally scans production/source evidence for the
+forbidden Stage 14 lambda-zero registration gate and obsolete Stage 13.5
+production diagnostic names. Documentation may mention those old strings as
+negative anti-regression examples, and those negative mentions must not be
+misclassified as active regressions.
+
+The `rg`/ripgrep audit checks actual command invocations only. Regex strings or
+comments that merely name `rg` as a forbidden dependency are not treated as a
+runtime dependency.

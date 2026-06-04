@@ -106,8 +106,22 @@ def set_status(status: dict[str, int], key: str, ok: bool, reasons: list[str], r
 
 def check_rg_fallback(script: Path) -> bool:
     text = read_text(script)
-    if not re.search(r"\brg\b", text):
+
+    # Detect actual rg command use, not diagnostic regex strings such as
+    # 'rg[[:space:]]' or markdown/comment prose mentioning ripgrep.
+    actual_rg_invocation = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Remove common quoted grep patterns before looking for commands.
+        scrubbed = re.sub(r"'[^']*'|\"[^\"]*\"", "", line)
+        if re.search(r"(^|[;&|(){}\s])rg(\s|$)", scrubbed):
+            actual_rg_invocation = True
+            break
+    if not actual_rg_invocation:
         return True
+
     has_command_guard = "command -v rg" in text or "which rg" in text
     has_grep_fallback = re.search(r"\bgrep\b", text) is not None
     return has_command_guard and has_grep_fallback
@@ -176,12 +190,19 @@ def main() -> int:
     stage11_files = all_files_under(repo / "stage11_checks", ("*.sh", "*.md"))
     stage13_files = all_files_under(repo / "stage13_checks", ("*.sh", "*.md"))
     stage14_files = all_files_under(repo / "stage14_checks", ("*.sh", "*.md"))
+    stage11_scripts = all_files_under(repo / "stage11_checks", ("*.sh",))
+    stage13_scripts = all_files_under(repo / "stage13_checks", ("*.sh",))
+    stage14_scripts = all_files_under(repo / "stage14_checks", ("*.sh",))
     stage15_files = all_files_under(repo / "stage15_checks", ("*.sh", "*.md"))
     src_stage_text = matching_text(src_files)
     stage11_14_text = matching_text(stage11_files + stage13_files + stage14_files)
+    stage11_14_script_text = matching_text(stage11_scripts + stage13_scripts + stage14_scripts)
     stage15_checks_text = matching_text(stage15_files)
 
-    forbidden_lambda_gate_absent = re.search(r"stage14_get_injection_gain\s*\(\s*\)\s*(?:==|\.eq\.)\s*0\.0", src_stage_text + stage11_14_text, re.I) is None
+    # Audit the forbidden lambda==0 registration gate only in executable source/script
+    # evidence. Closure documents deliberately mention this old bug as a prohibition,
+    # so including markdown here creates a false positive.
+    forbidden_lambda_gate_absent = re.search(r"stage14_get_injection_gain\s*\(\s*\)\s*(?:==|\.eq\.)\s*0\.0", src_stage_text + stage11_14_script_text, re.I) is None
     stage11_diag = (repo / "stage11_checks" / "run_stage11_5_production_oneway_hook.sh").exists() and "stage11_5_production_oneway_hook" in src_stage_text + stage11_14_text
     stage13_diag = (repo / "stage13_checks" / "run_stage13_6_production_force_density_candidate.sh").exists() and "stage13_6_production_force_density_candidate" in src_stage_text + stage11_14_text
     stage14_diag = (repo / "stage14_checks" / "run_stage14_5_production_rhs_hook.sh").exists() and "stage14_5_production_rhs_hook" in src_stage_text + stage11_14_text
@@ -200,7 +221,10 @@ def main() -> int:
         reasons.append("stage14_5_production_rhs_hook_diagnostics_missing")
 
     stage13_6_name_ok = "stage13_6_production_force_density_candidate" in src_stage_text + stage11_14_text and "fibre_stage13_6_production_force_density_candidate.dat" in src_stage_text + stage11_14_text
-    old_stage13_5_prod_absent = "stage13_5_production_force_density_candidate" not in src_stage_text + stage11_14_text + stage15_checks_text
+    # Old Stage 13.5 strings may appear in documentation or negative grep checks
+    # that explicitly reject the obsolete name. They should only fail Stage 16.0
+    # if the obsolete diagnostic is used as active production/source evidence.
+    old_stage13_5_prod_absent = "stage13_5_production_force_density_candidate" not in src_stage_text + stage11_14_script_text
     status["stage13_6_diagnostic_name_status"] = 1 if stage13_6_name_ok and old_stage13_5_prod_absent else 0
     if not stage13_6_name_ok:
         reasons.append("current_stage13_6_production_force_density_diagnostic_names_missing")
