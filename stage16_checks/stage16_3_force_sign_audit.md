@@ -152,3 +152,7 @@ structure, solve bending/tension, handle wall/contact interactions, enable
 multi-fibre operation, modify fluid RHS, modify pressure/projection/Poisson/RK3
 or channel forcing, or activate legacy IBM forcing outside the approved Stage
 11-14 chain.
+
+## 2026-06-05 audit-helper correction
+
+Stage 16.3 static audit must not treat documentation or negative audit text as a real regression.  In particular, references to the forbidden Stage 14 `stage14_get_injection_gain()==0.0` gate inside Markdown or explanatory text are not production code, and Stage 13.5 remains a legitimate closed conservation/sign audit.  Only the old production force-density candidate naming pattern is forbidden.  The helper also distinguishes real shell `rg` command usage from quoted regular-expression text so the no-rg-only-dependency check does not produce false positives.
