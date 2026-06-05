@@ -366,6 +366,69 @@ if (MPI_FOUND)
   target_link_libraries(fibre_stage15_config_check PRIVATE MPI::MPI_Fortran)
 endif (MPI_FOUND)
 
+add_executable(fibre_stage16_config_check
+                    fibre_stage16_config.f90
+                    fibre_stage16_config_check.f90)
+
+target_link_libraries(fibre_stage16_config_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_config_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage16_one_fibre_case_check
+                    fibre_stage16_config.f90
+                    fibre_stage16_one_fibre_case.f90
+                    fibre_stage16_one_fibre_case_check.f90)
+
+target_link_libraries(fibre_stage16_one_fibre_case_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_one_fibre_case_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage16_force_sign_audit_check
+                    fibre_stage16_force_sign_audit.f90
+                    fibre_stage16_force_sign_audit_check.f90)
+
+target_link_libraries(fibre_stage16_force_sign_audit_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_force_sign_audit_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage16_structure_force_input_check
+                    fibre_stage16_structure_force_input.f90
+                    fibre_stage16_structure_force_input_check.f90)
+
+target_link_libraries(fibre_stage16_structure_force_input_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_structure_force_input_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage16_closed_loop_dryrun_check
+                    fibre_stage16_structure_force_input.f90
+                    fibre_stage16_closed_loop_dryrun.f90
+                    fibre_stage16_closed_loop_dryrun_check.f90)
+
+target_link_libraries(fibre_stage16_closed_loop_dryrun_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_closed_loop_dryrun_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
+add_executable(fibre_stage16_lambda0_no_contamination_check
+                    fibre_stage16_structure_force_input.f90
+                    fibre_stage16_lambda0_no_contamination.f90
+                    fibre_stage16_lambda0_no_contamination_check.f90)
+
+target_link_libraries(fibre_stage16_lambda0_no_contamination_check PRIVATE decomp2d)
+
+if (MPI_FOUND)
+  target_link_libraries(fibre_stage16_lambda0_no_contamination_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+
 add_executable(fibre_stage15_structure_state_check
                     fibre_stage15_config.f90
                     fibre_stage15_structure_state.f90
