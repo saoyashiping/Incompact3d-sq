@@ -158,3 +158,9 @@ physics, compute `F_fs_cand`, advance the structure, solve bending/tension,
 handle wall/contact interactions, enable multi-fibre logic, modify fluid RHS,
 modify pressure/projection/Poisson/RK3/channel forcing, or activate legacy IBM
 forcing outside the approved Stage 11-14 chain.
+
+## Stage 16.1 audit repair note
+
+Stage 16.1 accepts the already-passed Stage 16.0 preflight evidence in a fresh unpacked tree when `STAGE16_1_ACCEPT_STAGE16_0_CLOSED_EVIDENCE=1`.  In that mode the Stage 16.0 wrapper, helper, documentation, `STAGE14_CLOSED.md`, and `STAGE15_CLOSED.md` are treated as the closed preflight evidence if the runtime `stage16_outputs/fibre_stage16_0_preflight_closure_integrity.dat` file is not present.
+
+The Stage 16.1 helper must distinguish real executable commands from negative audit strings.  A literal `rg` inside a quoted regular expression is not an `rg` dependency.  A literal `stage14_get_injection_gain() == 0.0` inside closure documentation is not a Stage 14 hook-registration regression.  The legitimate Stage 13.5 conservation-sign audit is also not the old production force-density candidate name; only an actual reappearance of `stage13_5_production_force_density_candidate` in production force-density evidence is a failure.

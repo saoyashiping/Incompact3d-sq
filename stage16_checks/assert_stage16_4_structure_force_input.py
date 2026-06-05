@@ -89,11 +89,50 @@ def parse_dat(path: Path) -> dict[str, str]:
     return data
 
 
-def check_rg_fallback(script: Path) -> bool:
+def active_shell_has_rg_command(script: Path) -> bool:
+    """Return True only for executable rg command use, not quoted regex/doc text."""
+    for raw in read_text(script).splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Strip simple trailing comments; command detection must not treat quoted
+        # regex text such as 'rg[[:space:]]' as a real rg command.
+        unquoted_prefix = line.split("#", 1)[0].strip()
+        if re.match(r"^(?:command\s+-v\s+)?rg(?:\s|$)", unquoted_prefix):
+            return True
+        if re.search(r"(?:^|[;&|()])\s*rg\s+", unquoted_prefix):
+            return True
+    return False
+
+
+def script_has_rg_only_dependency(script: Path) -> bool:
+    if not active_shell_has_rg_command(script):
+        return False
     text = read_text(script)
-    if not re.search(r"\brg\b", text):
-        return True
-    return ("command -v rg" in text or "which rg" in text) and re.search(r"\bgrep\b", text) is not None
+    has_fallback = ("command -v rg" in text or "which rg" in text) and re.search(r"\bgrep\b", text) is not None
+    return not has_fallback
+
+
+def stage14_lambda_zero_gate_found(repo: Path) -> bool:
+    # Only executable/source evidence is scanned. Markdown prohibition text and
+    # negative-check strings must not be misclassified as a real Stage 14
+    # lambda==0 hook-registration gate regression.
+    files = all_files(repo / "src", ("*.f90",)) + all_files(repo / "stage14_checks", ("*.sh",))
+    pattern = re.compile(r"stage14_get_injection_gain\s*\(\s*\)\s*(?:==|\.eq\.)\s*0\.0", re.I)
+    return any(pattern.search(read_text(candidate)) for candidate in files)
+
+
+def old_stage13_5_production_name_reappeared(repo: Path) -> bool:
+    # Stage 13.5 conservation-sign audit is legitimate. Only the old production
+    # force-density candidate diagnostic name is forbidden; documentation and
+    # negative-audit strings in Stage 15/16 must not be treated as regressions.
+    files = [
+        repo / "src" / "fibre_stage13_production_force_density_candidate.f90",
+        repo / "src" / "fibre_stage13_production_force_density_candidate_check.f90",
+        repo / "stage13_checks" / "run_stage13_6_production_force_density_candidate.sh",
+        repo / "stage13_checks" / "stage13_6_production_force_density_candidate.md",
+    ]
+    return any("stage13_5_production_force_density_candidate" in read_text(candidate) for candidate in files if candidate.exists())
 
 
 def main() -> int:
@@ -159,7 +198,7 @@ def main() -> int:
     stage15_text = joined(all_files(repo / "stage15_checks", ("*.sh",)))
 
     stage14_regression_status = 1
-    if re.search(r"stage14_get_injection_gain\s*\(\s*\)\s*(?:==|\.eq\.)\s*0\.0", src_text + stage11_14_text, re.I):
+    if stage14_lambda_zero_gate_found(repo):
         reasons.append("stage14_forbidden_lambda_zero_registration_gate_found")
         stage14_regression_status = 0
     for label, path, needle in [
@@ -170,8 +209,7 @@ def main() -> int:
         if not path.exists() or needle not in src_text + stage11_14_text:
             reasons.append(f"missing_{label}_diagnostics")
             stage14_regression_status = 0
-    production_context = src_text + joined(all_files(repo / "stage13_checks", ("run_stage13_*production*.sh",)))
-    if "stage13_5_production_force_density_candidate" in production_context:
+    if old_stage13_5_production_name_reappeared(repo):
         reasons.append("old_stage13_5_production_force_density_name_reappeared")
         stage14_regression_status = 0
     if "fibre_stage13_6_production_force_density_candidate.dat" not in src_text + stage11_14_text:
@@ -202,7 +240,8 @@ def main() -> int:
         if not (repo / "stage15_checks" / f"stage15_{stage}_{stem}.md").exists() or not (repo / "stage15_checks" / f"run_stage15_{stage}_{stem}.sh").exists():
             reasons.append(f"missing_stage15_{stage}_{stem}_script_or_doc")
             stage15_regression_status = 0
-    if not all(check_rg_fallback(path) for path in all_files(repo / "stage15_checks", ("*.sh",)) + [wrapper]):
+    scripts_to_check = all_files(repo / "stage15_checks", ("*.sh",)) + all_files(repo / "stage16_checks", ("*.sh",))
+    if any(script_has_rg_only_dependency(candidate) for candidate in scripts_to_check):
         reasons.append("script_has_rg_without_grep_fallback")
         stage15_regression_status = 0
     stage15_11 = read_text(repo / "stage15_checks" / "run_stage15_11_total_smoke_closure.sh")

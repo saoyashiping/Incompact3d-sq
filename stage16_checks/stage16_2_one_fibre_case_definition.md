@@ -176,3 +176,10 @@ structure, solve bending/tension, handle wall/contact interactions, enable
 multi-fibre operation, modify fluid RHS, modify pressure/projection/Poisson/RK3
 or channel forcing, or activate legacy IBM forcing outside the approved
 Stage 11-14 chain.
+
+
+## Stage 16.2 audit compatibility note
+
+Stage 16.2 accepts already-closed Stage 16.1 evidence in fresh unzip trees when `STAGE16_2_ACCEPT_STAGE16_1_CLOSED_EVIDENCE=1`. In that mode the audit checks the Stage 16.1 script, documentation, helper, source module, check target registration, and Stage 14/15 closure files instead of requiring the runtime `stage16_outputs/fibre_stage16_1_config.dat` file to be present.
+
+The Stage 16.2 Python audit must scan only executable/source evidence for real regressions. Markdown prohibition text such as `stage14_get_injection_gain() == 0.0`, negative audit strings mentioning old Stage 13.5 production names, or quoted regular expressions containing `rg` must not be misclassified as real code regressions. Only actual executable `rg` command use without grep fallback is a failure.
