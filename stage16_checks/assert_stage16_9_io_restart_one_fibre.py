@@ -265,6 +265,30 @@ def stage16_8_evidence_ok(repo: Path, accept_closed: bool) -> bool:
     return accept_closed and all(path.exists() for path in required_files)
 
 
+def stage16_7_closed_evidence_ok(repo: Path, pre: dict[str, str]) -> bool:
+    """Accept Stage 16.7 evidence when reusing its closed small-lambda output.
+
+    The Stage 16.7 diagnostic file is produced by the Stage 16.7 check itself, so it
+    intentionally does not contain a self-referential stage16_7_regression_status key.
+    Stage 16.9 must therefore infer the Stage 16.7 evidence from final_status, the
+    preserved Stage 16.6 regression status, and the existence of the closed Stage
+    16.7 script/helper/doc/source/check files. Treating the missing self-status as 0
+    caused the false failure summary_stage16_7_regression_status_not_pass.
+    """
+    required_files = [
+        repo / "stage16_checks" / "run_stage16_7_small_lambda_bounded_response_np1.sh",
+        repo / "stage16_checks" / "assert_stage16_7_small_lambda_bounded_response_np1.py",
+        repo / "stage16_checks" / "stage16_7_small_lambda_bounded_response_np1.md",
+        repo / "src" / "fibre_stage16_small_lambda_response.f90",
+        repo / "src" / "fibre_stage16_small_lambda_response_check.f90",
+    ]
+    return (
+        pre.get("final_status") == "1"
+        and pre.get("stage16_6_regression_status") == "1"
+        and all(path.exists() for path in required_files)
+    )
+
+
 def io_value(path: Path, key: str) -> float | None:
     return finite_float(parse_dat(path).get(key))
 
@@ -333,6 +357,9 @@ def main() -> int:
     coarse_path = out_dir / "stage16_9_coarse_io_output.dat"
     pre = parse_dat(pre_path)
     post = parse_dat(post_path)
+    stage16_7_closed_status = status(stage16_7_closed_evidence_ok(repo, pre))
+    if stage16_7_closed_status != "1":
+        reasons.append("stage16_7_closed_evidence_missing_or_failed_for_stage16_9")
 
     if not pre_path.exists():
         reasons.append("stage16_9_pre_restart_closed_loop_diagnostic_missing")
@@ -466,7 +493,7 @@ def main() -> int:
         "stage16_4_regression_status": pre.get("stage16_4_regression_status", "0"),
         "stage16_5_regression_status": pre.get("stage16_5_regression_status", "0"),
         "stage16_6_regression_status": pre.get("stage16_6_regression_status", "0"),
-        "stage16_7_regression_status": pre.get("stage16_7_regression_status", "0"),
+        "stage16_7_regression_status": stage16_7_closed_status,
         "stage16_8_regression_status": "1",
     }
     for key in SUMMARY_KEYS:

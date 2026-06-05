@@ -97,3 +97,14 @@ The Stage 16.9 helper intentionally reuses the corrected Stage 16.8 / Stage 16.7
 ## Assumptions and risks
 
 Stage 16.9 intentionally reuses the Stage 16.7 target instead of adding a new Fortran physics module. The restart/stats/visu/coarse files are controlled diagnostic evidence derived from the rank0 Stage 16.7 output, not uncontrolled production DNS I/O. The original Stage 16.7 logical `np` is preserved as `stage16_7_reported_np`, while the Stage 16.9 summary reports the MPI launch count requested through `STAGE16_9_NP`.
+
+## 2026-06-05 robustness note
+
+Stage 16.9 reuses the closed Stage 16.7 small-lambda diagnostic file as its closed-loop
+evidence. The Stage 16.7 file does not and should not contain a self-referential
+`stage16_7_regression_status` field. Stage 16.9 therefore infers Stage 16.7 closure
+from the Stage 16.7 `final_status`, preserved `stage16_6_regression_status`, and the
+existence of the closed Stage 16.7 wrapper/helper/doc/source/check files. This prevents
+false `summary_stage16_7_regression_status_not_pass` failures while preserving strict
+checks on the actual closed-loop and I/O evidence.
+
