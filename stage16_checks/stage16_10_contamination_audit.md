@@ -102,3 +102,15 @@ The Stage 16.10 helper intentionally reuses the corrected Stage 16.9 / Stage 16.
 ## Assumptions and risks
 
 Stage 16.10 intentionally reuses closed Stage 16.7/16.8/16.9 evidence instead of adding a new Fortran physics module. The static audit is intentionally scoped to real source and executable check logic, not markdown or negative-check text, to avoid the known Stage 16.1-16.4 false-positive regressions.
+
+
+## Stage 16.7 self-regression field handling
+
+Stage 16.10 reuses the Stage 16.7 small-lambda diagnostic output as runtime evidence.
+That Stage 16.7 output is produced by Stage 16.7 itself, so it intentionally does not
+include a self-referential `stage16_7_regression_status` key. Stage 16.10 must infer
+Stage 16.7 closed evidence from `final_status=1`, preserved `stage16_6_regression_status=1`,
+and the presence of the Stage 16.7 wrapper/helper/doc/source/check files. Missing the
+self-referential key is not a regression and must not produce
+`missing_runtime_key_stage16_7_regression_status`, `runtime_stage16_7_regression_status_not_pass`,
+or `summary_stage16_7_regression_status_not_pass`.
