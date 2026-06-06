@@ -49,7 +49,7 @@ RUNTIME_REQUIRED_KEYS = [
     "no_nan_inf_status", "stage14_regression_status", "stage15_regression_status",
     "stage16_1_regression_status", "stage16_2_regression_status", "stage16_3_regression_status",
     "stage16_4_regression_status", "stage16_5_regression_status", "stage16_6_regression_status",
-    "stage16_7_regression_status", "final_status",
+    "final_status",
 ]
 
 RUNTIME_PASS_ONE_KEYS = [
@@ -137,6 +137,35 @@ def evidence_ok(repo: Path, stage: str, files: list[str], dat_name: str = "") ->
         if data.get("final_status") == "1":
             return True
     return all((repo / path).exists() for path in files)
+
+
+def stage16_7_closed_evidence_ok(repo: Path, runtime: dict[str, str]) -> bool:
+    """Accept Stage 16.7 evidence when Stage 16.11 reuses Stage 16.7 runtime output.
+
+    The short-time smoke wrapper intentionally reuses the passed Stage 16.7
+    small-lambda check as the per-step runtime kernel. That diagnostic file is
+    produced by Stage 16.7 itself, so it does not and should not contain a
+    self-referential ``stage16_7_regression_status`` key. Stage 16.11 must infer
+    the closed Stage 16.7 evidence from Stage 16.7 ``final_status``, the preserved
+    Stage 16.6 regression status, and the existence of the closed Stage 16.7
+    wrapper/helper/doc/source/check files. Treating the missing self-status as
+    zero recreates the same false failure already fixed in Stage 16.10:
+    ``missing_runtime_key_stage16_7_regression_status``,
+    ``runtime_stage16_7_regression_status_not_pass``, and
+    ``summary_stage16_7_regression_status_not_pass``.
+    """
+    required_files = [
+        repo / "stage16_checks" / "run_stage16_7_small_lambda_bounded_response_np1.sh",
+        repo / "stage16_checks" / "assert_stage16_7_small_lambda_bounded_response_np1.py",
+        repo / "stage16_checks" / "stage16_7_small_lambda_bounded_response_np1.md",
+        repo / "src" / "fibre_stage16_small_lambda_response.f90",
+        repo / "src" / "fibre_stage16_small_lambda_response_check.f90",
+    ]
+    return (
+        runtime.get("final_status") == "1"
+        and runtime.get("stage16_6_regression_status") == "1"
+        and all(path.exists() for path in required_files)
+    )
 
 
 def add_static_audit_reasons(repo: Path, reasons: list[str]) -> dict[str, str]:
@@ -329,6 +358,9 @@ def main() -> int:
     for key in RUNTIME_PASS_ONE_KEYS:
         if runtime.get(key) != "1":
             reasons.append(f"runtime_{key}_not_pass")
+    stage16_7_closed_status = status(stage16_7_closed_evidence_ok(repo, runtime))
+    if stage16_7_closed_status != "1":
+        reasons.append("stage16_7_closed_evidence_missing_or_failed_for_stage16_11")
 
     values = {key: finite_float(runtime.get(key)) for key in [
         "np", "nsteps", "max_position_update", "max_velocity_update", "max_acceleration_update",
@@ -425,7 +457,7 @@ def main() -> int:
         "stage16_4_regression_status": runtime.get("stage16_4_regression_status", "0"),
         "stage16_5_regression_status": runtime.get("stage16_5_regression_status", "0"),
         "stage16_6_regression_status": runtime.get("stage16_6_regression_status", "0"),
-        "stage16_7_regression_status": runtime.get("stage16_7_regression_status", "0"),
+        "stage16_7_regression_status": stage16_7_closed_status,
         "stage16_8_regression_status": "1" if evidence_ok(repo, "16.8", ["stage16_checks/run_stage16_8_parallel_consistency_one_fibre.sh"], "fibre_stage16_8_parallel_consistency_one_fibre.dat") else "0",
         "stage16_9_regression_status": "1" if evidence_ok(repo, "16.9", ["stage16_checks/run_stage16_9_io_restart_one_fibre.sh"], "fibre_stage16_9_io_restart_one_fibre.dat") else "0",
         "stage16_10_regression_status": "1" if evidence_ok(repo, "16.10", ["stage16_checks/run_stage16_10_contamination_audit.sh"], "fibre_stage16_10_contamination_audit.dat") else "0",
