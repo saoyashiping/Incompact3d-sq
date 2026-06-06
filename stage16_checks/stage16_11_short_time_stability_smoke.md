@@ -102,3 +102,8 @@ The Stage 16.11 helper intentionally reuses the corrected Stage 16.10 / Stage 16
 ## Assumptions and risks
 
 Stage 16.11 intentionally reuses closed Stage 16.7/16.8/16.9/16.10 evidence instead of adding a new Fortran physics module. The work and energy values are simple diagnostic proxies derived from the controlled Stage 16.7 force/update signatures, not production physical energy accounting.
+
+## Stage 16.7 reused-runtime evidence note
+
+The Stage 16.11 wrapper reuses the passed Stage 16.7 small-lambda runtime output as the per-step kernel. That Stage 16.7 file is produced by Stage 16.7 itself and intentionally does **not** contain a self-referential `stage16_7_regression_status` field. Stage 16.11 must infer Stage 16.7 closed evidence from `final_status = 1`, preserved `stage16_6_regression_status = 1`, and the existence of the Stage 16.7 wrapper/helper/doc/source/check files. Missing `stage16_7_regression_status` in the reused Stage 16.7 runtime file is not a regression and must not be treated as a failed status.
+
