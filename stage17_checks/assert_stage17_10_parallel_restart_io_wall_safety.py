@@ -275,6 +275,65 @@ def stage17_structural_status(stage: str, needles: Iterable[str]) -> str:
     return status_from_bool(file_contains(helper, needles))
 
 
+def stage17_5_preserved() -> str:
+    """Accept the already-passed Stage 17.5 helper evidence without brittle strings.
+
+    Stage 17.5 archives may use either explicit VALUE_KEYS/VALUE_SUFFIXES
+    naming or the accepted pass_fail_keys pattern to exclude numeric/string
+    value fields from boolean final_status evaluation.  Old failure-label
+    strings in the helper are diagnostic labels, not rollback evidence.
+    """
+    paths = STAGE17_FILES_BY_STAGE["5"]
+    if not all((ROOT / path).exists() for path in paths):
+        return "FAIL"
+    helper = read_text(paths[0])
+    required = [
+        "CONTACT_PLACEHOLDER",
+        "PENETRATED_FAIL_CLOSED",
+        "contact_placeholder_force_free_status",
+        "classification_diagnostic_only_status",
+    ]
+    value_field_logic = (
+        "VALUE_SUFFIXES" in helper
+        or "VALUE_KEYS" in helper
+        or "pass_fail_keys" in helper
+    )
+    return status_from_bool(all(token in helper for token in required) and value_field_logic)
+
+
+def stage17_6_preserved() -> str:
+    """Accept Stage 17.6 static-audit fixes using robust structural evidence.
+
+    Do not require exact legacy comment text.  The passed Stage 17.6 fix is
+    identified by the segment diagnostics plus source-only archive handling,
+    acceptance of Stage 17.1 VALUE_KEYS or pass_fail_keys logic, and the
+    corrected Stage 14 small-lambda file targets.
+    """
+    paths = STAGE17_FILES_BY_STAGE["6"]
+    if not all((ROOT / path).exists() for path in paths):
+        return "FAIL"
+    helper = read_text(paths[0])
+    required = [
+        "segment",
+        "segment_effective_radius_gap_formula_status",
+        "segment_force_free_status",
+        "source-only",
+        "fibre_stage14_production_rhs_injection.f90",
+        "src/xcompact3d.f90",
+    ]
+    value_field_logic = (
+        "VALUE_SUFFIXES" in helper
+        or "VALUE_KEYS" in helper
+        or "pass_fail_keys" in helper
+    )
+    stage17_1_logic_accepted = ("pass_fail_keys" in helper and "VALUE_KEYS" in helper) or "pass_fail_keys" in helper
+    return status_from_bool(
+        all(token in helper for token in required)
+        and value_field_logic
+        and stage17_1_logic_accepted
+    )
+
+
 def stage16_closed_loop_structural_ok() -> bool:
     required = [
         "stage16_checks/assert_stage16_4_structure_force_input.py",
@@ -307,10 +366,28 @@ def stats_visu_coarse_structural_ok() -> bool:
 
 
 def stage13_6_preserved() -> str:
-    text = read_text("src/fibre_stage13_production_force_density.f90") + read_text(
-        "stage13_checks/assert_stage13_6_production_force_density_candidate.py"
-    )
-    return status_from_bool("stage13_6" in text or "production_force_density_candidate" in text)
+    """Check the real Stage 13.6 production force-density candidate evidence.
+
+    Earlier Stage 17.10 logic looked for nonexistent/old filenames.  The
+    accepted Stage 13.6 implementation is in
+    src/fibre_stage13_production_force_density_candidate.f90 with wrapper/docs
+    under stage13_checks/run_stage13_6_production_force_density_candidate.sh
+    and stage13_checks/stage13_6_production_force_density_candidate.md.
+    """
+    required = [
+        "src/fibre_stage13_production_force_density_candidate.f90",
+        "stage13_checks/run_stage13_6_production_force_density_candidate.sh",
+        "stage13_checks/stage13_6_production_force_density_candidate.md",
+    ]
+    if not all((ROOT / path).exists() for path in required):
+        return "FAIL"
+    text = "\n".join(read_text(path) for path in required)
+    tokens = [
+        "stage13_6",
+        "production_force_density_candidate",
+        "force_density_candidate",
+    ]
+    return status_from_bool(all(token in text for token in tokens))
 
 
 def stage13_local_center_absent() -> str:
@@ -437,12 +514,8 @@ def main() -> int:
     status["stage17_4_fail_closed_preserved_status"] = stage17_structural_status(
         "4", ["penetration", "fail", "closed"]
     )
-    status["stage17_5_contact_state_preserved_status"] = stage17_structural_status(
-        "5", ["CONTACT_PLACEHOLDER", "PENETRATED_FAIL_CLOSED", "VALUE_SUFFIXES"]
-    )
-    status["stage17_6_segment_wall_clearance_preserved_status"] = stage17_structural_status(
-        "6", ["segment", "source-only", "VALUE_SUFFIXES"]
-    )
+    status["stage17_5_contact_state_preserved_status"] = stage17_5_preserved()
+    status["stage17_6_segment_wall_clearance_preserved_status"] = stage17_6_preserved()
     status["stage17_7_contact_placeholder_preserved_status"] = stage17_structural_status(
         "7", ["contact_force_norm_zero_status", "future_fibre_fibre_placeholder_inactive_status"]
     )
@@ -535,10 +608,14 @@ def main() -> int:
     status["no_unknown_failure_status"] = "PASS"
 
     for key in SUMMARY_KEYS:
+        if key == "final_status":
+            continue
         if key not in status:
             status[key] = "FAIL"
             reasons.append(f"missing_status_key:{key}")
     for key, value in status.items():
+        if key == "final_status":
+            continue
         if key.endswith("_status") and key not in VALUE_KEYS and value != "PASS":
             reasons.append(f"{key}:{value}")
 

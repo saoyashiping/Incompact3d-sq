@@ -33,3 +33,7 @@ STAGE 17.10 FINAL VERDICT: PASS
 ```
 
 Any invalid flag, nonzero contact force/RHS/structure-update bound, closed-file modification, missing evidence that cannot be safely accepted, or detected production contamination causes `final_status FAIL` with explicit `reason` lines.
+
+## Stage 17.10 helper repair note
+
+The Stage 17.10 evidence audit intentionally uses robust structural checks for closed Stage 17.5 and Stage 17.6 helpers.  It accepts the already-passed `VALUE_KEYS`, `VALUE_SUFFIXES`, or `pass_fail_keys` patterns for excluding numeric/string value fields from final-status logic, rather than requiring one brittle literal.  It also validates Stage 13.6 using the real production candidate files: `src/fibre_stage13_production_force_density_candidate.f90`, `stage13_checks/run_stage13_6_production_force_density_candidate.sh`, and `stage13_checks/stage13_6_production_force_density_candidate.md`.  Missing `.git` metadata in a source-only archive remains non-fatal and must not be treated as DNS-core contamination.
