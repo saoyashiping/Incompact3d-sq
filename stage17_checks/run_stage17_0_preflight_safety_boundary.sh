@@ -34,7 +34,12 @@ fi
 if [ "${STAGE17_0_DIAGNOSTIC_ONLY}" != "1" ]; then
   printf '%s\n' 'stage17_0_diagnostic_only_not_set_to_1' >> "${REASONS_FILE}"
 fi
-if [ "${STAGE17_0_REQUIRE_STAGE16_CLOSED}" = "1" ] && [ ! -s stage16_checks/STAGE16_CLOSED.md ]; then
+# Do not fail here if STAGE16_CLOSED.md is absent in a fresh source archive.
+# The helper can accept read-only Stage 16.12 closure machinery when
+# STAGE17_0_ACCEPT_STAGE16_CLOSED_EVIDENCE=1, without modifying closed files.
+if [ "${STAGE17_0_REQUIRE_STAGE16_CLOSED}" = "1" ] && \
+   [ "${STAGE17_0_ACCEPT_STAGE16_CLOSED_EVIDENCE}" != "1" ] && \
+   [ ! -s stage16_checks/STAGE16_CLOSED.md ]; then
   printf '%s\n' 'stage16_closed_file_missing_or_empty_before_helper' >> "${REASONS_FILE}"
 fi
 

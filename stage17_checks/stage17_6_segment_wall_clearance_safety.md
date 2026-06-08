@@ -28,3 +28,12 @@ Analytic Stage 17.6 test cases are:
 Segment-level states may reuse the closed Stage 17.5 diagnostic state names (`CLEAR`, `NEAR_WALL_WARNING`, `CONTACT_PLACEHOLDER`, `PENETRATED_FAIL_CLOSED`) only as force-free diagnostic labels.  Stage 17.6 does not introduce a contact response.
 
 The helper preserves the corrected false-positive-safe audit pattern from Stage 16 and Stage 17.0--17.5: it uses targeted evidence checks, avoids broad repository-wide scanning, does not scan Markdown as executable regression evidence, ignores diagnostic negative-check strings and failure labels, and treats regex literals such as `rg[[:space:]]` as text rather than real ripgrep command use.
+
+## Stage 17.6 helper evidence-audit correction
+
+The Stage 17.6 helper must not regress to brittle checks for previously closed stages.  In fresh source archives, `.git` metadata may be absent and generated runtime outputs may be missing; this must not be treated as closed-file modification.  Stage 17.6 therefore accepts read-only structural evidence for closed Stage 17.0--17.5 files and preserves the earlier fixes:
+
+* Stage 17.0 fresh-archive Stage 16 closure acceptance is recognized by its helper/wrapper/documentation structure rather than by old failure-label strings.
+* Stage 17.1 evidence/final-status handling is recognized whether the accepted helper uses `VALUE_KEYS` or the earlier `pass_fail_keys` pattern to exclude numeric value fields.
+* Git-status unavailability in source-only archives is not interpreted as RHS/IBM/DNS-core contamination.
+* Stage 14 small-nonzero-lambda hook evidence is checked against `src/fibre_stage14_production_rhs_injection.f90` and `src/xcompact3d.f90`; the obsolete/nonexistent `fibre_stage14_rhs_apply.f90` name is not used.
