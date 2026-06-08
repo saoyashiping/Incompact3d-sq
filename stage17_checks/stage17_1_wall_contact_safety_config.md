@@ -30,6 +30,15 @@ The safe defaults are diagnostic-only and non-invasive. They leave real wall-con
 
 Invalid radius, clearance, or tolerance values fail closed with explicit reasons in `stage17_outputs/fibre_stage17_1_wall_contact_safety_config.dat`.
 
+
+## Stage 17.0 evidence preservation rule
+
+Stage 17.1 accepts Stage 17.0 evidence either from a passed `stage17_outputs/fibre_stage17_0_preflight_safety_boundary.dat` file or, in a fresh source archive, from the structural Stage 17.0 helper/wrapper/documentation evidence.  The Stage 17.1 helper must not reject Stage 17.0 merely because old failure-label strings appear as diagnostic reason labels or negative-check text in the already-passed Stage 17.0 files.
+
+## Numeric output fields
+
+The fields `effective_fibre_radius_value`, `min_wall_clearance_value`, `warning_wall_clearance_value`, and `penetration_tolerance_value` are numeric payload fields, not boolean pass/fail fields.  The final verdict is based on the corresponding `*_status` fields and other status fields.
+
 ## Boundary for later stages
 
 Wall distance diagnostics begin later in Stage 17.3. Contact-state classification begins later in Stage 17.5. Real wall-contact and fibre-fibre collision force models belong to Stage 21. Bending, tension, and inextensibility structure dynamics belong to Stage 18.
