@@ -31,3 +31,22 @@ STAGE 17.11 FINAL VERDICT: PASS
 ```
 
 Only a full PASS path may create `stage17_checks/STAGE17_CLOSED.md`; any failure emits explicit `reason` lines and does not create closure.
+
+## ChatGPT evidence-preservation fix for fresh source archives
+
+The Stage 17.11 total-audit helper must not use brittle single-string checks when
+verifying already-passed Stage 17.1, Stage 17.5, or Stage 17.6 evidence.  Passed
+helpers may exclude non-boolean fields with `VALUE_SUFFIXES`, `VALUE_KEYS`, or a
+`pass_fail_keys` list.  These are all valid implementations of the same
+anti-false-positive rule: numeric `*_value` and string state/type/pair fields are
+not PASS/FAIL statuses.
+
+For Stage 17.6 preservation, the total-audit helper must also preserve the
+source-only archive correction: a tree without `.git` metadata is not DNS-core
+contamination, and the Stage 14 small-lambda hook check must target
+`src/fibre_stage14_production_rhs_injection.f90` and `src/xcompact3d.f90`.
+
+This Stage 17.11 helper therefore accepts structural evidence groups rather than
+requiring old exact literals such as only `VALUE_SUFFIXES`.  This prevents the
+final closure audit from falsely failing after Stage 17.1, Stage 17.5, and
+Stage 17.6 have already passed with equivalent corrected helper logic.

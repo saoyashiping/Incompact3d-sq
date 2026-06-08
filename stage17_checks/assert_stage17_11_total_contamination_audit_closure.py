@@ -284,6 +284,64 @@ def stage17_structural_status(stage: str, needles: Iterable[str]) -> str:
     return status_from_bool(file_contains(paths[0], needles))
 
 
+
+def text_has_any(text: str, needles: Iterable[str]) -> bool:
+    return any(needle in text for needle in needles)
+
+
+def stage17_structural_status_groups(stage: str, groups: Sequence[Iterable[str]]) -> str:
+    """False-positive-safe closed-stage structural evidence check.
+
+    Each group represents equivalent accepted evidence patterns.  This keeps
+    Stage 17.11 from reverting to brittle exact-string checks against older
+    helper implementations.  In particular, passed Stage 17.1/17.5/17.6
+    helpers may use VALUE_SUFFIXES, VALUE_KEYS, or pass_fail_keys to exclude
+    numeric/string value fields from boolean final_status logic.
+    """
+    paths = STAGE17_FILES_BY_STAGE[stage]
+    if not all((ROOT / path).exists() for path in paths):
+        return "FAIL"
+    text = "\n".join(read_text(path) for path in paths)
+    return status_from_bool(all(text_has_any(text, group) for group in groups))
+
+
+def stage17_1_config_preserved() -> str:
+    return stage17_structural_status_groups(
+        "1",
+        [
+            ("diagnostic_only_status", "diagnostic-only", "diagnostic_only"),
+            ("effective_fibre_radius_status", "min_wall_clearance_status"),
+            ("VALUE_SUFFIXES", "VALUE_KEYS", "pass_fail_keys"),
+        ],
+    )
+
+
+def stage17_5_contact_state_preserved() -> str:
+    return stage17_structural_status_groups(
+        "5",
+        [
+            ("CONTACT_PLACEHOLDER",),
+            ("PENETRATED_FAIL_CLOSED",),
+            ("NEAR_WALL_WARNING",),
+            ("classification_diagnostic_only_status", "contact_placeholder_force_free_status"),
+            ("VALUE_SUFFIXES", "VALUE_KEYS", "pass_fail_keys"),
+        ],
+    )
+
+
+def stage17_6_segment_wall_clearance_preserved() -> str:
+    return stage17_structural_status_groups(
+        "6",
+        [
+            ("segment", "Segment"),
+            ("segment_midpoint_formula_status",),
+            ("segment_effective_radius_gap_formula_status",),
+            ("source-only", "source-only zip", "without .git"),
+            ("src/fibre_stage14_production_rhs_injection.f90",),
+            ("VALUE_SUFFIXES", "VALUE_KEYS", "pass_fail_keys"),
+        ],
+    )
+
 def all_stage17_11_files_present() -> str:
     return status_from_bool(all((ROOT / path).exists() for path in STAGE17_11_FILES))
 
@@ -455,12 +513,12 @@ def main() -> int:
     stage16_structural = stage16_closed_loop_structural_ok()
     status["stage16_closed_loop_compatibility_preserved_status"] = status_from_bool(stage16_structural or accept_stage16)
     status["stage17_0_preflight_preserved_status"] = stage17_structural_status("0", ["fresh", "archive", "Stage 16"])
-    status["stage17_1_config_preserved_status"] = stage17_structural_status("1", ["VALUE_KEYS", "diagnostic"])
+    status["stage17_1_config_preserved_status"] = stage17_1_config_preserved()
     status["stage17_2_boundary_metadata_preserved_status"] = stage17_structural_status("2", ["boundary", "metadata"])
     status["stage17_3_wall_clearance_preserved_status"] = stage17_structural_status("3", ["centerline", "effective_radius", "negative"])
     status["stage17_4_fail_closed_preserved_status"] = stage17_structural_status("4", ["penetration", "fail", "closed"])
-    status["stage17_5_contact_state_preserved_status"] = stage17_structural_status("5", ["CONTACT_PLACEHOLDER", "PENETRATED_FAIL_CLOSED", "VALUE_SUFFIXES"])
-    status["stage17_6_segment_wall_clearance_preserved_status"] = stage17_structural_status("6", ["source-only", "VALUE_SUFFIXES", "segment"])
+    status["stage17_5_contact_state_preserved_status"] = stage17_5_contact_state_preserved()
+    status["stage17_6_segment_wall_clearance_preserved_status"] = stage17_6_segment_wall_clearance_preserved()
     status["stage17_7_contact_placeholder_preserved_status"] = stage17_structural_status("7", ["contact_force_norm_zero_status", "future_fibre_fibre_placeholder_inactive_status"])
     status["stage17_8_fibre_fibre_placeholder_preserved_status"] = stage17_structural_status("8", ["standalone_geometry_only_status", "fibre_fibre_force_norm_zero_status"])
     status["stage17_9_closed_loop_wall_contact_preserved_status"] = stage17_structural_status("9", ["contact_placeholders_do_not_modify_rhs_status", "production_path_single_fibre_status"])
