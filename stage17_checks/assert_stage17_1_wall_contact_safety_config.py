@@ -221,24 +221,41 @@ def stage17_0_evidence_ok(repo: Path, require: bool, accept_closed: bool) -> boo
 
 
 def stage17_0_fresh_archive_fix_preserved(repo: Path) -> bool:
+    """Check that the passed Stage 17.0 fresh-archive fix is structurally present.
+
+    Important: do not reject Stage 17.0 merely because old failure-label strings
+    appear in comments, explicit reason messages, or negative-check text.  Stage
+    17.0 already passed with those labels available for diagnostics.  The real
+    regression would be the absence of the accepted fresh-archive closure path or
+    a wrapper that hard-fails before the helper when STAGE16_CLOSED.md is missing.
+    """
     helper = read_text(repo / "stage17_checks" / "assert_stage17_0_preflight_safety_boundary.py")
     wrapper = read_text(repo / "stage17_checks" / "run_stage17_0_preflight_safety_boundary.sh")
     doc = read_text(repo / "stage17_checks" / "stage17_0_preflight_safety_boundary.md").lower()
-    old_failure_markers = [
-        "stage16_closed_file_" + "missing_or_empty_before_helper",
-        "missing_or_empty_" + "stage16_closed_file",
-        "stage16_closed_evidence_" + "not_accepted",
-        "stage17_boundary_documentation_" + "missing_or_ambiguous",
-    ]
-    if any(marker in helper or marker in wrapper for marker in old_failure_markers):
-        return False
-    return (
-        "stage16_12" in helper.lower()
-        and "accept" in helper.lower()
-        and "STAGE17_0_ACCEPT_STAGE16_CLOSED_EVIDENCE" in wrapper
+    helper_l = helper.lower()
+
+    required_helper_evidence = (
+        "stage16_closure_evidence_ok" in helper
+        and "stage16_12" in helper_l
+        and "STAGE16_CLOSED.md" in helper
+        and "stage14_checks" in helper
+        and "stage15_checks" in helper
+        and "fresh" in helper_l
+        and "archive" in helper_l
+        and "accept" in helper_l
+    )
+    required_wrapper_evidence = (
+        "STAGE17_0_ACCEPT_STAGE16_CLOSED_EVIDENCE" in wrapper
+        and "--accept-stage16-closed-evidence" in wrapper
+    )
+    required_doc_evidence = (
+        "fresh-archive stage 16 closure evidence" in doc
+        and "stage16_closed.md" in doc
+        and "stage 16.12" in doc
         and "safety-boundary preflight" in doc
         and "stage 21" in doc
     )
+    return required_helper_evidence and required_wrapper_evidence and required_doc_evidence
 
 
 def stage13_6_preserved(repo: Path) -> bool:
@@ -414,7 +431,11 @@ def main() -> int:
 
     unknown_failure = any("unknown" in reason.lower() for reason in reasons)
     summary["no_unknown_failure_status"] = status(not unknown_failure)
-    summary["final_status"] = status(all(summary[key] == "1" for key in SUMMARY_KEYS if key != "final_status") and not reasons)
+    pass_fail_keys = [
+        key for key in SUMMARY_KEYS
+        if key != "final_status" and not key.endswith("_value")
+    ]
+    summary["final_status"] = status(all(summary[key] == "1" for key in pass_fail_keys) and not reasons)
 
     out = repo / args.output
     out.parent.mkdir(parents=True, exist_ok=True)
