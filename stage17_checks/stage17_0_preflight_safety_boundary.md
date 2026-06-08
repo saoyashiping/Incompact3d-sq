@@ -21,3 +21,8 @@ Stage 17.0 preserves the approved Stage 11 -> Stage 12 -> Stage 16.4 -> Stage 13
 ## False-positive-safe audit policy
 
 The Stage 17.0 helper reuses the corrected Stage 16.5--16.12 false-positive-safe audit pattern: documentation is not scanned as executable regression evidence, negative-check strings are not treated as behavior, regex literals such as `rg[[:space:]]` are not treated as real ripgrep command usage, and specific Stage 13.6 production/check evidence is inspected instead of broad repository-wide scans.
+
+## Fresh-archive Stage 16 closure evidence
+
+In normal manual execution, Stage 16.12 generates `stage16_checks/STAGE16_CLOSED.md` after full PASS. Some source-only archives may omit generated runtime artifacts, including `STAGE16_CLOSED.md` and `stage16_outputs/*.dat`. Stage 17.0 must not modify closed Stage 16 files to recreate that record. When `STAGE17_0_ACCEPT_STAGE16_CLOSED_EVIDENCE=1`, the helper may accept read-only Stage 16.12 closure machinery as Stage 16 closed evidence: the Stage 16.12 wrapper, helper, documentation, Stage 16.11 wrapper/helper evidence, required Stage 16 source/check files, and Stage 14/15 closure records. Missing generated closure artifacts in such a fresh source tree are not treated as Stage 16 code rollback.
+
