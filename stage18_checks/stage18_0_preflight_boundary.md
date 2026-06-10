@@ -95,3 +95,8 @@ STAGE 18.0 FINAL VERDICT: PASS
 ```
 
 The summary output contains all Stage 18.0 required status fields, including `stage17_closed_file_status`, `stage17_closed_evidence_status`, all no-contamination statuses, and `final_status`.
+
+
+## Wrapper path rule
+
+Stage 18.0 accepts `DECOMP2D_ROOT` for interface compatibility only. The wrapper must resolve the repository root from its own `stage18_checks` location and must not `cd` into `DECOMP2D_ROOT`, because `DECOMP2D_ROOT` points to the external 2decomp-fft installation rather than the Xcompact3D source tree.
