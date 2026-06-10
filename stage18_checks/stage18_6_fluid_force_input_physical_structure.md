@@ -164,3 +164,13 @@ stage18_outputs/fibre_stage18_6_fluid_force_input_physical_structure.dat
 ```
 
 with all required Stage 18.6 `*_status` fields and `final_status PASS`.
+
+## Stage 18.6 false-positive repair note
+
+The negative activation audit must not scan this helper's own protective string
+literals as runtime execution.  Closed-stage filenames, Stage 14 RHS filenames,
+forbidden-token examples, and documentation-only safety statements are evidence
+text, not physical activation.  The helper therefore inspects the executable
+wrapper behaviour and actual Python `subprocess.run(...)` calls instead.  Only
+real build/MPI/production/RHS/IBM/DNS-core commands fail the no-activation gate.
+This preserves the Stage 18.5 false-positive-safe policy.
