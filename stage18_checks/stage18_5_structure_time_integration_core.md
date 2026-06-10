@@ -149,3 +149,18 @@ stage18_outputs/fibre_stage18_5_structure_time_integration_core.dat
 ```
 
 with all required Stage 18.5 `*_status` fields and `final_status PASS`.
+
+## Stage 18.5 false-positive-safe runtime-audit note
+
+Stage 18.5 is allowed to mention protected production filenames only inside
+read-only evidence-preservation checks, for example when confirming that the
+previous Stage 14 small-lambda hook evidence still points to the correct files.
+Such literals are not runtime activation.  Runtime activation is defined only as
+executing a build/MPI/production command, inserting a production hook, writing to
+protected source/CMake/closed-stage paths, or feeding candidate updates into
+production X/V/A, RHS, IBM, or DNS-core state.
+
+Therefore the Stage 18.5 helper audits executable behaviour and changed paths,
+not every protected filename literal in its own source.  This preserves the
+Stage 17.6 / 17.10 / 17.11 / 18.0 false-positive-safe source-only audit policy.
+
