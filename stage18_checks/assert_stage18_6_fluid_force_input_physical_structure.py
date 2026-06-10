@@ -101,9 +101,67 @@ def stage13_reg(root): return 'local_subdomain_center' not in (read(root/'stage1
 def no_rg(root):
     w=read(root/S18_6[0]); return ' rg ' not in f' {w} ' or 'grep' in w
 def no_activation(root):
-    t=read(root/S18_6[0])+'\n'+read(root/S18_6[1])
-    forbidden=['call stage14','call fibre_stage14','cmake ','make ','ninja ']
-    return not any(x in t for x in forbidden)
+    """Return True when Stage 18.6 remains local diagnostic-only.
+
+    This check follows the Stage 18.5 false-positive fix.  It must not scan
+    this helper's own protective strings or forbidden-token lists as evidence of
+    runtime activation.  Instead it checks the executable wrapper behaviour and
+    actual Python subprocess calls.
+    """
+    wrapper = read(root / S18_6[0])
+    wrapper_l = wrapper.lower()
+
+    if 'repo_root=' not in wrapper_l or 'script_dir=' not in wrapper_l:
+        return False
+    if 'cd "${decomp2d_root' in wrapper_l or "cd '${decomp2d_root" in wrapper_l:
+        return False
+
+    disallowed_runtime_tokens = [
+        ' cmake ', '\ncmake ',
+        ' make ', '\nmake ',
+        ' ninja ', '\nninja ',
+        ' ctest ', '\nctest ',
+        '${mpiexec}', '\nmpirun ', ' mpirun ',
+        ' srun ', '\nsrun ',
+        'bash stage14_checks/',
+        'run_stage14_',
+        'fibre_stage14_production_rhs_injection_check',
+    ]
+    if any(tok in f' {wrapper_l} ' for tok in disallowed_runtime_tokens):
+        return False
+
+    # Inspect real subprocess.run calls with AST.  String literals inside
+    # protective forbidden-token lists are ignored by construction.
+    try:
+        import ast
+        tree = ast.parse(read(root / S18_6[1]))
+    except SyntaxError:
+        return False
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        is_subprocess_run = (
+            isinstance(func, ast.Attribute)
+            and func.attr == 'run'
+            and isinstance(func.value, ast.Name)
+            and func.value.id == 'subprocess'
+        )
+        if not is_subprocess_run:
+            continue
+        if not node.args:
+            return False
+        first = node.args[0]
+        cmd0 = None
+        if isinstance(first, ast.List) and first.elts:
+            elt0 = first.elts[0]
+            if isinstance(elt0, ast.Constant) and isinstance(elt0.value, str):
+                cmd0 = elt0.value
+        if cmd0 != 'git':
+            return False
+    return True
+
 def s18_5_fp(root):
     t=read(root/S18_5[1])+read(root/S18_5[2])+read(root/S18_5[0])
     return all(x in t for x in ['only *_status fields', 'source-only archives without .git', 'stage18_0_wrapper_root_fix_preserved_status']) and 'call stage14' not in t.lower()
