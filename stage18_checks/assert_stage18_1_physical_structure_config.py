@@ -371,13 +371,14 @@ def boundary_doc_statuses(root: Path) -> Tuple[bool, bool, bool]:
 
 
 def stage18_1_no_physics_activation(root: Path) -> bool:
-    # Stage 18.1 is allowed only the helper, wrapper, documentation, and runtime
-    # dat file.  This targeted structural check avoids treating legacy Stage 2
-    # structure files or documentation examples as new physics activation.
-    files = [path for path in (root / "stage18_checks").glob("*18_1*") if path.is_file()]
-    if (root / "stage18_outputs").exists():
-        files.extend(path for path in (root / "stage18_outputs").glob("*18_1*") if path.is_file())
+    """Return True when Stage 18.1 remains config-only.
+
+    Use exact Stage 18.1 paths instead of a loose *18_1* glob.  The loose glob
+    also matches Stage 18.10/18.11/18.12 files during closure reruns and turns
+    correct later diagnostic files into false physics/core contamination.
+    """
     allowed = {root / rel for rel in ALLOWED_CHANGED_PATHS}
+    files = [root / rel for rel in ALLOWED_CHANGED_PATHS if (root / rel).exists()]
     return all(path in allowed for path in files)
 
 

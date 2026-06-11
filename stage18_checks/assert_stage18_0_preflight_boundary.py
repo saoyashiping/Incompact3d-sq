@@ -291,14 +291,43 @@ def stage18_boundary_doc_ok() -> bool:
 
 
 def no_stage18_physics_implementation() -> bool:
-    # The only Stage 18.0 additions are wrapper/helper/doc plus optional output.
-    # This is a structural check, not a broad keyword scan, so negative-check
-    # strings inside this helper or Markdown boundary examples cannot become
-    # false-positive physics evidence.
-    stage18_files = [path for path in ROOT.glob("stage18_checks/*") if path.is_file()]
-    stage18_files.extend(path for path in ROOT.glob("stage18_outputs/*") if path.is_file())
-    allowed = {ROOT / rel for rel in ALLOWED_STAGE18_CHANGED_PATHS}
-    return all(path in allowed for path in stage18_files)
+    """Return True when the repository contains only Stage 18 diagnostic files.
+
+    Stage 18.0 is the preflight boundary, but users often rerun it after later
+    Stage 18 diagnostic gates have been added.  The original closed 18.0 check
+    allowed only 18.0 files, so a correct Stage 18.5/18.6/18.7/18.8/18.12
+    helper could be misclassified as physics activation.  This closure-safe
+    version treats Stage 18 check files and helper-local stage18_outputs as
+    diagnostic evidence, while still rejecting any production source/I/O/RHS/IBM
+    path modifications through git_status_entries()/changed_paths_ok().
+    """
+    if git_status_entries()[0] and not changed_paths_ok(git_status_entries()[1]):
+        return False
+
+    for path in ROOT.glob("stage18_checks/*"):
+        if not path.is_file():
+            continue
+        name = path.name
+        if name == "STAGE18_CLOSED.md":
+            continue
+        if name.startswith("run_stage18_") and name.endswith(".sh"):
+            continue
+        if name.startswith("assert_stage18_") and name.endswith(".py"):
+            continue
+        if name.startswith("stage18_") and name.endswith(".md"):
+            continue
+        return False
+
+    if (ROOT / "stage18_outputs").exists():
+        for path in (ROOT / "stage18_outputs").glob("*"):
+            if not path.is_file():
+                continue
+            name = path.name
+            if name.startswith("fibre_stage18_") and (name.endswith(".dat") or name.endswith(".json")):
+                continue
+            return False
+
+    return True
 
 
 def write_output(statuses: Dict[str, str], reasons: Sequence[str]) -> None:
