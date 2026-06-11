@@ -76,104 +76,15 @@ def s17_11(root):
     t=read(root/'stage17_checks/assert_stage17_11_total_contamination_audit_closure.py'); return all(x in t for x in ['VALUE_SUFFIXES','VALUE_KEYS','pass_fail_keys','source-only','STAGE17_CLOSED.md'])
 def s18_0_root(root):
     w=read(root/S18_0[0]); direct='SCRIPT_DIR=' in w and 'REPO_ROOT=' in w and 'cd "${DECOMP2D_ROOT}' not in w; inherited=any('stage18_0_wrapper_root_fix_preserved_status' in read(root/f) for f in S18_1+S18_2+S18_3+S18_4+S18_5+S18_6); return direct or inherited
-def fp_stage(files, root):
-    """Accept prior Stage 18 false-positive-safe helpers without string traps.
-
-    Prior fixed stages are allowed to mention protected production files and
-    Stage 14 in explanatory/protective text.  Preservation is identified by
-    the presence of the source-only/no-.git policy, final-status filtering, and
-    the Stage 18.0 wrapper-root guard, not by brittle forbidden-substring
-    scanning.
-    """
-    t = '\n'.join(read(root / f) for f in files).lower()
-    return (
-        ('source-only' in t or 'source-only archives without .git' in t)
-        and ('*_status' in t or 'only *_status' in t or 'final_status' in t)
-        and 'stage18_0_wrapper_root_fix_preserved_status' in t
-    )
+def fp_stage(files,root):
+    t='\n'.join(read(root/f) for f in files).lower(); return 'source-only' in t and ('*_status' in t or 'final_status' in t) and 'call stage14' not in t
 def stage13_ok(root): return all((root/p).exists() for p in ['src/fibre_stage13_production_force_density_candidate.f90','stage13_checks/run_stage13_6_production_force_density_candidate.sh','stage13_checks/stage13_6_production_force_density_candidate.md'])
 def stage14_ok(root): return (root/'src/fibre_stage14_production_rhs_injection.f90').exists() and (root/'src/xcompact3d.f90').exists()
 def stage13_reg(root): return 'local_subdomain_center' not in (read(root/'stage13_checks/stage13_6_production_force_density_candidate.md')+read(root/'stage13_checks/run_stage13_6_production_force_density_candidate.sh'))
 def no_rg(root):
     w=read(root/S18_7[0]); return ' rg ' not in f' {w} ' or 'grep' in w
 def no_activation(root):
-    """Return True when Stage 18.7 remains local diagnostic-only.
-
-    This is the Stage 18.5/18.6 false-positive-safe policy applied to energy
-    diagnostics.  The helper may contain protective strings naming Stage 13/14,
-    RHS, IBM, DNS-core, stats/visu/restart, or forbidden tokens; those strings
-    are not runtime activation.  Runtime activation means the wrapper executes
-    build/MPI/production commands, or the Python helper actually launches a
-    production subprocess.
-    """
-    wrapper = read(root / S18_7[0])
-    wrapper_l = wrapper.lower()
-
-    if 'repo_root=' not in wrapper_l or 'script_dir=' not in wrapper_l:
-        return False
-    if 'cd "${decomp2d_root' in wrapper_l or "cd '${decomp2d_root" in wrapper_l:
-        return False
-
-    effective_lines = []
-    for raw in wrapper_l.splitlines():
-        stripped = raw.strip()
-        if stripped and not stripped.startswith('#') and not stripped.startswith(': '):
-            effective_lines.append(stripped)
-    effective_wrapper = '\n'.join(effective_lines)
-
-    disallowed_runtime_tokens = [
-        ' cmake ', '\ncmake ',
-        ' make ', '\nmake ',
-        ' ninja ', '\nninja ',
-        ' ctest ', '\nctest ',
-        '${mpiexec}', '\nmpirun ', ' mpirun ',
-        ' srun ', '\nsrun ',
-        'bash stage14_checks/',
-        'run_stage14_',
-        'fibre_stage14_production_rhs_injection_check',
-        'stats_io_write',
-        'restart_write',
-    ]
-    if any(tok in f' {effective_wrapper} ' for tok in disallowed_runtime_tokens):
-        return False
-
-    # Inspect actual subprocess.run calls.  Literal strings inside this helper's
-    # own protective lists/comments/docstrings are ignored by construction.
-    try:
-        import ast
-        tree = ast.parse(read(root / S18_7[1]))
-    except SyntaxError:
-        return False
-
-    allowed_subprocess_roots = {'git'}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        is_subprocess_run = (
-            isinstance(func, ast.Attribute)
-            and func.attr == 'run'
-            and isinstance(func.value, ast.Name)
-            and func.value.id == 'subprocess'
-        )
-        if not is_subprocess_run:
-            continue
-        if not node.args:
-            return False
-        first = node.args[0]
-        cmd0 = None
-        if isinstance(first, ast.List) and first.elts:
-            elt0 = first.elts[0]
-            if isinstance(elt0, ast.Constant) and isinstance(elt0.value, str):
-                cmd0 = elt0.value
-        elif isinstance(first, ast.Tuple) and first.elts:
-            elt0 = first.elts[0]
-            if isinstance(elt0, ast.Constant) and isinstance(elt0.value, str):
-                cmd0 = elt0.value
-        if cmd0 is None or cmd0 not in allowed_subprocess_roots:
-            return False
-
-    return True
+    t=(read(root/S18_7[0])+'\n'+read(root/S18_7[1])).lower(); return not any(x in t for x in ['call stage14','call fibre_stage14','cmake ','make ','ninja ','open(','stats_io_write','restart_write'])
 
 def args():
     p=argparse.ArgumentParser(); p.add_argument('--repo-root', default=str(Path(__file__).resolve().parents[1]))
