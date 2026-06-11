@@ -6,18 +6,11 @@ structure integration work.
 
 ## Required evidence inspected read-only
 
-The helper checks that `stage18_checks/STAGE18_CLOSED.md` exists and has valid
-closure content.  Stage 18 is accepted as closed when that marker is valid and
-either the Stage 18.12 closure output reports PASS or the closure marker itself
-contains strong text proving Stage 18.0 through Stage 18.12 were closed after the
-total audit.
-
-Individual Stage 18.0 through Stage 18.11 helper outputs are informational in
-Stage 19.0.  They are reported as `PASS` when present and passing, or as
-`ACCEPTED_BY_STAGE18_CLOSURE` when Stage 18 closure evidence supersedes them.
-Stage 19.0 must not force users to rerun Stage 18.0 through Stage 18.11 checks.
-Helper-local Stage 18.11 JSON snapshots under `stage18_outputs` are explicitly
-accepted as helper evidence, not production restart/statistics/visualization I/O.
+The helper checks that `stage18_checks/STAGE18_CLOSED.md` exists, that Stage
+18.12 closure evidence exists and reports PASS, and that every Stage 18.0 through
+Stage 18.12 helper output exists and reports PASS.  Helper-local Stage 18.11 JSON
+snapshots under `stage18_outputs` are explicitly accepted as helper evidence, not
+production restart/statistics/visualization I/O.
 
 ## Boundary definitions
 
@@ -57,7 +50,7 @@ multifibre logic.
 stage19_checks/run_stage19_0_preflight_boundary.sh
 ```
 
-Expected PASS evidence in a repository with preserved Stage 18 closure marker and Stage 18.12 closure evidence:
+Expected PASS evidence in a repository with preserved Stage 18 closure artifacts:
 
 ```text
 STAGE 19.0 PREFLIGHT BOUNDARY VERDICT: PASS

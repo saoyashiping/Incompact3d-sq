@@ -18,7 +18,6 @@ import argparse
 import os
 import py_compile
 import subprocess
-import tempfile
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
@@ -29,10 +28,6 @@ SUMMARY_KEYS: List[str] = [
     "stage18_closed_file_status",
     "stage18_closed_file_content_status",
     "stage18_12_evidence_status",
-    "stage18_12_closure_evidence_status",
-    "stage18_closure_accepted_status",
-    "prior_stage18_outputs_required_status",
-    "stage18_closure_supersedes_individual_outputs_status",
     "stage18_0_output_status",
     "stage18_1_output_status",
     "stage18_2_output_status",
@@ -233,22 +228,12 @@ def stage18_closed_content_ok(text: str) -> bool:
     return stage_closure and substage_closure and no_rhs_ibm_dns and no_contact_collision
 
 
-def stage18_closed_marker_strong_enough(text: str) -> bool:
-    lowered = text.lower()
-    total_audit_closed = ("total" in lowered and "audit" in lowered and any(word in lowered for word in ("closed", "closure")))
-    final_stage_closed = "18.12" in text and any(word in lowered for word in ("closed", "closure"))
-    fully_closed = "fully closed" in lowered or "stage 18 is closed" in lowered or "stage 18 closed" in lowered
-    return stage18_closed_content_ok(text) and (total_audit_closed or final_stage_closed or fully_closed)
-
-
 def syntax_status(root: Path) -> Tuple[str, str]:
     wrapper = root / "stage19_checks" / "run_stage19_0_preflight_boundary.sh"
     helper = root / "stage19_checks" / "assert_stage19_0_preflight_boundary.py"
     bash_code, _ = run_quiet(["bash", "-n", str(wrapper)], root)
     try:
-        with tempfile.TemporaryDirectory() as td:
-            cfile = Path(td) / "stage19_0_helper.pyc"
-            py_compile.compile(str(helper), cfile=str(cfile), doraise=True)
+        py_compile.compile(str(helper), cfile=os.devnull, doraise=True)
         py_status = "PASS"
     except py_compile.PyCompileError:
         py_status = "FAIL"
@@ -283,12 +268,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     closed_marker = root / "stage18_checks" / "STAGE18_CLOSED.md"
     closed_text = read_text(closed_marker)
-    closed_marker_valid = closed_marker.is_file() and stage18_closed_content_ok(closed_text)
-    strong_closed_marker = closed_marker.is_file() and stage18_closed_marker_strong_enough(closed_text)
     statuses["stage18_closed_file_status"] = pass_fail((not require_closed) or closed_marker.is_file())
-    statuses["stage18_closed_file_content_status"] = pass_fail((not require_closed) or closed_marker_valid)
+    statuses["stage18_closed_file_content_status"] = pass_fail((not require_closed) or stage18_closed_content_ok(closed_text))
 
     stage18_dir = root / "stage18_outputs"
+    all_present = True
+    all_pass = True
+    for stage_key, filename in STAGE18_OUTPUTS.items():
+        path = stage18_dir / filename
+        present = path.is_file()
+        passed = evidence_has_pass(path)
+        status_key = f"stage{stage_key}_output_status"
+        statuses[status_key] = pass_fail((not require_outputs) or (present and passed))
+        all_present = all_present and present
+        all_pass = all_pass and passed
+    statuses["all_stage18_outputs_present_status"] = pass_fail((not require_outputs) or all_present)
+    statuses["all_stage18_outputs_final_pass_status"] = pass_fail((not require_outputs) or all_pass)
+
     stage18_12 = stage18_dir / STAGE18_OUTPUTS["18_12"]
     stage18_12_text = read_text(stage18_12)
     stage18_12_required = [
@@ -297,45 +293,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "STAGE 18.12 FINAL VERDICT: PASS",
         "stage18_closed_file_created_status PASS",
     ]
-    stage18_12_dat_valid = stage18_12.is_file() and all(item in stage18_12_text for item in stage18_12_required)
-    closure_evidence_valid = stage18_12_dat_valid or strong_closed_marker
-    stage18_closure_accepted = closed_marker_valid and closure_evidence_valid
-    statuses["stage18_12_evidence_status"] = pass_fail((not require_1812) or stage18_12_dat_valid or strong_closed_marker)
-    statuses["stage18_12_closure_evidence_status"] = pass_fail((not require_1812) or closure_evidence_valid)
-    statuses["stage18_closure_accepted_status"] = pass_fail(stage18_closure_accepted)
-    statuses["prior_stage18_outputs_required_status"] = pass_fail((not require_outputs) or stage18_closure_accepted)
-    statuses["stage18_closure_supersedes_individual_outputs_status"] = pass_fail(closed_marker_valid and closure_evidence_valid)
-
-    all_present = True
-    all_pass = True
-    for stage_key, filename in STAGE18_OUTPUTS.items():
-        path = stage18_dir / filename
-        present = path.is_file()
-        passed = evidence_has_pass(path)
-        status_key = f"stage{stage_key}_output_status"
-        if present and passed:
-            statuses[status_key] = "PASS"
-        elif stage_key != "18_12" and stage18_closure_accepted:
-            statuses[status_key] = "ACCEPTED_BY_STAGE18_CLOSURE"
-        elif stage_key == "18_12" and strong_closed_marker:
-            statuses[status_key] = "ACCEPTED_BY_STAGE18_CLOSED_MARKER"
-        else:
-            statuses[status_key] = pass_fail((not require_outputs) or (present and passed))
-        all_present = all_present and present
-        all_pass = all_pass and passed
-    if all_present:
-        statuses["all_stage18_outputs_present_status"] = "PASS"
-    elif stage18_closure_accepted:
-        statuses["all_stage18_outputs_present_status"] = "ACCEPTED_BY_STAGE18_CLOSURE"
-    else:
-        statuses["all_stage18_outputs_present_status"] = pass_fail(not require_outputs)
-    if all_pass:
-        statuses["all_stage18_outputs_final_pass_status"] = "PASS"
-    elif stage18_closure_accepted:
-        statuses["all_stage18_outputs_final_pass_status"] = "ACCEPTED_BY_STAGE18_CLOSURE"
-    else:
-        statuses["all_stage18_outputs_final_pass_status"] = pass_fail(not require_outputs)
-    statuses["stage18_12_closure_preserved_status"] = pass_fail(closure_evidence_valid)
+    statuses["stage18_12_evidence_status"] = pass_fail((not require_1812) or (stage18_12.is_file() and all(item in stage18_12_text for item in stage18_12_required)))
+    statuses["stage18_12_closure_preserved_status"] = statuses["stage18_12_evidence_status"]
 
     stage17_closed = root / "stage17_checks" / "STAGE17_CLOSED.md"
     stage17_11_helper = root / "stage17_checks" / "assert_stage17_11_total_contamination_audit_closure.py"
@@ -425,13 +384,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         statuses[key] = pass_fail(not outside_allowed)
     statuses["no_unknown_failure_status"] = "PASS"
 
-    optional_stage18_output_keys = {f"stage{stage_key}_output_status" for stage_key in STAGE18_OUTPUTS}
-    optional_stage18_output_keys.update({"all_stage18_outputs_present_status", "all_stage18_outputs_final_pass_status"})
-    controlling_status_keys = [
-        key for key in SUMMARY_KEYS
-        if key.endswith("_status") and key != "final_status" and key not in optional_stage18_output_keys
-    ]
-    failing = [key for key in controlling_status_keys if statuses.get(key) != "PASS"]
+    failing = [key for key in SUMMARY_KEYS if key.endswith("_status") and key != "final_status" and statuses.get(key) != "PASS"]
     if failing:
         reasons.extend(f"{key}={statuses.get(key, 'MISSING')}" for key in failing)
     final_status = "PASS" if not failing else "FAIL"
