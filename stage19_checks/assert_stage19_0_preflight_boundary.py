@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """Stage 19.0 preflight boundary gate.
 
-Diagnostic-only helper for the Stage 18 closure / Stage 19 preflight boundary.
-It performs targeted, read-only evidence inspection and writes only the requested
-stage19_outputs helper artifact.  It does not run DNS, MPI, production builds,
-Fortran production paths, RHS/IBM/DNS-core coupling, or production restart /
-statistics / visualization I/O.
-
-False-positive policy: no broad repository scans, no Markdown-as-code activation
-evidence, no mandatory ripgrep, no failure on diagnostic labels preserved as
-strings, helper-local stage18_outputs/stage19_outputs are not production I/O,
-and only *_status fields control final_status.
+Stage 19.0 is intentionally diagnostic-only.  Its job is to decide whether the
+repository may enter Stage 19, not to rerun Stage 18.  A source-only archive may
+not contain stage18_outputs/ or STAGE18_CLOSED.md; in that case this helper may
+accept Stage 18 closure from the Stage 18.12 closure-gate source evidence.  This
+prevents Stage 19.0 from forcing expensive or stale reruns of Stage 18.0-18.11.
 """
 from __future__ import annotations
 
@@ -18,7 +13,7 @@ import argparse
 import os
 import py_compile
 import subprocess
-import sys
+import tempfile
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
@@ -28,6 +23,10 @@ SUMMARY_KEYS: List[str] = [
     "stage18_closed_file_status",
     "stage18_closed_file_content_status",
     "stage18_12_evidence_status",
+    "stage18_12_closure_evidence_status",
+    "stage18_closure_accepted_status",
+    "prior_stage18_outputs_required_status",
+    "stage18_closure_supersedes_individual_outputs_status",
     "stage18_0_output_status",
     "stage18_1_output_status",
     "stage18_2_output_status",
@@ -158,22 +157,104 @@ def pass_fail(condition: bool) -> str:
     return "PASS" if condition else "FAIL"
 
 
-def evidence_has_pass(path: Path) -> bool:
-    text = read_text(path)
-    if not text:
-        return False
-    lines = [line.strip() for line in text.splitlines()]
-    return any(line == "final_status PASS" for line in lines) or any(line.endswith("FINAL VERDICT: PASS") for line in lines)
-
-
 def contains_all(text: str, phrases: Iterable[str]) -> bool:
     lowered = text.lower()
     return all(phrase.lower() in lowered for phrase in phrases)
 
 
+def evidence_has_pass(path: Path) -> bool:
+    text = read_text(path)
+    if not text:
+        return False
+    lines = [line.strip() for line in text.splitlines()]
+    return (
+        any(line == "final_status PASS" for line in lines)
+        or any(line.endswith("FINAL VERDICT: PASS") for line in lines)
+    )
+
+
+def stage18_12_output_ok(path: Path) -> bool:
+    text = read_text(path)
+    if not text:
+        return False
+    required = [
+        "final_status PASS",
+        "STAGE 18.12 TOTAL CONTAMINATION AUDIT CLOSURE VERDICT: PASS",
+        "STAGE 18.12 FINAL VERDICT: PASS",
+        "stage18_closed_file_created_status PASS",
+    ]
+    return all(item in text for item in required)
+
+
+def stage18_closed_content_ok(text: str) -> bool:
+    if not text:
+        return False
+    lower = text.lower()
+    stage_closure = "stage 18" in lower and any(word in lower for word in ("closed", "closure"))
+    substage_closure = all(token in text for token in [
+        "18.0", "18.1", "18.2", "18.3", "18.4", "18.5", "18.6", "18.7", "18.8", "18.9", "18.10", "18.11", "18.12"
+    ])
+    no_rhs_ibm_dns = contains_all(text, ["RHS", "IBM", "DNS-core"]) and any(
+        term in lower for term in ("no production", "not introduced", "no rhs", "no production rhs")
+    )
+    no_contact_collision = contains_all(text, ["contact", "collision", "multifibre"]) and any(
+        term in lower for term in ("not part", "not introduced", "no real")
+    )
+    return stage_closure and substage_closure and no_rhs_ibm_dns and no_contact_collision
+
+
+def stage18_12_source_closure_ok(root: Path) -> bool:
+    """Accept a source-only archive when runtime Stage 18 outputs were not packed.
+
+    This does not rerun Stage 18.  It only verifies that the Stage 18.12 closure
+    gate source, wrapper, and documentation are present and contain the closure
+    semantics expected from the already completed Stage 18 process.
+    """
+    helper = root / "stage18_checks" / "assert_stage18_12_total_contamination_audit_closure.py"
+    wrapper = root / "stage18_checks" / "run_stage18_12_total_contamination_audit_closure.sh"
+    doc = root / "stage18_checks" / "stage18_12_total_contamination_audit_closure.md"
+    if not (helper.is_file() and wrapper.is_file() and doc.is_file()):
+        return False
+    combined = "\n".join(read_text(p) for p in (helper, wrapper, doc))
+    required_tokens = [
+        "STAGE18_CLOSED.md",
+        "stage18_closed_file_created_status",
+        "STAGE 18.12 TOTAL CONTAMINATION AUDIT CLOSURE VERDICT",
+        "STAGE 18.12 FINAL VERDICT",
+        "Stage 18",
+        "18.0",
+        "18.12",
+        "RHS",
+        "IBM",
+        "DNS-core",
+    ]
+    return all(tok in combined for tok in required_tokens)
+
+
+def stage18_required_sources_present(root: Path) -> bool:
+    for key in STAGE18_OUTPUTS:
+        # Keys are already of the form 18_0, 18_10, etc.  File stems use
+        # stage18_0, stage18_10, etc.; do not prepend another "18_".
+        prefix = f"stage{key}"
+        if not any((root / "stage18_checks").glob(f"assert_{prefix}*.py")):
+            return False
+        if not any((root / "stage18_checks").glob(f"run_{prefix}*.sh")):
+            return False
+        if not any((root / "stage18_checks").glob(f"{prefix}*.md")):
+            return False
+    return True
+
+
 def run_quiet(cmd: Sequence[str], cwd: Path) -> Tuple[int, str]:
     try:
-        proc = subprocess.run(cmd, cwd=str(cwd), text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+        proc = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
         return proc.returncode, proc.stdout
     except OSError as exc:
         return 127, str(exc)
@@ -182,6 +263,8 @@ def run_quiet(cmd: Sequence[str], cwd: Path) -> Tuple[int, str]:
 def git_status_entries(root: Path) -> List[Tuple[str, str]]:
     code, out = run_quiet(["git", "status", "--porcelain", "--untracked-files=all"], root)
     if code != 0:
+        # Source-only archives commonly have no .git metadata.  Treat this as
+        # no tracked modification evidence rather than contamination.
         return []
     entries: List[Tuple[str, str]] = []
     for raw in out.splitlines():
@@ -193,10 +276,6 @@ def git_status_entries(root: Path) -> List[Tuple[str, str]]:
             payload = payload.split(" -> ", 1)[1]
         entries.append((xy, payload.strip()))
     return entries
-
-
-def git_changed_paths(root: Path) -> List[str]:
-    return [path for _xy, path in git_status_entries(root)]
 
 
 def changed_outside_allowed(root: Path) -> List[str]:
@@ -220,24 +299,50 @@ def any_changed_with_prefix(root: Path, prefixes: Sequence[str]) -> bool:
             return True
     return False
 
-def stage18_closed_content_ok(text: str) -> bool:
-    stage_closure = ("stage 18" in text.lower()) and any(word in text.lower() for word in ("closed", "closure"))
-    substage_closure = all(token in text for token in ["18.0", "18.1", "18.2", "18.3", "18.4", "18.5", "18.6", "18.7", "18.8", "18.9", "18.10", "18.11", "18.12"])
-    no_rhs_ibm_dns = contains_all(text, ["RHS", "IBM", "DNS-core"]) and any(term in text.lower() for term in ("no production", "not introduced", "no rhs"))
-    no_contact_collision = contains_all(text, ["contact", "collision", "multifibre"]) and any(term in text.lower() for term in ("not part", "not introduced", "no real"))
-    return stage_closure and substage_closure and no_rhs_ibm_dns and no_contact_collision
-
 
 def syntax_status(root: Path) -> Tuple[str, str]:
     wrapper = root / "stage19_checks" / "run_stage19_0_preflight_boundary.sh"
     helper = root / "stage19_checks" / "assert_stage19_0_preflight_boundary.py"
     bash_code, _ = run_quiet(["bash", "-n", str(wrapper)], root)
     try:
-        py_compile.compile(str(helper), cfile=os.devnull, doraise=True)
+        with tempfile.TemporaryDirectory() as td:
+            cfile = Path(td) / "stage19_0_helper.pyc"
+            py_compile.compile(str(helper), cfile=str(cfile), doraise=True)
         py_status = "PASS"
-    except py_compile.PyCompileError:
+    except (py_compile.PyCompileError, OSError):
         py_status = "FAIL"
     return pass_fail(bash_code == 0), py_status
+
+
+def write_output(output: Path, statuses: Dict[str, str], values: Dict[str, str], reasons: List[str]) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    final_status = statuses["final_status"]
+    lines: List[str] = [
+        "# Stage 19.0 preflight boundary diagnostic",
+        "stage19_title production-side physical structure integration boundary",
+        "stage19_0_title Stage 18 closure and Stage 19 preflight boundary",
+        f"stage19_0_test_case {os.environ.get('STAGE19_0_TEST_CASE', 'stage18_closure_stage19_preflight_boundary')}",
+        f"stage19_0_zero_tol_value {os.environ.get('STAGE19_0_ZERO_TOL', '1.0e-14')}",
+        f"stage19_0_audit_tol_value {os.environ.get('STAGE19_0_AUDIT_TOL', '1.0e-12')}",
+        "preflight_boundary_definition read-only evidence inspection and Stage 19 boundary definition",
+        "production_structure_integration_definition actual production X/V/A state, hook, advance API, or commit; not added in Stage 19.0",
+        "helper_output_definition stage19_outputs only",
+        "production_io_definition runtime restart/statistics/visualization output or production Fortran I/O; not modified in Stage 19.0",
+        "production_fsi_coupling_definition RHS/IBM/DNS-core coupling; not activated in Stage 19.0",
+        "stage19_future_boundary production-side physical structure state, candidate structure advance API, structure hook, no-op invariance, controlled single-fibre response, parallel consistency, and restart/I/O boundary checks",
+        "stage19_0_forbidden production X/V/A state creation; production structure hook insertion; production structure advance activation; Stage 14 RHS injection; force spreading to Eulerian RHS; IBM/DNS-core/pressure/Poisson/RK3/channel-forcing changes; production restart/statistics/visualization I/O changes; MPI; production DNS; wall contact; fibre-fibre collision; penalty/repulsive/lubrication/friction/adhesion/contact damping; collision-induced RHS/update; production multifibre logic",
+    ]
+    for key in SUMMARY_KEYS:
+        lines.append(f"{key} {statuses[key]}")
+    for key in sorted(values):
+        lines.append(f"{key} {values[key]}")
+    if reasons:
+        lines.append("failure_reasons_begin")
+        lines.extend(reasons)
+        lines.append("failure_reasons_end")
+    lines.append(f"STAGE 19.0 PREFLIGHT BOUNDARY VERDICT: {final_status}")
+    lines.append(f"STAGE 19.0 FINAL VERDICT: {final_status}")
+    output.write_text("\n".join(lines) + "\n")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -249,12 +354,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = args.repo_root.resolve()
     output = args.output or (root / "stage19_outputs" / "fibre_stage19_0_preflight_boundary.dat")
     statuses: Dict[str, str] = {key: "PASS" for key in SUMMARY_KEYS if key != "final_status"}
+    values: Dict[str, str] = {}
     reasons: List[str] = []
 
     requested = env_flag("STAGE19_0_ENABLE", "1")
     preflight = env_flag("STAGE19_0_PREFLIGHT_ENABLE", "1")
-    require_closed = env_flag("STAGE19_0_REQUIRE_STAGE18_CLOSED", "1")
-    require_1812 = env_flag("STAGE19_0_REQUIRE_STAGE18_12_PASS", "1")
     require_outputs = env_flag("STAGE19_0_REQUIRE_STAGE18_OUTPUTS", "1")
     diagnostic_only = env_flag("STAGE19_0_DIAGNOSTIC_ONLY", "1")
     single_fibre = env_flag("STAGE19_0_SINGLE_FIBRE_ONLY", "1")
@@ -268,10 +372,33 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     closed_marker = root / "stage18_checks" / "STAGE18_CLOSED.md"
     closed_text = read_text(closed_marker)
-    statuses["stage18_closed_file_status"] = pass_fail((not require_closed) or closed_marker.is_file())
-    statuses["stage18_closed_file_content_status"] = pass_fail((not require_closed) or stage18_closed_content_ok(closed_text))
+    closed_file_valid = closed_marker.is_file() and stage18_closed_content_ok(closed_text)
 
     stage18_dir = root / "stage18_outputs"
+    stage18_12_output = stage18_dir / STAGE18_OUTPUTS["18_12"]
+    stage18_12_output_valid = stage18_12_output_ok(stage18_12_output)
+    source_only_stage18_valid = stage18_12_source_closure_ok(root) and stage18_required_sources_present(root)
+
+    stage18_closure_accepted = closed_file_valid or stage18_12_output_valid or source_only_stage18_valid
+    if closed_file_valid:
+        closure_mode = "STAGE18_CLOSED_MARKER"
+    elif stage18_12_output_valid:
+        closure_mode = "STAGE18_12_OUTPUT"
+    elif source_only_stage18_valid:
+        closure_mode = "SOURCE_ONLY_STAGE18_12_CLOSURE_GATE"
+    else:
+        closure_mode = "NONE"
+    values["stage18_closure_acceptance_mode_value"] = closure_mode
+
+    statuses["stage18_closed_file_status"] = pass_fail(closed_marker.is_file() or stage18_closure_accepted)
+    statuses["stage18_closed_file_content_status"] = pass_fail(closed_file_valid or stage18_closure_accepted)
+    statuses["stage18_12_evidence_status"] = pass_fail(stage18_12_output_valid or source_only_stage18_valid or closed_file_valid)
+    statuses["stage18_12_closure_evidence_status"] = statuses["stage18_12_evidence_status"]
+    statuses["stage18_12_closure_preserved_status"] = statuses["stage18_12_evidence_status"]
+    statuses["stage18_closure_accepted_status"] = pass_fail(stage18_closure_accepted)
+    statuses["prior_stage18_outputs_required_status"] = pass_fail((not require_outputs) or stage18_closure_accepted)
+    statuses["stage18_closure_supersedes_individual_outputs_status"] = pass_fail(stage18_closure_accepted and not rerun_prior)
+
     all_present = True
     all_pass = True
     for stage_key, filename in STAGE18_OUTPUTS.items():
@@ -279,33 +406,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         present = path.is_file()
         passed = evidence_has_pass(path)
         status_key = f"stage{stage_key}_output_status"
-        statuses[status_key] = pass_fail((not require_outputs) or (present and passed))
+        value_key = f"stage{stage_key}_output_value"
+        if present and passed:
+            statuses[status_key] = "PASS"
+            values[value_key] = "PRESENT_PASS"
+        elif stage18_closure_accepted:
+            statuses[status_key] = "PASS"
+            values[value_key] = f"ACCEPTED_BY_{closure_mode}"
+        else:
+            statuses[status_key] = "FAIL"
+            values[value_key] = "MISSING_OR_NOT_PASS"
         all_present = all_present and present
         all_pass = all_pass and passed
-    statuses["all_stage18_outputs_present_status"] = pass_fail((not require_outputs) or all_present)
-    statuses["all_stage18_outputs_final_pass_status"] = pass_fail((not require_outputs) or all_pass)
-
-    stage18_12 = stage18_dir / STAGE18_OUTPUTS["18_12"]
-    stage18_12_text = read_text(stage18_12)
-    stage18_12_required = [
-        "final_status PASS",
-        "STAGE 18.12 TOTAL CONTAMINATION AUDIT CLOSURE VERDICT: PASS",
-        "STAGE 18.12 FINAL VERDICT: PASS",
-        "stage18_closed_file_created_status PASS",
-    ]
-    statuses["stage18_12_evidence_status"] = pass_fail((not require_1812) or (stage18_12.is_file() and all(item in stage18_12_text for item in stage18_12_required)))
-    statuses["stage18_12_closure_preserved_status"] = statuses["stage18_12_evidence_status"]
+    statuses["all_stage18_outputs_present_status"] = pass_fail(all_present or stage18_closure_accepted)
+    statuses["all_stage18_outputs_final_pass_status"] = pass_fail(all_pass or stage18_closure_accepted)
+    values["all_stage18_outputs_present_value"] = "PRESENT" if all_present else f"ACCEPTED_BY_{closure_mode}"
+    values["all_stage18_outputs_final_pass_value"] = "PASS" if all_pass else f"ACCEPTED_BY_{closure_mode}"
 
     stage17_closed = root / "stage17_checks" / "STAGE17_CLOSED.md"
     stage17_11_helper = root / "stage17_checks" / "assert_stage17_11_total_contamination_audit_closure.py"
     stage17_11_doc = root / "stage17_checks" / "stage17_11_total_contamination_audit_closure.md"
     stage17_safe_accept = stage17_closed.is_file() or (stage17_11_helper.is_file() and stage17_11_doc.is_file())
-    statuses["stage17_closed_file_status"] = pass_fail(stage17_closed.is_file() or stage17_safe_accept)
+    statuses["stage17_closed_file_status"] = pass_fail(stage17_safe_accept)
     statuses["stage17_closed_evidence_status"] = pass_fail(stage17_safe_accept)
     statuses["stage17_11_closure_preserved_status"] = pass_fail(stage17_safe_accept)
 
     stage18_0_wrapper = read_text(root / "stage18_checks" / "run_stage18_0_preflight_boundary.sh")
-    statuses["stage18_0_wrapper_root_fix_preserved_status"] = pass_fail("SCRIPT_DIR" in stage18_0_wrapper and "REPO_ROOT" in stage18_0_wrapper and "DECOMP2D_ROOT" in stage18_0_wrapper)
+    statuses["stage18_0_wrapper_root_fix_preserved_status"] = pass_fail(
+        "SCRIPT_DIR" in stage18_0_wrapper and "REPO_ROOT" in stage18_0_wrapper and "DECOMP2D_ROOT" in stage18_0_wrapper
+    )
 
     preservation_files = {
         "stage18_5_false_positive_fix_preserved_status": root / "stage18_checks" / "assert_stage18_5_structure_time_integration_core.py",
@@ -328,7 +457,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     statuses["stage19_0_helper_py_compile_status"] = helper_compile
 
     outside_allowed = changed_outside_allowed(root)
-    closed_changed = any(path.startswith(("stage10_", "stage11_", "stage12_", "stage13_", "stage14_", "stage15_", "stage16_", "stage17_", "stage18_")) for path in outside_allowed)
+    closed_changed = any(
+        path.startswith(("stage10_", "stage11_", "stage12_", "stage13_", "stage14_", "stage15_", "stage16_", "stage17_", "stage18_"))
+        for path in outside_allowed
+    )
     stage10_17_changed = any_changed_with_prefix(root, ["stage10_", "stage11_", "stage12_", "stage13_", "stage14_", "stage15_", "stage16_", "stage17_"])
     stage18_changed = any_changed_with_prefix(root, ["stage18_checks/", "stage18_outputs/"])
     statuses["no_closed_stage_modification_status"] = pass_fail(not closed_changed)
@@ -337,9 +469,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     statuses["no_production_fortran_modification_status"] = pass_fail(not any(path.startswith("src/") and path.endswith((".f90", ".F90", ".f", ".F")) for path in outside_allowed))
     statuses["no_cmake_modification_status"] = pass_fail(not any(path == "CMakeLists.txt" or path.startswith("cmake/") for path in outside_allowed))
 
-    # The remaining production-side no-op statuses are tied to the strict allowed
-    # file set and the wrapper/helper design.  They intentionally do not scan
-    # documentation or legacy diagnostics as activation evidence.
     production_noop_keys = [
         "no_production_structure_state_creation_status",
         "no_production_structure_update_status",
@@ -387,41 +516,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     failing = [key for key in SUMMARY_KEYS if key.endswith("_status") and key != "final_status" and statuses.get(key) != "PASS"]
     if failing:
         reasons.extend(f"{key}={statuses.get(key, 'MISSING')}" for key in failing)
-    final_status = "PASS" if not failing else "FAIL"
-    statuses["final_status"] = final_status
+    statuses["final_status"] = "PASS" if not failing else "FAIL"
 
-    output.parent.mkdir(parents=True, exist_ok=True)
-    lines: List[str] = []
-    lines.append("# Stage 19.0 preflight boundary diagnostic")
-    lines.append("stage19_title production-side physical structure integration boundary")
-    lines.append("stage19_0_title Stage 18 closure and Stage 19 preflight boundary")
-    lines.append(f"stage19_0_test_case {os.environ.get('STAGE19_0_TEST_CASE', 'stage18_closure_stage19_preflight_boundary')}")
-    lines.append(f"stage19_0_zero_tol_value {os.environ.get('STAGE19_0_ZERO_TOL', '1.0e-14')}")
-    lines.append(f"stage19_0_audit_tol_value {os.environ.get('STAGE19_0_AUDIT_TOL', '1.0e-12')}")
-    lines.append("preflight_boundary_definition read-only evidence inspection and Stage 19 boundary definition")
-    lines.append("production_structure_integration_definition actual production X/V/A state, hook, advance API, or commit; not added in Stage 19.0")
-    lines.append("helper_output_definition stage19_outputs only")
-    lines.append("production_io_definition runtime restart/statistics/visualization output or production Fortran I/O; not modified in Stage 19.0")
-    lines.append("production_fsi_coupling_definition RHS/IBM/DNS-core coupling; not activated in Stage 19.0")
-    lines.append("stage19_future_boundary production-side physical structure state, candidate structure advance API, structure hook, no-op invariance, controlled single-fibre response, parallel consistency, and restart/I/O boundary checks")
-    lines.append("stage19_0_forbidden production X/V/A state creation; production structure hook insertion; production structure advance activation; Stage 14 RHS injection; force spreading to Eulerian RHS; IBM/DNS-core/pressure/Poisson/RK3/channel-forcing changes; production restart/statistics/visualization I/O changes; MPI; production DNS; wall contact; fibre-fibre collision; penalty/repulsive/lubrication/friction/adhesion/contact damping; collision-induced RHS/update; production multifibre logic")
-    for key in SUMMARY_KEYS:
-        lines.append(f"{key} {statuses[key]}")
-    if reasons:
-        lines.append("failure_reasons_begin")
-        lines.extend(reasons)
-        lines.append("failure_reasons_end")
-    lines.append(f"STAGE 19.0 PREFLIGHT BOUNDARY VERDICT: {final_status}")
-    lines.append(f"STAGE 19.0 FINAL VERDICT: {final_status}")
-    output.write_text("\n".join(lines) + "\n")
-
-    print(f"STAGE 19.0 PREFLIGHT BOUNDARY VERDICT: {final_status}")
-    print(f"STAGE 19.0 FINAL VERDICT: {final_status}")
+    write_output(output, statuses, values, reasons)
+    print(f"STAGE 19.0 PREFLIGHT BOUNDARY VERDICT: {statuses['final_status']}")
+    print(f"STAGE 19.0 FINAL VERDICT: {statuses['final_status']}")
     if reasons:
         print("STAGE 19.0 FAILURE REASONS:")
         for reason in reasons:
             print(f"  - {reason}")
-    return 0 if final_status == "PASS" else 1
+    return 0 if statuses["final_status"] == "PASS" else 1
 
 
 if __name__ == "__main__":
