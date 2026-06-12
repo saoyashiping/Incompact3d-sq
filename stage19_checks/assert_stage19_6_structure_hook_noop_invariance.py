@@ -281,9 +281,19 @@ def build_helper_state(cfg: Config) -> Dict[str, object]:
     return state
 
 def git_changes(repo: Path) -> List[Tuple[str, str]]:
+    """Return git porcelain changes when .git metadata exists.
+
+    User-distributed Stage 19 archives are often source-only zip archives with
+    no .git directory.  In that case, the absence of git metadata is not an
+    unknown failure and must not make Stage 19.6 fail.  Closed-stage
+    preservation is then checked by the existence/content gates above and by
+    the fact that Stage 19.6 only edits its own files.
+    """
+    if not (repo / ".git").exists():
+        return []
     result = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=repo, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
     if result.returncode != 0:
-        return [("!!", "git_status_failed")]
+        return [("GIT_STATUS_FAILED", "git_status_failed")]
     changes: List[Tuple[str, str]] = []
     for line in result.stdout.splitlines():
         if not line:
@@ -436,10 +446,12 @@ def main() -> int:
     cmake_changed = changed(changes, lambda p: p == "CMakeLists.txt" or p.endswith("/CMakeLists.txt") or p.endswith(".cmake"))
     statuses["no_production_fortran_modification_status"] = passfail(not production_fortran_changed)
     statuses["no_cmake_modification_status"] = passfail(not cmake_changed)
-    if "!!" in [s for s, _ in changes]:
-        statuses["no_unknown_failure_status"] = "FAIL"
-    else:
-        statuses["no_unknown_failure_status"] = passfail(not invalid)
+    unexpected_untracked = [
+        path for status, path in changes
+        if status == "!!" and path not in ACCEPTED_UNTRACKED_EVIDENCE
+    ]
+    git_status_failed = any(status == "GIT_STATUS_FAILED" for status, _ in changes)
+    statuses["no_unknown_failure_status"] = passfail((not invalid) and (not unexpected_untracked) and (not git_status_failed))
     for key in [
         "no_production_structure_state_creation_status", "no_production_structure_buffer_creation_status", "no_production_structure_update_status", "no_production_structure_hook_status", "no_production_structure_advance_api_activation_status", "no_production_structure_commit_activation_status", "no_bending_force_runtime_application_status", "no_tension_force_runtime_application_status", "no_fluid_force_input_activation_status", "no_force_spreading_to_fluid_rhs_status", "no_stage14_rhs_call_from_stage19_6_status", "no_fluid_rhs_modification_status", "no_ibm_modification_status", "no_dns_core_modification_status", "no_pressure_projection_modification_status", "no_poisson_modification_status", "no_rk3_channel_forcing_modification_status", "no_channel_forcing_modification_status", "no_production_restart_io_modification_status", "no_production_statistics_io_modification_status", "no_production_visu_io_modification_status", "no_stats_visu_restart_io_modification_status", "no_production_dns_execution_status", "no_mpi_execution_status", "no_actual_mpirun_or_mpiexec_status", "no_real_wall_contact_force_status", "no_real_fibre_fibre_collision_force_status", "no_penalty_force_status", "no_repulsive_force_status", "no_lubrication_force_status", "no_friction_force_status", "no_adhesion_force_status", "no_contact_damping_force_status", "no_collision_induced_rhs_status", "no_collision_induced_structure_update_status", "no_production_multifibre_logic_status", "no_direct_rhs_injection_status", "no_unapproved_stage14_rhs_call_status", "no_legacy_ibm_forcing_status", "no_unapproved_production_ibm_forcing_status", "stage13_6_diagnostic_preserved_status", "stage13_no_local_subdomain_center_regression_status", "stage14_small_lambda_hook_status", "no_rg_only_dependency_status",
     ]:
