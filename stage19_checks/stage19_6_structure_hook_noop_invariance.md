@@ -89,3 +89,8 @@ Expected PASS evidence:
 STAGE 19.6 STRUCTURE HOOK NOOP INVARIANCE VERDICT: PASS
 STAGE 19.6 FINAL VERDICT: PASS
 ```
+
+## Source-only archive compatibility fix
+
+Stage 19.6 must not treat a source-only zip archive without `.git` metadata as an unknown failure.  When `.git` is absent, closed-stage preservation is verified through the Stage 19.0--19.5 evidence gates and by restricting Stage 19.6 to its own new helper/wrapper/document/output files.  Only real unexpected untracked files inside a git worktree, failed git status in an existing git worktree, or invalid gate values may fail `no_unknown_failure_status`.
+
