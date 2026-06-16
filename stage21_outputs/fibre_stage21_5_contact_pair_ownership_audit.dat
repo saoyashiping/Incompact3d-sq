@@ -1,0 +1,90 @@
+stage21_5_title contact pair ownership audit
+stage21_4_evidence_mode_value STAGE21_4_PASS_OUTPUT
+source_only_policy_value old closure/output evidence is optional when source-only archive acceptance is enabled
+rerun_policy_value Stage 21.5 does not rerun previous stages
+owner_rule_value stable_sha256(candidate_key)_mod_np
+np_values_value 1,2,4
+stage21_5_enable_value 1
+stage21_5_contact_pair_ownership_audit_enable_value 1
+stage21_5_require_stage21_4_pass_value 1
+stage21_5_allow_missing_old_outputs_value 1
+stage21_5_allow_source_only_archive_value 1
+stage21_5_do_not_rerun_previous_stages_value 1
+stage21_5_diagnostic_only_value 1
+stage21_5_fail_closed_value 1
+stage21_5_np_values_value 1,2,4
+stage21_5_owner_rule_value hash_mod_np
+stage21_5_contact_force_enable_value 0
+stage21_5_collision_force_enable_value 0
+stage21_5_contact_force_apply_enable_value 0
+stage21_5_structure_advance_enable_value 0
+stage21_5_rhs_coupling_enable_value 0
+stage21_5_production_dns_allowed_value 0
+stage21_5_actual_mpi_allowed_value 0
+stage21_5_production_multifibre_enable_value 0
+wall_lower_0000_ownership candidate_id=wall_lower_0000;candidate_key=('wall_lower', 0, 12, 'lower');canonical_pair_key=('wall_lower', 0, 12, 'lower');candidate_type=wall_lower;fibre_i=0;fibre_j=-1;point_i=12;point_j=-1;segment_i=-1;segment_j=-1;nearest_wall_side=lower;global_candidate_id=0;local_candidate_id=0;owner_rank_np1=0;owner_rank_np2=1;owner_rank_np4=3;local_candidate_id_np1=0;local_candidate_id_np2=0;local_candidate_id_np4=0;rank_candidate_count_np1=[3];rank_candidate_count_np2=[1, 2];rank_candidate_count_np4=[1, 1, 0, 1];duplicate_key_detected=False;self_pair_detected=False;unordered_pair_detected=False;ownership_deterministic=True;reduction_ready=True
+wall_upper_0000_ownership candidate_id=wall_upper_0000;candidate_key=('wall_upper', 0, 51, 'upper');canonical_pair_key=('wall_upper', 0, 51, 'upper');candidate_type=wall_upper;fibre_i=0;fibre_j=-1;point_i=51;point_j=-1;segment_i=-1;segment_j=-1;nearest_wall_side=upper;global_candidate_id=1;local_candidate_id=1;owner_rank_np1=0;owner_rank_np2=0;owner_rank_np4=0;local_candidate_id_np1=1;local_candidate_id_np2=0;local_candidate_id_np4=0;rank_candidate_count_np1=[3];rank_candidate_count_np2=[1, 2];rank_candidate_count_np4=[1, 1, 0, 1];duplicate_key_detected=False;self_pair_detected=False;unordered_pair_detected=False;ownership_deterministic=True;reduction_ready=True
+fibre_fibre_0000_ownership candidate_id=fibre_fibre_0000;candidate_key=('fibre_fibre', 0, 1, 0, 0);canonical_pair_key=('fibre_fibre', 0, 1, 0, 0);candidate_type=fibre_fibre;fibre_i=0;fibre_j=1;point_i=0;point_j=0;segment_i=0;segment_j=0;nearest_wall_side=none;global_candidate_id=2;local_candidate_id=2;owner_rank_np1=0;owner_rank_np2=1;owner_rank_np4=1;local_candidate_id_np1=2;local_candidate_id_np2=1;local_candidate_id_np4=0;rank_candidate_count_np1=[3];rank_candidate_count_np2=[1, 2];rank_candidate_count_np4=[1, 1, 0, 1];duplicate_key_detected=False;self_pair_detected=False;unordered_pair_detected=False;ownership_deterministic=True;reduction_ready=True
+stage21_6_next_stage_value Stage 21.6: deterministic pair ordering
+stage21_5_requested_status PASS
+stage21_5_contact_pair_ownership_audit_enable_status PASS
+stage21_4_evidence_status PASS
+source_only_closure_acceptance_status PASS
+no_previous_stage_rerun_status PASS
+ownership_audit_documented_status PASS
+all_required_ownership_fields_present_status PASS
+canonical_pair_key_present_status PASS
+wall_candidate_key_valid_status PASS
+fibre_fibre_candidate_key_valid_status PASS
+candidate_id_unique_status PASS
+global_candidate_id_unique_status PASS
+no_duplicate_candidate_key_status PASS
+no_self_pair_status PASS
+canonical_ordering_status PASS
+owner_rank_np1_valid_status PASS
+owner_rank_np2_valid_status PASS
+owner_rank_np4_valid_status PASS
+local_candidate_id_np1_contiguous_status PASS
+local_candidate_id_np2_contiguous_status PASS
+local_candidate_id_np4_contiguous_status PASS
+rank_candidate_count_np1_status PASS
+rank_candidate_count_np2_status PASS
+rank_candidate_count_np4_status PASS
+ownership_deterministic_status PASS
+np1_all_candidates_rank0_status PASS
+np2_reduction_ready_status PASS
+np4_reduction_ready_status PASS
+registry_diagnostic_only_status PASS
+contact_force_disabled_status PASS
+collision_force_disabled_status PASS
+contact_force_apply_disabled_status PASS
+structure_advance_disabled_status PASS
+rhs_coupling_disabled_status PASS
+production_dns_disabled_status PASS
+actual_mpi_disabled_status PASS
+production_multifibre_disabled_status PASS
+no_stage10_20_file_modification_status PASS
+no_stage21_0_file_modification_status PASS
+no_stage21_1_file_modification_status PASS
+no_stage21_2_file_modification_status PASS
+no_stage21_3_file_modification_status PASS
+no_stage21_4_file_modification_status PASS
+no_closed_stage_modification_status PASS
+no_src_modification_status PASS
+no_cmake_modification_status PASS
+no_contact_force_computation_status PASS
+no_collision_force_computation_status PASS
+no_production_structure_update_status PASS
+no_production_rhs_update_status PASS
+no_stage14_rhs_injection_status PASS
+no_mpi_execution_status PASS
+no_production_dns_execution_status PASS
+no_production_hook_activation_status PASS
+no_rg_only_dependency_status PASS
+no_unknown_failure_status PASS
+stage21_6_next_stage_declared_status PASS
+stage21_5_wrapper_bash_syntax_status PASS
+stage21_5_helper_py_compile_status PASS
+final_status PASS
+STAGE 21.5 CONTACT PAIR OWNERSHIP AUDIT VERDICT: PASS
+STAGE 21.5 FINAL VERDICT: PASS
