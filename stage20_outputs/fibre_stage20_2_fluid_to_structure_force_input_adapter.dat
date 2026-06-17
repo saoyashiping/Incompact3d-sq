@@ -1,0 +1,125 @@
+STAGE 20.2 FLUID TO STRUCTURE FORCE INPUT ADAPTER AUDIT
+stage20_title = real two-way fluid-structure coupling activation boundary
+stage20_2_title = fluid-to-structure force input adapter
+repository_root_value = /workspace/Incompact3d-sq
+stage20_2_test_case_value = fluid_to_structure_force_input_adapter
+stage20_1_evidence_reason_value = ACCEPTED_BY_STAGE20_1_PASS_OUTPUT
+stage20_3_next_stage_value = Stage 20.3: structure advance with hydrodynamic force candidate
+sign_convention_value = F_total_structure_candidate_with_fluid = F_b_candidate + F_T_candidate - F_fs_candidate
+adapter_scope_value = helper-local candidate only; no production DNS force input, no structure-to-fluid reaction, no RHS coupling
+n_fibre_value = 1
+n_point_value = 64
+component_dim_value = 3
+fibre_length_value = 1.0000000000000000e+00
+ds_value = 1.5873015873015872e-02
+rho_l_value = 1.0000000000000000e+00
+rho_tilde_value = 1.0000000000000000e+00
+bending_stiffness_value = 1.0000000000000001e-05
+gamma_value = 1.0000000000000001e-05
+C_fs_value = 1.0000000000000000e+00
+lambda_coupling_value = 0.0000000000000000e+00
+candidate_force_norm_value = 8.0785673234800726e-03
+X_fibre_shape_value = (N, 3)
+V_fibre_shape_value = (N, 3)
+u_interp_candidate_shape_value = (N, 3)
+F_fs_candidate_shape_value = (N, 3)
+stage20_2_requested_status PASS
+stage20_2_force_input_adapter_enable_status PASS
+stage20_1_evidence_status PASS
+stage20_1_source_only_acceptance_preserved_status PASS
+missing_old_stage_outputs_allowed_status PASS
+missing_old_closure_files_allowed_status PASS
+no_previous_stage_rerun_status PASS
+fluid_to_structure_adapter_documented_status PASS
+all_required_adapter_fields_present_status PASS
+default_safe_gate_values_status PASS
+twoway_coupling_remains_disabled_status PASS
+fluid_to_structure_helper_local_only_status PASS
+structure_to_fluid_default_disabled_status PASS
+rhs_coupling_default_disabled_status PASS
+lambda_coupling_zero_status PASS
+diagnostic_only_status PASS
+fail_closed_status PASS
+single_fibre_only_status PASS
+contact_default_disabled_status PASS
+collision_default_disabled_status PASS
+multifibre_default_disabled_status PASS
+n_fibre_status PASS
+n_point_status PASS
+component_dim_status PASS
+fibre_length_status PASS
+ds_formula_status PASS
+rho_l_status PASS
+rho_tilde_status PASS
+bending_stiffness_status PASS
+gamma_status PASS
+c_fs_status PASS
+shape_rules_status PASS
+numeric_rules_status PASS
+relative_velocity_formula_status PASS
+f_fs_candidate_formula_status PASS
+structure_total_force_without_fluid_formula_status PASS
+structure_total_force_with_fluid_formula_status PASS
+candidate_force_finite_status PASS
+candidate_force_helper_local_only_status PASS
+candidate_force_nonzero_status PASS
+no_effective_rhs_coupling_status PASS
+global_point_id_coverage_status PASS
+global_point_id_no_duplicate_status PASS
+owner_rank_deterministic_status PASS
+no_stage10_19_file_modification_status PASS
+no_stage20_0_file_modification_status PASS
+no_stage20_1_file_modification_status PASS
+no_closed_stage_modification_status PASS
+no_production_fortran_modification_status PASS
+no_cmake_modification_status PASS
+no_production_structure_state_creation_status PASS
+no_production_structure_buffer_creation_status PASS
+no_production_structure_update_status PASS
+no_production_structure_hook_status PASS
+no_production_structure_advance_api_activation_status PASS
+no_production_structure_commit_activation_status PASS
+no_production_dns_fluid_to_structure_force_input_status PASS
+no_structure_to_fluid_reaction_force_activation_status PASS
+no_bending_force_runtime_application_status PASS
+no_tension_force_runtime_application_status PASS
+no_fluid_force_input_activation_status PASS
+no_force_spreading_to_fluid_rhs_status PASS
+no_stage14_rhs_call_from_stage20_2_status PASS
+no_fluid_rhs_modification_status PASS
+no_ibm_modification_status PASS
+no_dns_core_modification_status PASS
+no_pressure_projection_modification_status PASS
+no_poisson_modification_status PASS
+no_rk3_channel_forcing_modification_status PASS
+no_channel_forcing_modification_status PASS
+no_production_restart_io_modification_status PASS
+no_production_statistics_io_modification_status PASS
+no_production_visu_io_modification_status PASS
+no_stats_visu_restart_io_modification_status PASS
+no_production_dns_execution_status PASS
+no_mpi_execution_status PASS
+no_actual_mpirun_or_mpiexec_status PASS
+no_real_wall_contact_force_status PASS
+no_real_fibre_fibre_collision_force_status PASS
+no_penalty_force_status PASS
+no_repulsive_force_status PASS
+no_lubrication_force_status PASS
+no_friction_force_status PASS
+no_adhesion_force_status PASS
+no_contact_damping_force_status PASS
+no_collision_induced_rhs_status PASS
+no_collision_induced_structure_update_status PASS
+no_production_multifibre_logic_status PASS
+no_direct_rhs_injection_status PASS
+no_unapproved_stage14_rhs_call_status PASS
+no_legacy_ibm_forcing_status PASS
+no_unapproved_production_ibm_forcing_status PASS
+no_rg_only_dependency_status PASS
+no_unknown_failure_status PASS
+stage20_3_next_stage_declared_status PASS
+stage20_2_wrapper_bash_syntax_status PASS
+stage20_2_helper_py_compile_status PASS
+final_status PASS
+STAGE 20.2 FLUID TO STRUCTURE FORCE INPUT ADAPTER VERDICT: PASS
+STAGE 20.2 FINAL VERDICT: PASS
