@@ -1,3 +1,19 @@
+# R0 SUPERSESSION WARNING
+
+This file is a historical Stage 22 source-only closure artifact.
+
+It does not certify production DNS-FSI closure.
+
+It does not certify real MPI np=1/2/4 execution.
+
+It does not certify real build/run validation.
+
+It does not certify production wall-contact or fibre-fibre collision coupling.
+
+Current authoritative status is `PRODUCTION_RECOVERY_STATUS.md`.
+
+---
+
 # Project Final Closed
 
 Date/time: 2026-06-19T05:50:52+00:00

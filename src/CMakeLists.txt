@@ -82,6 +82,65 @@ add_executable(xcompact3d
                     fibre_stage9_4_no_fibre_dns_smoke.f90
                     xcompact3d.f90)
 
+
+add_executable(fibre_prod_state_check
+                    fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_state_check.f90)
+
+
+add_executable(fibre_prod_grid_adapter_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_grid_adapter_check.f90)
+
+
+add_executable(fibre_prod_ibm_interpolation_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_interpolation_check.f90)
+
+
+add_executable(fibre_prod_structure_solver_check
+                    fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_boundary_conditions.f90
+                    fibre_prod_bending_solver.f90
+                    fibre_prod_tension_solver.f90
+                    fibre_prod_structure_solver.f90
+                    fibre_prod_structure_solver_check.f90)
+
+
+add_executable(fibre_prod_ibm_spreading_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_ibm_spreading_check.f90)
+
+
+add_executable(fibre_prod_fsi_closed_loop_check
+                    fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_boundary_conditions.f90
+                    fibre_prod_bending_solver.f90
+                    fibre_prod_tension_solver.f90
+                    fibre_prod_structure_solver.f90
+                    fibre_prod_fsi_config.f90
+                    fibre_prod_fluid_surrogate.f90
+                    fibre_prod_fsi_coupling.f90
+                    fibre_prod_fsi_diagnostics.f90
+                    fibre_prod_fsi_closed_loop_check.f90)
+
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
 if (MPI_FOUND)
