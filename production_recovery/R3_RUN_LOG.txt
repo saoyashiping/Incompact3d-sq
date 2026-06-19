@@ -1,0 +1,13 @@
+R3_RUN_LOG
+
+executed target:
+fibre_prod_grid_adapter_check
+
+actual status:
+PASS
+
+terminal output evidence:
+R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
+
+scope boundary:
+R3 validates only the grid adapter independent check. R3 does not validate IBM, RHS coupling, FSI, structure advancement, wall contact, fibre-fibre collision, DNS-FSI closure, or production-loop integration.
