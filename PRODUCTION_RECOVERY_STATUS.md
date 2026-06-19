@@ -52,13 +52,3 @@ Production DNS-FSI closure must be re-established through the following staged r
 ## Status-use rule
 
 When this document conflicts with historical closure files, this document is authoritative. Historical files must be read as source-only closure artifacts unless a later Production Recovery stage provides real build/MPI/DNS evidence.
-
-## R1 baseline build/run cleanup status
-
-R1 status is retained as **PASS** for Production Recovery sequencing. The earlier R1 blocked-environment record is superseded as a historical artifact and is retained only for traceability.
-
-R1 PASS does not validate FSI. R1 PASS only provides the accepted baseline entry foundation for R2.
-
-## R2 production fibre state status
-
-R2 adds a standalone production fibre state container and independent check target, but the current environment cannot build or run the target because no Fortran compiler is available. The current R2 conclusion is **BLOCKED** until the standalone target can be built and executed.

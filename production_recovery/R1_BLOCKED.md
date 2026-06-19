@@ -1,13 +1,3 @@
-# R1 SUPERSESSION NOTICE
-
-This file is a superseded historical artifact from the earlier R1 environment attempt.
-
-It is retained for traceability and must not be treated as the current R1 status.
-
-R1 known residual warnings are tracked in `R1_KNOWN_WARNINGS.md`.
-
----
-
 # R1 Blocked Record
 
 ## Current conclusion
