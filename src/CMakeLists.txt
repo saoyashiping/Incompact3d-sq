@@ -112,6 +112,15 @@ add_executable(fibre_prod_structure_solver_check
                     fibre_prod_structure_solver.f90
                     fibre_prod_structure_solver_check.f90)
 
+
+add_executable(fibre_prod_ibm_spreading_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_ibm_spreading_check.f90)
+
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
 if (MPI_FOUND)
