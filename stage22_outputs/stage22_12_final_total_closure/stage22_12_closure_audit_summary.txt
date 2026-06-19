@@ -1,0 +1,6 @@
+source_only_closure=true
+no_build_dns_mpi=true
+stage10_22_closed=true
+stage22_closed=true
+project_final_closed=true
+no_stage23_planned=true
