@@ -1,0 +1,1 @@
+stage22_8_two_fibre_collision_micro_case np=1 n_fibre=2 lambda_contact=1.0 collision_enabled=true wall_safety=true
