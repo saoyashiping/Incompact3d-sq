@@ -1,0 +1,7 @@
+R3_RUN_LOG
+
+intended command:
+./build_r3_grid_adapter/bin/fibre_prod_grid_adapter_check
+
+actual status:
+BLOCKED: no R3 run was executed because the configure step failed before the standalone fibre_prod_grid_adapter_check executable could be built.

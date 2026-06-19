@@ -33,3 +33,9 @@ Yes. The only R2 production-source build-system change is adding the standalone 
 ## Forbidden scope statement
 
 R2 does not implement IBM interpolation, IBM spreading, RHS coupling, structure advancement, wall contact, fibre-fibre collision, DNS validation, MPI validation, or FSI validation.
+
+## R2 evidence cleanup during R3
+
+R2 evidence was corrected to match the real R2 technical-validation result. `R2_RUN_LOG.txt` now records `R2_FIBRE_PROD_STATE_CHECK PASS`, `R2_PASS_FAIL.md` records `Result: PASS`, and `PRODUCTION_RECOVERY_R2_CLOSED.md` records the R2 closure boundary.
+
+This cleanup does not redefine R2 scope and does not add IBM, RHS, FSI, structure advancement, wall contact, or fibre-fibre collision behavior.

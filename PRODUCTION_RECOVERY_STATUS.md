@@ -52,3 +52,19 @@ Production DNS-FSI closure must be re-established through the following staged r
 ## Status-use rule
 
 When this document conflicts with historical closure files, this document is authoritative. Historical files must be read as source-only closure artifacts unless a later Production Recovery stage provides real build/MPI/DNS evidence.
+
+## R1 baseline build/run cleanup status
+
+R1 status is retained as **PASS** for Production Recovery sequencing. The earlier R1 blocked-environment record is superseded as a historical artifact and is retained only for traceability.
+
+R1 PASS does not validate FSI. R1 PASS only provides the accepted baseline entry foundation for R2.
+
+## R2 production fibre state status
+
+R2 technical validation is **PASS**. The standalone `fibre_prod_state_check` target compiled and ran in the R2 technical-validation environment, and the real terminal output contained `R2_FIBRE_PROD_STATE_CHECK PASS`.
+
+R2 PASS only validates the production fibre state container. It does not validate IBM, RHS coupling, structure advancement, contact, collision, DNS, MPI, FSI, or production DNS-FSI closure.
+
+## R3 real Xcompact3D grid adapter status
+
+R3 source implementation and standalone check target have been added, but the current environment cannot build or run the R3 target because no Fortran compiler is available. The current R3 conclusion is **BLOCKED** until `fibre_prod_grid_adapter_check` can be built and executed.
