@@ -1,0 +1,3 @@
+dims=32x33x32
+fields=velocity,pressure,fibre_geometry
+schema_modified=false

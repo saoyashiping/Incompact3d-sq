@@ -1,0 +1,9 @@
+fresh_segment_completed=true
+restart_file_written=true
+restart_file_readable=true
+restart_continuation_completed=true
+statistics_path_audited=true
+visualization_path_audited=true
+schema_modification=false
+stage22_12_closure_created=false
+no_nan_inf=true

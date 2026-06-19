@@ -1,0 +1,12 @@
+parallel_consistency_completed=true
+np1_completed=true
+np2_completed=true
+np4_completed=true
+g1_only=true
+g2_run=false
+g3_run=false
+restart_test=false
+physical_case_settings_identical=true
+candidate_order_hash_match=true
+pair_key_hash_match=true
+no_nan_inf=true
