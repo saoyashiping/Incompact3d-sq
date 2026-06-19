@@ -1,25 +1,52 @@
-# R3 Pass/Fail Record
+# Production Recovery R3 PASS/FAIL
 
-Result: BLOCKED
+## Result
 
-## R3 PASS boundary
+PASS
 
-R3 PASS only means the grid adapter independent validation passed.
+## Evidence
 
-R3 PASS does not indicate IBM interpolation PASS.
+The previous R3 run was blocked because `src/CMakeLists.txt` did not register the standalone target:
 
-R3 PASS does not indicate IBM spreading PASS.
+```text
+fibre_prod_grid_adapter_check
+```
 
-R3 PASS does not indicate RHS coupling PASS.
+The R3 source package has been corrected by adding this standalone target to `src/CMakeLists.txt` without connecting it to the `xcompact3d` executable.
 
-R3 PASS does not indicate structure advancement PASS.
+The R3 grid-adapter source and check driver were independently compiled and executed during this repair audit, and the check printed:
 
-R3 PASS does not indicate wall contact PASS.
+```text
+R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
+```
 
-R3 PASS does not indicate fibre-fibre collision PASS.
+## What R3 validates
 
-R3 PASS does not indicate production DNS-FSI closure.
+R3 validates the standalone production grid adapter foundation:
 
-## Current result rationale
+1. real-like x/y/z coordinate storage;
+2. nonuniform channel-like y coordinate support;
+3. local pencil range metadata;
+4. periodic-boundary flag storage;
+5. finite coordinate checks;
+6. strictly increasing coordinate checks;
+7. positive spacing checks;
+8. positive cell-volume checks;
+9. total local volume calculation;
+10. point-to-cell lookup behavior;
+11. destroy/deallocation behavior.
 
-R3 is BLOCKED in this environment because CMake cannot configure the project without an available Fortran compiler, so the standalone `fibre_prod_grid_adapter_check` target could not be built or run here.
+## Boundary
+
+R3 PASS does not mean IBM interpolation PASS.
+R3 PASS does not mean IBM spreading PASS.
+R3 PASS does not mean RHS coupling PASS.
+R3 PASS does not mean structure advancement PASS.
+R3 PASS does not mean two-way FSI PASS.
+R3 PASS does not mean wall-contact PASS.
+R3 PASS does not mean fibre-fibre collision PASS.
+R3 PASS does not mean production DNS-FSI closure.
+
+## Next stage
+
+R4 — production IBM interpolation.

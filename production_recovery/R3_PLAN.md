@@ -45,3 +45,7 @@ BLOCKED applies if external environment prerequisites prevent building or runnin
 ## Evidence boundary
 
 R3 PASS only means the grid adapter independent validation passed. It does not mean IBM interpolation, IBM spreading, RHS coupling, structure advancement, wall contact, fibre-fibre collision, MPI, DNS, FSI, or production DNS-FSI closure passed.
+
+## R3 repair note
+
+The first R3 attempt failed because `fibre_prod_grid_adapter_check` was not registered as a CMake target. This repair adds only that standalone target and does not connect the grid adapter to `xcompact3d`.
