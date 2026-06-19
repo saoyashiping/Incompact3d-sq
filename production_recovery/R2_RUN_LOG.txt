@@ -1,0 +1,7 @@
+R2_RUN_LOG
+
+intended command:
+./build_r2_fibre_state/bin/fibre_prod_state_check
+
+actual status:
+BLOCKED: no R2 run was executed because the configure step failed before the standalone fibre_prod_state_check executable could be built.
