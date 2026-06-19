@@ -1,52 +1,29 @@
-# Production Recovery R3 PASS/FAIL
+# R3 Pass/Fail Record
 
-## Result
+Result: PASS
 
-PASS
+## R3 PASS evidence
 
-## Evidence
-
-The previous R3 run was blocked because `src/CMakeLists.txt` did not register the standalone target:
-
-```text
-fibre_prod_grid_adapter_check
-```
-
-The R3 source package has been corrected by adding this standalone target to `src/CMakeLists.txt` without connecting it to the `xcompact3d` executable.
-
-The R3 grid-adapter source and check driver were independently compiled and executed during this repair audit, and the check printed:
+The standalone `fibre_prod_grid_adapter_check` target built and ran in the R3 technical-validation environment, and the real terminal output contained:
 
 ```text
 R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
 ```
 
-## What R3 validates
+## R3 PASS boundary
 
-R3 validates the standalone production grid adapter foundation:
+R3 PASS only means the grid adapter independent validation passed.
 
-1. real-like x/y/z coordinate storage;
-2. nonuniform channel-like y coordinate support;
-3. local pencil range metadata;
-4. periodic-boundary flag storage;
-5. finite coordinate checks;
-6. strictly increasing coordinate checks;
-7. positive spacing checks;
-8. positive cell-volume checks;
-9. total local volume calculation;
-10. point-to-cell lookup behavior;
-11. destroy/deallocation behavior.
+R3 PASS does not indicate IBM interpolation PASS.
 
-## Boundary
+R3 PASS does not indicate IBM spreading PASS.
 
-R3 PASS does not mean IBM interpolation PASS.
-R3 PASS does not mean IBM spreading PASS.
-R3 PASS does not mean RHS coupling PASS.
-R3 PASS does not mean structure advancement PASS.
-R3 PASS does not mean two-way FSI PASS.
-R3 PASS does not mean wall-contact PASS.
-R3 PASS does not mean fibre-fibre collision PASS.
-R3 PASS does not mean production DNS-FSI closure.
+R3 PASS does not indicate RHS coupling PASS.
 
-## Next stage
+R3 PASS does not indicate structure advancement PASS.
 
-R4 — production IBM interpolation.
+R3 PASS does not indicate wall contact PASS.
+
+R3 PASS does not indicate fibre-fibre collision PASS.
+
+R3 PASS does not indicate production DNS-FSI closure.

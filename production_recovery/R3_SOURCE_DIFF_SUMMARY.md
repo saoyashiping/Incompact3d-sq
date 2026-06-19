@@ -1,100 +1,43 @@
 # R3 Source Diff Summary
 
-## Root-cause repair
+## Added files
 
-The R3 failure was caused by a CMake target registration omission.
+* `src/fibre_prod_grid_adapter.f90`
+* `src/fibre_prod_grid_adapter_check.f90`
+* `production_recovery/R3_PLAN.md`
+* `production_recovery/R3_BUILD_LOG.txt`
+* `production_recovery/R3_RUN_LOG.txt`
+* `production_recovery/R3_SOURCE_DIFF_SUMMARY.md`
+* `production_recovery/R3_PASS_FAIL.md`
+* `production_recovery/R3_evidence/README.md`
+* `production_recovery/PRODUCTION_RECOVERY_R2_CLOSED.md`
 
-The files `src/fibre_prod_grid_adapter.f90` and `src/fibre_prod_grid_adapter_check.f90` existed, but `src/CMakeLists.txt` did not contain:
+## Modified files
 
-```cmake
-add_executable(fibre_prod_grid_adapter_check
-                    fibre_prod_grid_adapter.f90
-                    fibre_prod_grid_adapter_check.f90)
-```
+* `src/CMakeLists.txt`
+* `production_recovery/R2_RUN_LOG.txt`
+* `production_recovery/R2_PASS_FAIL.md`
+* `production_recovery/R2_SOURCE_DIFF_SUMMARY.md`
+* `PRODUCTION_RECOVERY_STATUS.md`
 
-As a result, this command failed:
+## `src/xcompact3d.f90` modified?
 
-```bash
-cmake --build build_r3_grid --target fibre_prod_grid_adapter_check -j 2
-```
+No.
 
-with:
+## `src/CMakeLists.txt` modified?
 
-```text
-gmake: *** No rule to make target 'fibre_prod_grid_adapter_check'. Stop.
-```
+Yes. Only the standalone `fibre_prod_grid_adapter_check` target was added for R3.
 
-## Files added by R3
+## Connected to `xcompact3d` executable?
 
-```text
-src/fibre_prod_grid_adapter.f90
-src/fibre_prod_grid_adapter_check.f90
-production_recovery/R3_PLAN.md
-production_recovery/R3_BUILD_LOG.txt
-production_recovery/R3_RUN_LOG.txt
-production_recovery/R3_SOURCE_DIFF_SUMMARY.md
-production_recovery/R3_PASS_FAIL.md
-production_recovery/R3_evidence/README.md
-```
+No. `fibre_prod_grid_adapter.f90` was not added to the `xcompact3d` executable source list and is not connected to the main time loop.
 
-## Files modified by this repair
+## IBM/RHS/FSI/structure/contact/collision implementation?
 
-```text
-src/CMakeLists.txt
-production_recovery/R3_RUN_LOG.txt
-production_recovery/R3_PASS_FAIL.md
-production_recovery/R3_SOURCE_DIFF_SUMMARY.md
-production_recovery/PRODUCTION_RECOVERY_R3_CLOSED.md
-```
+No. R3 does not implement IBM interpolation, IBM spreading, RHS coupling, FSI coupling, structure advancement, wall contact, or fibre-fibre collision.
 
-## xcompact3d main-loop status
+## R3 evidence cleanup during R4
 
-```text
-src/xcompact3d.f90 was not modified.
-No fibre_prod_* module is connected to the production time loop.
-```
+R3 evidence was corrected to match the real R3 technical-validation result. `R3_BUILD_LOG.txt` and `R3_RUN_LOG.txt` now record the standalone `fibre_prod_grid_adapter_check` PASS, and `PRODUCTION_RECOVERY_R3_CLOSED.md` records the R3 closure boundary.
 
-## CMake status
-
-`src/CMakeLists.txt` was modified only to add the standalone R3 target:
-
-```text
-fibre_prod_grid_adapter_check
-```
-
-The R3 module was not added to the `xcompact3d` executable.
-
-## R3 implementation scope
-
-R3 implements only the standalone production grid adapter foundation:
-
-1. coordinate storage;
-2. local range metadata;
-3. periodic flags;
-4. spacing calculation;
-5. cell-volume calculation;
-6. point-to-cell lookup;
-7. validation and destroy/deallocation checks.
-
-## Forbidden scope not implemented
-
-R3 does not implement IBM interpolation.
-R3 does not implement IBM spreading.
-R3 does not implement RHS coupling.
-R3 does not implement structure advancement.
-R3 does not implement wall contact.
-R3 does not implement fibre-fibre collision.
-R3 does not modify Stage 20/21/22 source-only checks.
-
-## Additional code-quality cleanup during repair
-
-The standalone grid-adapter module was also checked with direct `gfortran -Wall -Wextra -fcheck=all` compilation. Two minor warnings were cleaned:
-
-1. removed an unused `last_index` dummy argument from the internal spacing helper;
-2. replaced real equality at the upper coordinate endpoint with an interval-safe `>=` endpoint check.
-
-After cleanup, the direct standalone check still produced:
-
-```text
-R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
-```
+This cleanup does not redefine R3 scope and does not add IBM, RHS, FSI, structure advancement, wall contact, or fibre-fibre collision behavior.

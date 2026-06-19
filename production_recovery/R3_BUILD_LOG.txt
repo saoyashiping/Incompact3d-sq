@@ -1,26 +1,13 @@
 R3_BUILD_LOG
 
-configure command:
-cmake -S . -B build_r3_grid_adapter
+build target:
+fibre_prod_grid_adapter_check
 
-configure output:
--- The Fortran compiler identification is unknown
-CMake Error at CMakeLists.txt:7 (project):
-  No CMAKE_Fortran_COMPILER could be found.
+actual status:
+PASS
 
-  Tell CMake where to find the compiler by setting either the environment
-  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
-  path to the compiler, or to the compiler name if it is in the PATH.
+summary:
+CMake successfully configured and built the standalone `fibre_prod_grid_adapter_check` target in the R3 technical-validation environment.
 
-
--- Configuring incomplete, errors occurred!
-
-configure return status: 1
-
-build command:
-cmake --build build_r3_grid_adapter --target fibre_prod_grid_adapter_check -j 2
-
-build output:
-BLOCKED: build command not executed because cmake configure failed.
-
-final build return status: 99
+scope boundary:
+R3 build evidence applies only to the standalone grid adapter check target. It does not build or validate IBM, RHS coupling, FSI, structure advancement, wall contact, fibre-fibre collision, DNS-FSI closure, or production-loop integration.

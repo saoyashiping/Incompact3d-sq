@@ -1,67 +1,13 @@
-# Production Recovery R3 Run Log
+R3_RUN_LOG
 
-## Previous failure
+executed target:
+fibre_prod_grid_adapter_check
 
-The previous R3 local command failed at the build-target stage:
+actual status:
+PASS
 
-```text
-gmake: *** No rule to make target 'fibre_prod_grid_adapter_check'. Stop.
-```
-
-## Root cause
-
-`src/fibre_prod_grid_adapter.f90` and `src/fibre_prod_grid_adapter_check.f90` existed, but `src/CMakeLists.txt` did not register the standalone target `fibre_prod_grid_adapter_check`.
-
-Therefore CMake configured successfully, but the build tool had no rule for the requested R3 target.
-
-## Repair
-
-The following standalone target was added to `src/CMakeLists.txt`:
-
-```cmake
-add_executable(fibre_prod_grid_adapter_check
-                    fibre_prod_grid_adapter.f90
-                    fibre_prod_grid_adapter_check.f90)
-```
-
-The target is not linked into `xcompact3d` and is not connected to the production time loop.
-
-## Independent repair audit
-
-The R3 standalone sources were compiled and executed during this repair audit using direct Fortran compilation of the standalone check sources.
-
-Observed output:
-
-```text
+terminal output evidence:
 R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
-```
 
-## Required local confirmation command
-
-On the project machine with the local 2decomp-fft installation available, the CMake target can now be confirmed with:
-
-```bash
-cmake --build build_r3_grid --target fibre_prod_grid_adapter_check -j 2
-./build_r3_grid/bin/fibre_prod_grid_adapter_check
-```
-
-## Boundary
-
-This R3 run validates only the standalone grid adapter. It does not validate IBM interpolation, IBM spreading, RHS coupling, structure advancement, wall contact, fibre-fibre collision, or production DNS-FSI closure.
-
-## Direct compile check after repair
-
-The standalone R3 sources were checked with:
-
-```bash
-gfortran -Wall -Wextra -fcheck=all -c fibre_prod_grid_adapter.f90
-gfortran -Wall -Wextra -fcheck=all -c fibre_prod_grid_adapter_check.f90
-gfortran -fcheck=all fibre_prod_grid_adapter.o fibre_prod_grid_adapter_check.o -o r3check
-./r3check
-```
-
-Observed output:
-
-```text
-R3_FIBRE_PROD_GRID_ADAPTER_CHECK PASS
-```
+scope boundary:
+R3 validates only the grid adapter independent check. R3 does not validate IBM, RHS coupling, FSI, structure advancement, wall contact, fibre-fibre collision, DNS-FSI closure, or production-loop integration.

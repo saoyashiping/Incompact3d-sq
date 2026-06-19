@@ -89,9 +89,17 @@ add_executable(fibre_prod_state_check
                     fibre_prod_diagnostics.f90
                     fibre_prod_state_check.f90)
 
+
 add_executable(fibre_prod_grid_adapter_check
                     fibre_prod_grid_adapter.f90
                     fibre_prod_grid_adapter_check.f90)
+
+
+add_executable(fibre_prod_ibm_interpolation_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_interpolation_check.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
