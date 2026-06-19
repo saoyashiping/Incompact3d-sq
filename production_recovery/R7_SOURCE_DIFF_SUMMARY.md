@@ -45,3 +45,27 @@ No.
 ## Production DNS-FSI validation executed?
 
 No. R7 is a standalone micro-case only and does not execute production DNS-FSI validation.
+
+
+## R7 fix applied after Ubuntu compile failure
+
+Modified file:
+
+* `src/fibre_prod_tension_solver.f90`
+
+Reason:
+
+* Removed invalid `pure` attributes from functions that assign an `intent(out)` status argument.
+
+Verification evidence added:
+
+* `production_recovery/R7_evidence/R7_FIX_NOTE.md`
+* `production_recovery/R7_evidence/direct_gfortran_fsi_closed_loop_compile.log`
+* `production_recovery/R7_evidence/direct_gfortran_fsi_closed_loop_link.log`
+* `production_recovery/R7_evidence/direct_gfortran_fsi_closed_loop_run.log`
+
+Boundary:
+
+* `src/xcompact3d.f90` remains unmodified.
+* R7 remains a standalone closed-loop micro-case.
+* No real DNS RHS coupling, wall contact, or fibre-fibre collision was implemented by this fix.
