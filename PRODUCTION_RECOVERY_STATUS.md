@@ -52,9 +52,3 @@ Production DNS-FSI closure must be re-established through the following staged r
 ## Status-use rule
 
 When this document conflicts with historical closure files, this document is authoritative. Historical files must be read as source-only closure artifacts unless a later Production Recovery stage provides real build/MPI/DNS evidence.
-
-## R1 baseline build/run cleanup status
-
-R1 attempted to establish baseline no-fibre build/run evidence, but the attempt is currently **BLOCKED** by missing environment prerequisites. The recorded blockers are missing Fortran compiler, missing MPI Fortran wrapper, missing MPI launcher, and no discovered usable 2decomp-fft/decomp2d dependency. See `production_recovery/R1_BLOCKED.md` and `production_recovery/R1_BUILD_LOG.txt` for evidence.
-
-R1 BLOCKED does not validate the production solver and does not validate FSI. It only records that real baseline build/run evidence could not be produced in the current environment.
