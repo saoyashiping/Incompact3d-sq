@@ -109,9 +109,9 @@ contains
         grid%x = x_coord(istart:iend)
         grid%y = y_coord(jstart:jend)
         grid%z = z_coord(kstart:kend)
-        call fill_local_spacing(x_coord, istart, iend, grid%dx)
-        call fill_local_spacing(y_coord, jstart, jend, grid%dy)
-        call fill_local_spacing(z_coord, kstart, kend, grid%dz)
+        call fill_local_spacing(x_coord, istart, grid%dx)
+        call fill_local_spacing(y_coord, jstart, grid%dy)
+        call fill_local_spacing(z_coord, kstart, grid%dz)
         do k = 1, grid%nz_local
           do j = 1, grid%ny_local
             do i = 1, grid%nx_local
@@ -269,10 +269,9 @@ contains
     valid = first_index >= 1 .and. first_index <= last_index .and. last_index <= n_global
   end function valid_range
 
-  pure subroutine fill_local_spacing(coord, first_index, last_index, spacing)
+  pure subroutine fill_local_spacing(coord, first_index, spacing)
     real(dp), intent(in) :: coord(:)
     integer, intent(in) :: first_index
-    integer, intent(in) :: last_index
     real(dp), intent(out) :: spacing(:)
     integer :: i
     integer :: global_index
@@ -301,7 +300,7 @@ contains
       return
     end if
 
-    if (value == coord(size(coord))) then
+    if (value >= coord(size(coord))) then
       cell_index = global_offset + size(coord) - 2
       return
     end if
