@@ -1,0 +1,186 @@
+# R1 Environment
+
+## Required environment probes
+
+```text
+$ date -u +%Y-%m-%dT%H:%M:%SZ
+2026-06-19T06:25:16Z
+
+$ hostname
+f97ab8a89b24
+
+$ pwd
+/workspace/Incompact3d-sq
+
+$ git status --short
+ M PRODUCTION_RECOVERY_STATUS.md
+?? production_recovery/R1_BASELINE_NO_FIBRE_STATUS.md
+?? production_recovery/R1_BASELINE_RUN_PLAN.md
+?? production_recovery/R1_BLOCKED.md
+?? production_recovery/R1_BUILD_LOG.txt
+?? production_recovery/R1_ENVIRONMENT.md
+?? production_recovery/R1_PASS_FAIL.md
+?? production_recovery/R1_PLAN.md
+?? production_recovery/R1_RUN_LOG_np1.txt
+?? production_recovery/R1_RUN_LOG_np2.txt
+?? production_recovery/R1_RUN_LOG_np4.txt
+?? production_recovery/R1_SOURCE_DIFF_SUMMARY.md
+?? production_recovery/R1_evidence/
+
+$ which cmake
+/usr/bin/cmake
+
+$ cmake --version
+cmake version 3.28.3
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+
+$ which gfortran
+
+$ gfortran --version
+/bin/bash: line 12: gfortran: command not found
+
+$ which mpif90
+
+$ mpif90 --version
+/bin/bash: line 14: mpif90: command not found
+
+$ which mpirun
+
+$ mpirun --version
+/bin/bash: line 16: mpirun: command not found
+
+$ find /usr /usr/local /opt -iname "*decomp*" -o -iname "*2decomp*" 2>/dev/null | head -80
+/usr/lib/git-core/mergetools/codecompare
+/usr/share/perl/5.38.2/unicore/Decomposition.pl
+/usr/include/llvm-20/llvm/Object/Decompressor.h
+/usr/include/llvm-20/llvm/Frontend/OpenMP/ConstructDecompositionT.h
+
+$ rg --files -g "CMakePresets.json" -g "*build*" -g "*.sh" | sed -n "1,120p"
+stage7_checks/run_stage7_2_scalar_interpolation.sh
+stage7_checks/run_stage7_5_force_spreading.sh
+stage7_checks/run_stage7_8_channel_grid_adapter.sh
+stage7_checks/run_stage7_feedback_sign_audit.sh
+stage7_checks/run_stage7_0_config.sh
+stage7_checks/run_stage7_1_grid_metadata.sh
+stage7_checks/run_stage7_3_scalar_interpolation_robustness.sh
+stage7_checks/run_stage7_9_rhs_candidate.sh
+stage7_checks/run_stage7_rho_convention_audit.sh
+stage7_checks/run_stage7_10_total_smoke.sh
+stage7_checks/run_stage7_7_boundary_safety.sh
+stage7_checks/run_stage7_4_velocity_interpolation.sh
+stage7_checks/run_stage7_structure_high_gamma.sh
+stage7_checks/run_stage7_6_power_consistency.sh
+stage2_checks/run_stage2_7_no_force_long.sh
+stage2_checks/run_stage2_0_geometry.sh
+stage2_checks/run_stage2_3_energy_diagnostics.sh
+stage2_checks/run_stage2_6_structure_advance.sh
+stage2_checks/run_stage2_4_implicit_bending.sh
+stage2_checks/run_stage2_1_freefree_boundary.sh
+stage2_checks/run_stage2_8_frequency_scaling.sh
+stage2_checks/run_stage2_5_tension_solver.sh
+stage2_checks/run_stage2_9_external_force_interface.sh
+stage2_checks/run_stage2_2_bending_operator.sh
+stage17_checks/run_stage17_2_channel_wall_domain_boundary.sh
+stage17_checks/run_stage17_3_effective_radius_wall_clearance.sh
+stage17_checks/run_stage17_1_wall_contact_safety_config.sh
+stage17_checks/run_stage17_10_parallel_restart_io_wall_safety.sh
+stage17_checks/run_stage17_0_preflight_safety_boundary.sh
+stage17_checks/run_stage17_4_boundary_containment_fail_closed.sh
+stage17_checks/run_stage17_7_contact_placeholder_no_force.sh
+stage17_checks/run_stage17_6_segment_wall_clearance_safety.sh
+stage17_checks/run_stage17_11_total_contamination_audit_closure.sh
+stage17_checks/run_stage17_5_near_wall_contact_state.sh
+stage17_checks/run_stage17_9_closed_loop_wall_contact_compatibility.sh
+stage17_checks/run_stage17_8_fibre_fibre_placeholder_geometry.sh
+stage20_checks/run_stage20_6_rhs_coupling_lambda_gate.sh
+stage20_checks/run_stage20_9_parallel_consistency_np24.sh
+stage20_checks/run_stage20_3_structure_advance_hydro_force_candidate.sh
+stage20_checks/run_stage20_1_twoway_config_lambda_gate.sh
+stage20_checks/run_stage20_0_preflight_boundary.sh
+stage20_checks/run_stage20_2_fluid_to_structure_force_input_adapter.sh
+stage20_checks/run_stage20_11_total_closure_audit.sh
+stage20_checks/run_stage20_10_restart_stats_visu_compatibility.sh
+stage20_checks/run_stage20_4_structure_to_fluid_reaction_force_candidate.sh
+stage20_checks/run_stage20_8_lambda_regression_response_comparison.sh
+stage20_checks/run_stage20_5_lagrangian_to_eulerian_force_density_candidate.sh
+stage20_checks/run_stage20_7_controlled_one_fibre_closed_loop_np1.sh
+indent.sh
+stage6_checks/run_stage6_6_rk_rhs_sync.sh
+stage6_checks/run_stage6_5_projection_order.sh
+stage6_checks/run_stage6_4_singlephase_noop.sh
+stage6_checks/run_stage6_10_total_smoke.sh
+stage6_checks/run_stage6_0_config.sh
+stage6_checks/run_stage6_8_micro_smoke.sh
+stage6_checks/run_stage6_9_io_safety.sh
+stage6_checks/run_stage6_7_layout_guard.sh
+stage6_checks/run_stage6_3_controlled_rhs.sh
+stage6_checks/run_stage6_2_noop_hook.sh
+stage6_checks/run_stage6_1_rhs_audit.sh
+stage11_checks/run_stage11_3_oneway_interpolation_api.sh
+stage11_checks/run_stage11_6_oneway_sampling_invariance_np1.sh
+stage11_checks/run_stage11_4_controlled_interpolation.sh
+stage11_checks/run_stage11_5_production_oneway_hook.sh
+stage11_checks/run_stage11_0_config.sh
+stage11_checks/run_stage11_1_lagrangian_state.sh
+stage11_checks/run_stage11_8_io_restart_stats_visu_oneway.sh
+stage11_checks/run_stage11_10_total_smoke.sh
+stage11_checks/run_stage11_2_grid_metadata.sh
+stage11_checks/run_stage11_9_rhs_coupling_contamination_audit.sh
+stage11_checks/run_stage11_7_oneway_sampling_parallel_consistency.sh
+stage3_checks/run_stage3_2_interpolation.sh
+stage3_checks/run_stage3_8_boundary_safety.sh
+stage3_checks/run_stage3_5_feedback_force.sh
+stage3_checks/run_stage3_9_smoke.sh
+stage3_checks/run_stage3_7_force_buffer.sh
+stage3_checks/run_stage3_6_structure_coupling.sh
+stage3_checks/run_stage3_3_spreading.sh
+stage3_checks/run_stage3_1_delta_kernel.sh
+stage3_checks/run_stage3_4_power_consistency.sh
+stage3_checks/run_stage3_0_ibm_skeleton.sh
+stage22_checks/run_stage22_4_contact_force_into_structure_candidate.sh
+stage22_checks/run_stage22_8_two_fibre_collision_micro_case.sh
+stage22_checks/run_stage22_0_preflight.sh
+stage22_checks/run_stage22_6_single_fibre_channel_fsi_micro_case.sh
+stage12_checks/run_stage12_9_io_restart_stats_visu_force_candidate.sh
+stage12_checks/run_stage12_6_production_feedback_candidate.sh
+stage12_checks/run_stage12_4_sign_convention_audit.sh
+stage12_checks/run_stage12_7_force_candidate_invariance_np1.sh
+stage12_checks/run_stage12_8_force_candidate_parallel_consistency.sh
+stage12_checks/run_stage12_10_rhs_spreading_structure_contamination_audit.sh
+stage12_checks/run_stage12_0_config.sh
+stage12_checks/run_stage12_5_power_diagnostics.sh
+stage12_checks/run_stage12_1_force_buffer.sh
+stage12_checks/run_stage12_11_total_smoke.sh
+stage12_checks/run_stage12_3_feedback_formula.sh
+stage12_checks/run_stage12_2_prescribed_velocity.sh
+stage22_checks/run_stage22_9_mesh_timestep_sensitivity_check.sh
+stage22_checks/run_stage22_10_np124_parallel_consistency.sh
+stage22_checks/run_stage22_1_full_helper_chain_reconstruction.sh
+stage22_checks/run_stage22_11_restart_statistics_visualization_audit.sh
+stage22_checks/run_stage22_2_wall_contact_force_candidate_helper.sh
+stage22_checks/run_stage22_7_single_fibre_near_wall_contact_micro_case.sh
+stage13_checks/run_stage13_5_conservation_sign_audit.sh
+stage22_checks/run_stage22_3_fibre_collision_force_candidate_helper.sh
+stage22_checks/run_stage22_12_final_total_closure.sh
+stage22_checks/run_stage22_5_lambda_no_contact_contact_regression.sh
+stage13_checks/run_stage13_6_production_force_density_candidate.sh
+stage13_checks/run_stage13_4_volume_normalization_audit.sh
+stage13_checks/run_stage13_3_spreading_kernel.sh
+stage13_checks/run_stage13_2_force_density_buffer.sh
+stage13_checks/run_stage13_9_io_restart_stats_visu_force_density.sh
+stage13_checks/run_stage13_0_preflight_closure_integrity.sh
+stage13_checks/run_stage13_1_config.sh
+stage13_checks/run_stage13_7_force_density_invariance_np1.sh
+stage13_checks/run_stage13_8_force_density_parallel_consistency.sh
+stage13_checks/run_stage13_11_total_closure.sh
+stage13_checks/run_stage13_10_rhs_injection_contamination_audit.sh
+stage9_checks/run_stage9_9_parallel_no_fibre_consistency.sh
+stage9_checks/run_stage9_10_no_coupling_contamination_audit.sh
+
+```
+
+## Dependency/build-script findings
+
+* 2decomp-fft/decomp2d dependency discovery: no usable 2decomp-fft/decomp2d installation was found by the probe above; only unrelated system files matched the name pattern.
+* Build scripts or CMake presets discovery: no `CMakePresets.json` was found; repository shell scripts were found, but the R1 build used the root CMake workflow.
