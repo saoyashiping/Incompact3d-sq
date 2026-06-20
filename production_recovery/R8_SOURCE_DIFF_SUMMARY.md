@@ -1,45 +1,53 @@
 # Production Recovery R8 Source Diff Summary
 
-## New source files
-
-- `src/fibre_prod_wall_geometry.f90` — channel wall geometry, validation, point and segment signed-gap utilities.
-- `src/fibre_prod_wall_contact.f90` — near-wall warning, penetration detection, and wall-contact penalty-force candidate routines.
-- `src/fibre_prod_wall_contact_diagnostics.f90` — wall-contact diagnostic counts, norms, energy candidate, finite checks, and status summary.
-- `src/fibre_prod_wall_contact_check.f90` — standalone R8 wall-contact safety check driver.
-
-## New evidence/documentation files
-
-- `production_recovery/R8_PLAN.md`
-- `production_recovery/R8_BUILD_LOG.txt`
-- `production_recovery/R8_RUN_LOG.txt`
-- `production_recovery/R8_SOURCE_DIFF_SUMMARY.md`
-- `production_recovery/R8_PASS_FAIL.md`
-- `production_recovery/R8_evidence/README.md`
-
 ## Modified files
 
-- `src/CMakeLists.txt` — adds only the standalone `fibre_prod_wall_contact_check` target.
+1. `src/fibre_prod_tension_solver.f90`
+   - Removed the invalid `pure` attribute from:
+     - `fibre_prod_tension_segment_length_residual`
+     - `fibre_prod_tension_max_stretch_error`
+   - Kept interfaces, return values, and status semantics unchanged.
 
-## `src/xcompact3d.f90` modified?
+2. `production_recovery/R8_SOURCE_DIFF_SUMMARY.md`
+   - Updated this summary for the R8 compile-fix patch.
 
-No.  `src/xcompact3d.f90` was not modified in R8.
+3. `production_recovery/R8_evidence/R8_FIX_NOTE.md`
+   - Added the R8 fix note.
 
-## `src/CMakeLists.txt` modified?
+4. `production_recovery/R8_evidence/direct_gfortran_wall_contact_compile.log`
+   - Added direct standalone compile evidence.
 
-Yes.  The modification is limited to the standalone `fibre_prod_wall_contact_check` target.
+5. `production_recovery/R8_evidence/direct_gfortran_wall_contact_link.log`
+   - Added direct standalone link evidence.
 
-## Connected to `xcompact3d` executable?
+6. `production_recovery/R8_evidence/direct_gfortran_wall_contact_run.log`
+   - Added direct standalone run evidence.
 
-No.  R8 modules are not added to the `xcompact3d` executable source list and no main-loop hook is added.
+## Files not modified
 
-## Real RHS coupling implemented?
+- `src/xcompact3d.f90` was not modified.
+- `stage20_checks/` was not modified.
+- `stage21_checks/` was not modified.
+- `stage22_checks/` was not modified.
 
-No.  R8 does not write or couple to a real Navier-Stokes RHS.
+## Main-program coupling boundary
 
-## Fibre-fibre collision implemented?
+R8 was not connected to the `xcompact3d` executable.
 
-No.  R8 does not implement fibre-fibre collision.
+No Xcompact3D main-loop hook was added.
 
-## Production DNS-FSI validation executed?
+No real Navier-Stokes RHS coupling was implemented.
 
-No.  R8 does not execute production DNS-FSI validation or np=1/2/4 MPI consistency checks.
+No fibre-fibre collision implementation was added.
+
+## Verification evidence
+
+Direct standalone `gfortran` compile/link/run of the R8 wall-contact check dependency chain was performed in the patch environment.
+
+The run log contains:
+
+```text
+R8_FIBRE_PROD_WALL_CONTACT_CHECK PASS
+```
+
+The official Ubuntu/CMake/mpif90 R8 verification should be rerun after applying this patch in the target environment.
