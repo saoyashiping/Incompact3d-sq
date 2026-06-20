@@ -155,6 +155,19 @@ add_executable(fibre_prod_wall_contact_check
                     fibre_prod_wall_contact_diagnostics.f90
                     fibre_prod_wall_contact_check.f90)
 
+add_executable(fibre_prod_fibre_collision_check
+                    fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_boundary_conditions.f90
+                    fibre_prod_bending_solver.f90
+                    fibre_prod_tension_solver.f90
+                    fibre_prod_structure_solver.f90
+                    fibre_prod_collision_geometry.f90
+                    fibre_prod_fibre_collision.f90
+                    fibre_prod_collision_diagnostics.f90
+                    fibre_prod_fibre_collision_check.f90)
+
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
 if (MPI_FOUND)

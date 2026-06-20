@@ -1,55 +1,22 @@
-# R8 Fix Note
+# R8 Fix Note — Tension Pure-Function Status Output
 
-## Failure
+## Cause
 
-R8 failed while compiling `src/fibre_prod_tension_solver.f90` because two functions were declared as `pure` while also using an `integer, intent(out) :: status` argument.
+GNU Fortran rejects `pure function` procedures that modify an `integer, intent(out) :: status` argument.  The R8 wall-contact standalone target depends on `src/fibre_prod_tension_solver.f90`, where `fibre_prod_tension_segment_length_residual` and `fibre_prod_tension_max_stretch_error` previously had the `pure` attribute while preserving status-output semantics.
 
-GNU Fortran 15.x correctly rejects this pattern: a `pure function` cannot define an `intent(out)` dummy argument or pass it to another procedure in a variable-definition context.
+## Fix
 
-Affected routines:
+The fix removes the `pure` attribute from exactly these two functions:
 
 - `fibre_prod_tension_segment_length_residual`
 - `fibre_prod_tension_max_stretch_error`
 
-## Fix
+The function names, arguments, return values, numeric logic, and status semantics are unchanged.  They were not converted to subroutines and no caller interface was changed.
 
-Removed only the `pure` attribute from the two affected functions.
-
-The following were kept unchanged:
-
-- function names;
-- argument lists;
-- return values;
-- status-code semantics;
-- segment-length residual logic;
-- max-stretch-error logic.
-
-## Verification performed in this environment
-
-A standalone direct `gfortran` compile/link/run was performed for the R8 wall-contact check dependency chain:
-
-- `fibre_prod_config.f90`
-- `fibre_prod_state.f90`
-- `fibre_prod_diagnostics.f90`
-- `fibre_prod_boundary_conditions.f90`
-- `fibre_prod_bending_solver.f90`
-- `fibre_prod_tension_solver.f90`
-- `fibre_prod_structure_solver.f90`
-- `fibre_prod_wall_geometry.f90`
-- `fibre_prod_wall_contact.f90`
-- `fibre_prod_wall_contact_diagnostics.f90`
-- `fibre_prod_wall_contact_check.f90`
-
-The direct run printed:
-
-```text
-R8_FIBRE_PROD_WALL_CONTACT_CHECK PASS
-```
-
-## Boundary
+## Explicit non-actions
 
 - `src/xcompact3d.f90` was not modified.
-- R8 was not connected to the Xcompact3D main loop.
-- No real Navier-Stokes RHS coupling was implemented.
-- No fibre-fibre collision implementation was added.
-- `stage20_checks/`, `stage21_checks/`, and `stage22_checks/` were not modified.
+- No R8 code was connected to the xcompact3d main loop.
+- No fibre-fibre collision was implemented.
+- No real Navier-Stokes RHS write or coupling was implemented.
+- No R9 work was performed.

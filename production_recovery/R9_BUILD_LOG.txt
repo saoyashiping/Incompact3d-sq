@@ -15,6 +15,6 @@ CMake Error at CMakeLists.txt:7 (project):
 gmake: Makefile: No such file or directory
 gmake: *** No rule to make target 'Makefile'.  Stop.
 
-## R8 fix command statuses
+## R9 command statuses
 configure_status=1
 build_status=2

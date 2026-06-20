@@ -1,8 +1,6 @@
 # Production Recovery R8 run log
-## Run command
-"build_r8_wall_contact/bin/fibre_prod_wall_contact_check"
-/bin/bash: line 42: build_r8_wall_contact/bin/fibre_prod_wall_contact_check: No such file or directory
+BLOCKED: fibre_prod_wall_contact_check executable was not found after build attempt.
+run_status=127
 
-## Run return status: 127
 ## R8 run status
-BLOCKED: R8 standalone executable was not produced because configure/build did not complete in this environment.
+run_status=127
