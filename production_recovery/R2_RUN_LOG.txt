@@ -1,0 +1,13 @@
+R2_RUN_LOG
+
+executed target:
+fibre_prod_state_check
+
+actual status:
+PASS
+
+terminal output evidence:
+R2_FIBRE_PROD_STATE_CHECK PASS
+
+scope boundary:
+R2 independent target fibre_prod_state_check was truly compiled and run in the R2 technical-validation environment. R2 validates only the production fibre state container. R2 does not validate IBM, RHS coupling, structure advancement, FSI, wall contact, or fibre-fibre collision.

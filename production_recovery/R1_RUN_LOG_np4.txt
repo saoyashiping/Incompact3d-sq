@@ -1,0 +1,7 @@
+R1_RUN_LOG_np4
+
+Intended command:
+mpirun -np 4 <path-to-built-xcompact3d> <R1-input>
+
+Actual status:
+BLOCKED: no run was executed. The configure step failed because CMake could not find a Fortran compiler, no xcompact3d executable was built, and mpirun is not available in the environment.
