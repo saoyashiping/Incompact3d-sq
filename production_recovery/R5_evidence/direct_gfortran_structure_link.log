@@ -1,0 +1,3 @@
+Command:
+gfortran -o fibre_prod_structure_solver_check fibre_prod_config.o fibre_prod_state.o fibre_prod_diagnostics.o fibre_prod_boundary_conditions.o fibre_prod_bending_solver.o fibre_prod_tension_solver.o fibre_prod_structure_solver.o fibre_prod_structure_solver_check.o
+link_status=0

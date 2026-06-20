@@ -1,0 +1,31 @@
+### compiling fibre_prod_config.f90
+### compiling fibre_prod_state.f90
+### compiling fibre_prod_diagnostics.f90
+### compiling fibre_prod_boundary_conditions.f90
+### compiling fibre_prod_bending_solver.f90
+### compiling fibre_prod_tension_solver.f90
+### compiling fibre_prod_structure_solver.f90
+### compiling fibre_prod_wall_geometry.f90
+### compiling fibre_prod_wall_contact.f90
+### compiling fibre_prod_wall_contact_diagnostics.f90
+### compiling fibre_prod_wall_contact_check.f90
+/mnt/data/r8_fix_work/Incompact3d-sq-Xcompact3D/src/fibre_prod_wall_contact_check.f90:43:6:
+
+   43 |   if (fibre_prod_wall_contact_force_norm(contact_force(1, :, :)) /= 0.0_dp) error stop 5
+      |      1
+Warning: Inequality comparison for REAL(8) at (1) [-Wcompare-reals]
+/mnt/data/r8_fix_work/Incompact3d-sq-Xcompact3D/src/fibre_prod_wall_contact_check.f90:50:6:
+
+   50 |   if (fibre_prod_wall_contact_force_norm(contact_force(1, :, :)) /= 0.0_dp) error stop 9
+      |      1
+Warning: Inequality comparison for REAL(8) at (1) [-Wcompare-reals]
+/mnt/data/r8_fix_work/Incompact3d-sq-Xcompact3D/src/fibre_prod_wall_contact_check.f90:57:16:
+
+   57 |   if (.not. all(contact_force == contact_force)) error stop 12
+      |                1
+Warning: Equality comparison for REAL(8) at (1) [-Wcompare-reals]
+/mnt/data/r8_fix_work/Incompact3d-sq-Xcompact3D/src/fibre_prod_wall_contact_check.f90:97:30:
+
+   97 |   if (status /= 0 .or. .not. (min_gap == min_gap)) error stop 27
+      |                              1
+Warning: Equality comparison for REAL(8) at (1) [-Wcompare-reals]
