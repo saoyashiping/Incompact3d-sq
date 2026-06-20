@@ -16,7 +16,7 @@ R8 BLOCKED applies when configure/build/run cannot complete because required com
 
 ## Current conclusion
 
-R8 remains BLOCKED in this environment after the R8 tension pure-function compile fix.  The source issue was corrected by removing `pure` from the two tension helper functions that update `intent(out)` status, but the requested R8 configure command still could not locate `mpif90`, so the standalone `fibre_prod_wall_contact_check` executable was not produced and the run command could not execute the check.
+R8 is BLOCKED in this environment.  The configure command could not locate `mpif90`, so the standalone `fibre_prod_wall_contact_check` executable was not produced and the run command could not execute the check.
 
 ## Evidence boundary
 

@@ -12,7 +12,7 @@ module fibre_prod_tension_solver
 
 contains
 
-  real(dp) function fibre_prod_tension_segment_length_residual(x, ds, status) result(residual)
+  pure real(dp) function fibre_prod_tension_segment_length_residual(x, ds, status) result(residual)
     real(dp), intent(in) :: x(:, :)
     real(dp), intent(in) :: ds
     integer, intent(out) :: status
@@ -38,7 +38,7 @@ contains
     end if
   end function fibre_prod_tension_segment_length_residual
 
-  real(dp) function fibre_prod_tension_max_stretch_error(x, ds, status) result(max_error)
+  pure real(dp) function fibre_prod_tension_max_stretch_error(x, ds, status) result(max_error)
     real(dp), intent(in) :: x(:, :)
     real(dp), intent(in) :: ds
     integer, intent(out) :: status
