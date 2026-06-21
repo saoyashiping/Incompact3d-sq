@@ -1,0 +1,6 @@
+# Production Recovery R8 run log
+BLOCKED: fibre_prod_wall_contact_check executable was not found after build attempt.
+run_status=127
+
+## R8 run status
+run_status=127

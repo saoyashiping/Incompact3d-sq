@@ -1,0 +1,5 @@
+# R11 small-lambda np=2 run log
+BLOCKED: R11 build/run prerequisites were unavailable or incomplete; configure_status=1, hook_build_status=2, hook_run_status=127, xcompact_build_status=2.
+FIBRE_PROD_ENABLE=1
+FIBRE_PROD_LAMBDA=1.0e-8
+FIBRE_PROD_DIAGNOSTICS=1
