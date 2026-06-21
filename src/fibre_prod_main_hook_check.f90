@@ -17,6 +17,7 @@ program fibre_prod_main_hook_check
   real(dp), parameter :: tol = 0.0_dp
   type(fibre_prod_runtime_config_type) :: config
   type(fibre_prod_main_diagnostics_type) :: diag
+  type(fibre_prod_force_buffer_type) :: buffer
   real(dp) :: rhs_x(4, 3, 2)
   real(dp) :: rhs_y(4, 3, 2)
   real(dp) :: rhs_z(4, 3, 2)
