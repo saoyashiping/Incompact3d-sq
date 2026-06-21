@@ -1,0 +1,47 @@
+1:module fibre_prod_reaction_force_candidate
+9:  public :: fibre_prod_reaction_force_candidate_type
+10:  public :: fibre_prod_reaction_force_candidate_init
+11:  public :: fibre_prod_reaction_force_candidate_from_structure_input
+12:  public :: fibre_prod_reaction_force_candidate_finalize
+13:  public :: fibre_prod_reaction_force_candidate_env_enabled
+15:  type :: fibre_prod_reaction_force_candidate_type
+17:    logical :: has_reaction_force = .false.
+19:    real(dp), allocatable :: reaction_force(:, :)
+20:    real(dp) :: max_abs_reaction_force = 0.0_dp
+21:    real(dp) :: sum_abs_reaction_force = 0.0_dp
+22:    real(dp) :: net_reaction_force(3) = 0.0_dp
+23:  end type fibre_prod_reaction_force_candidate_type
+27:  subroutine fibre_prod_reaction_force_candidate_init(candidate, nnode, status)
+28:    type(fibre_prod_reaction_force_candidate_type), intent(inout) :: candidate
+34:    call fibre_prod_reaction_force_candidate_finalize(candidate)
+39:    allocate(candidate%reaction_force(nnode, 3), stat=ierr)
+42:      call fibre_prod_reaction_force_candidate_finalize(candidate)
+46:    candidate%reaction_force = 0.0_dp
+47:    candidate%max_abs_reaction_force = 0.0_dp
+48:    candidate%sum_abs_reaction_force = 0.0_dp
+49:    candidate%net_reaction_force = 0.0_dp
+50:    candidate%has_reaction_force = .false.
+52:  end subroutine fibre_prod_reaction_force_candidate_init
+54:  subroutine fibre_prod_reaction_force_candidate_from_structure_input(candidate, structure_input_force, status)
+55:    type(fibre_prod_reaction_force_candidate_type), intent(inout) :: candidate
+56:    real(dp), intent(in) :: structure_input_force(:, :)
+60:    if (.not. candidate%initialized .or. .not. allocated(candidate%reaction_force)) then
+64:    if (size(structure_input_force, 1) /= candidate%nnode .or. size(structure_input_force, 2) /= 3) then
+68:    if (.not. all(ieee_is_finite(structure_input_force))) then
+72:    candidate%reaction_force = -structure_input_force
+73:    candidate%max_abs_reaction_force = maxval(abs(candidate%reaction_force))
+74:    candidate%sum_abs_reaction_force = sum(abs(candidate%reaction_force))
+75:    candidate%net_reaction_force = sum(candidate%reaction_force, dim=1)
+76:    candidate%has_reaction_force = .true.
+77:  end subroutine fibre_prod_reaction_force_candidate_from_structure_input
+79:  subroutine fibre_prod_reaction_force_candidate_finalize(candidate)
+80:    type(fibre_prod_reaction_force_candidate_type), intent(inout) :: candidate
+82:    if (allocated(candidate%reaction_force)) deallocate(candidate%reaction_force)
+84:    candidate%has_reaction_force = .false.
+86:    candidate%max_abs_reaction_force = 0.0_dp
+87:    candidate%sum_abs_reaction_force = 0.0_dp
+88:    candidate%net_reaction_force = 0.0_dp
+89:  end subroutine fibre_prod_reaction_force_candidate_finalize
+91:  logical function fibre_prod_reaction_force_candidate_env_enabled() result(enabled)
+103:  end function fibre_prod_reaction_force_candidate_env_enabled
+105:end module fibre_prod_reaction_force_candidate

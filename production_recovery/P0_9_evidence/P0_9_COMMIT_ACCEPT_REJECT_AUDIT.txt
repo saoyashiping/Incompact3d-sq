@@ -1,0 +1,83 @@
+P0.9 accept/reject evidence:
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:29:                                            fibre_prod_structure_dry_step_check_bounded, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:37:  integer, parameter, public :: fibre_prod_commit_reject_none = 0
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:38:  integer, parameter, public :: fibre_prod_commit_reject_disabled = 1
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:39:  integer, parameter, public :: fibre_prod_commit_reject_not_initialized = 2
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:40:  integer, parameter, public :: fibre_prod_commit_reject_shape = 3
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:41:  integer, parameter, public :: fibre_prod_commit_reject_nonfinite = 4
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:42:  integer, parameter, public :: fibre_prod_commit_reject_bound = 5
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:43:  integer, parameter, public :: fibre_prod_commit_reject_state = 6
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:58:    logical :: accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:59:    logical :: committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:60:    logical :: rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:61:    integer :: reject_code = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:90:    gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:91:    gate%committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:92:    gate%rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:93:    gate%reject_code = fibre_prod_commit_reject_none
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:105:      status = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:106:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:107:      gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:108:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:112:    gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:113:    gate%committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:114:    gate%rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:115:    gate%reject_code = fibre_prod_commit_reject_none
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:126:    gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:127:    gate%committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:128:    gate%rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:130:      status = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:131:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:132:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:138:      status = fibre_prod_commit_reject_shape
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:139:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:140:      gate%reject_code = fibre_prod_commit_reject_shape
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:145:      status = fibre_prod_commit_reject_nonfinite
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:146:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:147:      gate%reject_code = fibre_prod_commit_reject_nonfinite
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:155:      status = fibre_prod_commit_reject_bound
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:156:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:157:      gate%reject_code = fibre_prod_commit_reject_bound
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:161:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:162:      gate%reject_code = fibre_prod_commit_reject_disabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:165:    gate%accepted = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:166:    gate%rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:167:    gate%reject_code = fibre_prod_commit_reject_none
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:178:    gate%committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:180:      status = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:181:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:182:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:185:    if (.not. gate%gate_enabled .or. .not. gate%accepted .or. gate%rejected) then
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:186:      if (gate%reject_code == fibre_prod_commit_reject_none) gate%reject_code = fibre_prod_commit_reject_disabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:191:      status = fibre_prod_commit_reject_shape
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:192:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:193:      gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:194:      gate%reject_code = fibre_prod_commit_reject_shape
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:199:      status = fibre_prod_commit_reject_state
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:200:      gate%rejected = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:201:      gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:202:      gate%reject_code = fibre_prod_commit_reject_state
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:205:    gate%committed = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:213:    gate%accepted = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:214:    gate%committed = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:215:    gate%rejected = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:216:    gate%reject_code = fibre_prod_commit_reject_not_initialized
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:290:    if (status == 0) call fibre_prod_structure_dry_step_check_bounded(dry, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:30:                                               fibre_prod_commit_reject_disabled, fibre_prod_commit_reject_nonfinite, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:31:                                               fibre_prod_commit_reject_bound, fibre_prod_commit_reject_shape
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:60:  call require(.not. gate%gate_enabled, 'gate must default disabled')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:63:  call require(status == 0 .and. gate%rejected .and. gate%reject_code == fibre_prod_commit_reject_disabled, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:64:               'disabled gate should reject without fatal status')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:66:  call require(status == 0, 'disabled no-commit should be nonfatal')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:67:  call require(all(state%x(1,:,:) == x0), 'disabled gate changed coordinates')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:68:  call require(.not. state%has_structure_u, 'disabled gate attached structure velocity')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:73:  call require(status == 0 .and. gate%accepted, 'enabled bounded trial should be accepted')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:75:  call require(status == 0 .and. gate%committed, 'accepted trial commit failed')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:76:  call require(maxval(abs(state%x(1,:,:) - dry%x_trial)) <= 0.0_dp, 'coordinates not committed')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:78:               'structure velocity not committed')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:90:  call require(status == fibre_prod_commit_reject_nonfinite .and. gate%rejected, 'nonfinite trial not rejected')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:92:  call require(all(state%x(1,:,:) == x0), 'nonfinite rejection changed coordinates')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:97:  call require(status == fibre_prod_commit_reject_bound .and. gate%rejected, 'oversized trial not rejected')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:99:  call require(all(state%x(1,:,:) == x0), 'boundedness rejection changed coordinates')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:103:  call require(status == fibre_prod_commit_reject_shape .and. gate%rejected, 'shape mismatch not rejected')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:117:  call require(status == 0 .and. gate%accepted, 'lambda path gate acceptance failed')

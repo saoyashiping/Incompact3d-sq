@@ -1,0 +1,24 @@
+P0_12 validation started
+ROOT_DIR=/workspace/Incompact3d-sq
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+PASS: synthetic closed-loop source exists
+PASS: synthetic closed-loop check source exists
+PASS: xcompact3d imports synthetic closed-loop
+PASS: P0_12 path is env gated
+PASS: P0_12 CMake target exists
+PASS: old uniform RHS contribution path absent
+PASS: synthetic module has no pressure/projection/RK3/channel-forcing path
+Configuring CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+FAIL: np=1/2/4 consistency audit failed
+Result: FAIL

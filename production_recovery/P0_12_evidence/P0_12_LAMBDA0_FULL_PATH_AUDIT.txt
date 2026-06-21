@@ -1,0 +1,5 @@
+P0_12 lambda0 full path audit
+src/fibre_prod_synthetic_closed_loop.f90:      if (lambda_fsi == 0.0_dp .and. maxval(abs(rhs_increment_x)) /= 0.0_dp) status = 40
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop0%max_abs_rhs_increment == 0.0_dp, 'lambda0 full path changed RHS')
+src/fibre_prod_synthetic_closed_loop_check.f90:               loop_zero_force_proxy%max_abs_rhs_increment == 0.0_dp, 'zero force buffer generated RHS response')
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE lambda0_rhs_increment_norm=', sig0(12)

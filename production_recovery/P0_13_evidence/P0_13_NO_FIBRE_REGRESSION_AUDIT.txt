@@ -1,0 +1,39 @@
+P0_13 no-fibre regression audit
+src/xcompact3d.f90:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled, &
+src/xcompact3d.f90:       fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+src/xcompact3d.f90:  use fibre_prod_synthetic_closed_loop, only : fibre_prod_synthetic_closed_loop_env_enabled, &
+src/xcompact3d.f90:       fibre_prod_synthetic_closed_loop_runtime_diagnostic
+src/xcompact3d.f90:  logical :: fibre_prod_force_buffer_rhs_gate_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_synthetic_closed_loop_enabled
+src/xcompact3d.f90:  integer :: fibre_prod_force_buffer_rhs_gate_status
+src/xcompact3d.f90:  integer :: fibre_prod_synthetic_closed_loop_status
+src/xcompact3d.f90:  fibre_prod_force_buffer_rhs_gate_enabled = fibre_prod_force_buffer_rhs_gate_env_enabled()
+src/xcompact3d.f90:  fibre_prod_synthetic_closed_loop_enabled = fibre_prod_synthetic_closed_loop_env_enabled()
+src/xcompact3d.f90:             fibre_prod_force_buffer_rhs_gate_enabled) then
+src/xcompact3d.f90:           call fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux1,uy1,uz1,dux1(:,:,:,1),duy1(:,:,:,1), &
+src/xcompact3d.f90:                duz1(:,:,:,1), fibre_prod_force_buffer_rhs_gate_status)
+src/xcompact3d.f90:           if (fibre_prod_force_buffer_rhs_gate_status /= 0) fibre_prod_force_buffer_rhs_gate_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_synthetic_closed_loop_enabled) then
+src/xcompact3d.f90:           call fibre_prod_synthetic_closed_loop_runtime_diagnostic(fibre_prod_synthetic_closed_loop_status)
+src/xcompact3d.f90:           if (fibre_prod_synthetic_closed_loop_status /= 0) fibre_prod_synthetic_closed_loop_enabled = .false.
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_rhs_adapter, only : fibre_prod_rhs_adapter_apply
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_synthetic_closed_loop, only : fibre_prod_synthetic_closed_loop_type, &
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_env_enabled, &
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_init, &
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_run, &
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_get_signature, &
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_finalize
+src/fibre_prod_p0_closure_check.f90:  type(fibre_prod_synthetic_closed_loop_type) :: loop_a
+src/fibre_prod_p0_closure_check.f90:  type(fibre_prod_synthetic_closed_loop_type) :: loop_b
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_force_buffer_rhs_gate_env_enabled(), 'force-buffer RHS gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_synthetic_closed_loop_env_enabled(), 'synthetic closed-loop env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
+src/fibre_prod_p0_closure_check.f90:  call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
+src/fibre_prod_p0_closure_check.f90:  print '(A,ES24.16)', 'P0_13_SIGNATURE force_buffer_norm=', sig_a(11)
+src/fibre_prod_p0_closure_check.f90:  call fibre_prod_synthetic_closed_loop_finalize(loop_a)
+src/fibre_prod_p0_closure_check.f90:  call fibre_prod_synthetic_closed_loop_finalize(loop_b)
+src/fibre_prod_p0_closure_check.f90:    type(fibre_prod_synthetic_closed_loop_type), intent(inout) :: loop
+src/fibre_prod_p0_closure_check.f90:    call fibre_prod_synthetic_closed_loop_init(loop, 4, 4, 4, 5, local_status)
+src/fibre_prod_p0_closure_check.f90:    call fibre_prod_synthetic_closed_loop_run(loop, 0.0_dp, 2.0_dp, 1.0_dp, 1.0e-4_dp, 1.0_dp, local_status)
+src/fibre_prod_p0_closure_check.f90:    call fibre_prod_synthetic_closed_loop_get_signature(loop, signature, local_status)

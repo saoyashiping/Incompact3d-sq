@@ -1,0 +1,13 @@
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:64:    real(dp) :: max_abs_rhs_increment = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:182:    gate%max_abs_rhs_increment = max(maxval(abs(inc_x)), max(maxval(abs(inc_y)), maxval(abs(inc_z))))
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:191:    if (gate%lambda_zero_noop .and. gate%max_abs_rhs_increment /= 0.0_dp) status = 12
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:245:    gate%max_abs_rhs_increment = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:72:  config%lambda_fsi = 1.0e-3_dp; config%penalty_beta = 2.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:75:  call require(status == 0, 'small-lambda gate init failed')
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:77:  call require(status == 0 .and. gate%applied, 'small-lambda gate apply failed')
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:79:  call require(maxval(abs(inc_lambda1)) > 0.0_dp, 'small-lambda increment is zero')
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:82:  call require(gate%max_abs_rhs_increment < 1.0e3_dp .and. gate%measured_scale_error <= 1.0e-10_dp, &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:83:               'small-lambda diagnostics failed')
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:92:  call fibre_prod_force_buffer_rhs_gate_check_linear_response(gate, inc_lambda1, inc_lambda2, 1.0e-3_dp, 2.0e-3_dp, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:95:  config%lambda_fsi = 1.0e-3_dp; config%penalty_beta = 1.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:124:  print *, 'P0_11_DIAGNOSTIC: force-buffer RHS gate only, lambda0 noop and small-lambda bounded response verified'

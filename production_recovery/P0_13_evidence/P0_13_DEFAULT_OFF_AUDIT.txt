@@ -1,0 +1,135 @@
+P0_13 default-off audit
+src/fibre_prod_synthetic_closed_loop.f90:                                               fibre_prod_structure_commit_gate_set_enabled, &
+src/fibre_prod_synthetic_closed_loop.f90:  public :: fibre_prod_synthetic_closed_loop_env_enabled
+src/fibre_prod_synthetic_closed_loop.f90:  public :: fibre_prod_synthetic_closed_loop_diagnostics_env_enabled
+src/fibre_prod_synthetic_closed_loop.f90:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(commit_gate, .true., status)
+src/fibre_prod_synthetic_closed_loop.f90:  logical function fibre_prod_synthetic_closed_loop_env_enabled() result(enabled)
+src/fibre_prod_synthetic_closed_loop.f90:    enabled = read_env_logical('FIBRE_PROD_SYNTHETIC_CLOSED_LOOP_ENABLE')
+src/fibre_prod_synthetic_closed_loop.f90:  end function fibre_prod_synthetic_closed_loop_env_enabled
+src/fibre_prod_synthetic_closed_loop.f90:  logical function fibre_prod_synthetic_closed_loop_diagnostics_env_enabled() result(enabled)
+src/fibre_prod_synthetic_closed_loop.f90:  end function fibre_prod_synthetic_closed_loop_diagnostics_env_enabled
+src/fibre_prod_structure_input_handoff.f90:  public :: fibre_prod_structure_input_handoff_env_enabled
+src/fibre_prod_structure_input_handoff.f90:  logical function fibre_prod_structure_input_handoff_env_enabled() result(enabled)
+src/fibre_prod_structure_input_handoff.f90:    call get_environment_variable('FIBRE_PROD_STRUCTURE_INPUT_HANDOFF_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_structure_input_handoff.f90:  end function fibre_prod_structure_input_handoff_env_enabled
+src/fibre_prod_velocity_bridge.f90:  public :: fibre_prod_velocity_bridge_env_enabled
+src/fibre_prod_velocity_bridge.f90:  logical function fibre_prod_velocity_bridge_env_enabled() result(enabled)
+src/fibre_prod_velocity_bridge.f90:    call get_environment_variable('FIBRE_PROD_VELOCITY_SAMPLE_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_velocity_bridge.f90:  end function fibre_prod_velocity_bridge_env_enabled
+src/fibre_prod_structure_dry_step.f90:  public :: fibre_prod_structure_dry_step_env_enabled
+src/fibre_prod_structure_dry_step.f90:  logical function fibre_prod_structure_dry_step_env_enabled() result(enabled)
+src/fibre_prod_structure_dry_step.f90:    call get_environment_variable('FIBRE_PROD_STRUCTURE_DRY_STEP_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_structure_dry_step.f90:  end function fibre_prod_structure_dry_step_env_enabled
+src/fibre_prod_structure_commit_gate.f90:  public :: fibre_prod_structure_commit_gate_set_enabled
+src/fibre_prod_structure_commit_gate.f90:  public :: fibre_prod_structure_commit_gate_env_enabled
+src/fibre_prod_structure_commit_gate.f90:  subroutine fibre_prod_structure_commit_gate_set_enabled(gate, enabled, status)
+src/fibre_prod_structure_commit_gate.f90:  end subroutine fibre_prod_structure_commit_gate_set_enabled
+src/fibre_prod_structure_commit_gate.f90:  logical function fibre_prod_structure_commit_gate_env_enabled() result(enabled)
+src/fibre_prod_structure_commit_gate.f90:    call get_environment_variable('FIBRE_PROD_STRUCTURE_DRY_COMMIT_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_structure_commit_gate.f90:  end function fibre_prod_structure_commit_gate_env_enabled
+src/fibre_prod_structure_commit_gate.f90:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(gate, &
+src/fibre_prod_structure_commit_gate.f90:                                                                       fibre_prod_structure_commit_gate_env_enabled(), status)
+src/fibre_prod_structure_commit_gate_check.f90:                                               fibre_prod_structure_commit_gate_set_enabled, &
+src/fibre_prod_structure_commit_gate_check.f90:  call fibre_prod_structure_commit_gate_set_enabled(gate, .true., status)
+src/fibre_prod_structure_commit_gate_check.f90:  call fibre_prod_structure_commit_gate_set_enabled(gate, .true., status)
+src/fibre_prod_state_velocity_attachment.f90:  public :: fibre_prod_state_velocity_attachment_env_enabled
+src/fibre_prod_state_velocity_attachment.f90:  logical function fibre_prod_state_velocity_attachment_env_enabled() result(enabled)
+src/fibre_prod_state_velocity_attachment.f90:    call get_environment_variable('FIBRE_PROD_STATE_VELOCITY_ATTACH_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_state_velocity_attachment.f90:  end function fibre_prod_state_velocity_attachment_env_enabled
+src/fibre_prod_runtime_config.f90:    call read_env_logical('FIBRE_PROD_ENABLE', config%enabled)
+src/fibre_prod_reaction_spreading_buffer_check.f90:                                               fibre_prod_structure_commit_gate_set_enabled, &
+src/fibre_prod_reaction_spreading_buffer_check.f90:    call fibre_prod_structure_commit_gate_set_enabled(gate, .true., status)
+src/fibre_prod_reaction_force_candidate.f90:  public :: fibre_prod_reaction_force_candidate_env_enabled
+src/fibre_prod_reaction_force_candidate.f90:  logical function fibre_prod_reaction_force_candidate_env_enabled() result(enabled)
+src/fibre_prod_reaction_force_candidate.f90:    call get_environment_variable('FIBRE_PROD_REACTION_FORCE_CANDIDATE_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_reaction_force_candidate.f90:  end function fibre_prod_reaction_force_candidate_env_enabled
+src/fibre_prod_reaction_spreading_buffer.f90:                                               fibre_prod_structure_commit_gate_set_enabled, &
+src/fibre_prod_reaction_spreading_buffer.f90:                                                  fibre_prod_reaction_force_candidate_env_enabled
+src/fibre_prod_reaction_spreading_buffer.f90:  public :: fibre_prod_reaction_spreading_buffer_env_enabled
+src/fibre_prod_reaction_spreading_buffer.f90:  logical function fibre_prod_reaction_spreading_buffer_env_enabled() result(enabled)
+src/fibre_prod_reaction_spreading_buffer.f90:    call get_environment_variable('FIBRE_PROD_REACTION_SPREADING_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_reaction_spreading_buffer.f90:  end function fibre_prod_reaction_spreading_buffer_env_enabled
+src/fibre_prod_reaction_spreading_buffer.f90:    if (.not. fibre_prod_reaction_force_candidate_env_enabled()) return
+src/fibre_prod_reaction_spreading_buffer.f90:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(gate, .true., status)
+src/fibre_prod_hydro_input_candidate.f90:  public :: fibre_prod_hydro_input_candidate_env_enabled
+src/fibre_prod_hydro_input_candidate.f90:  logical function fibre_prod_hydro_input_candidate_env_enabled() result(enabled)
+src/fibre_prod_hydro_input_candidate.f90:    call get_environment_variable('FIBRE_PROD_HYDRO_INPUT_CANDIDATE_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_hydro_input_candidate.f90:  end function fibre_prod_hydro_input_candidate_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_velocity_bridge, only : fibre_prod_velocity_bridge_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_state_velocity_attachment, only : fibre_prod_state_velocity_attachment_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_hydro_input_candidate, only : fibre_prod_hydro_input_candidate_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_structure_input_handoff, only : fibre_prod_structure_input_handoff_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_structure_dry_step, only : fibre_prod_structure_dry_step_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_structure_commit_gate, only : fibre_prod_structure_commit_gate_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_reaction_force_candidate, only : fibre_prod_reaction_force_candidate_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_reaction_spreading_buffer, only : fibre_prod_reaction_spreading_buffer_env_enabled
+src/fibre_prod_p0_closure_check.f90:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled
+src/fibre_prod_p0_closure_check.f90:                                               fibre_prod_synthetic_closed_loop_env_enabled, &
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_velocity_bridge_env_enabled(), 'velocity sampling env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_state_velocity_attachment_env_enabled(), 'state velocity env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_hydro_input_candidate_env_enabled(), 'hydro candidate env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_structure_input_handoff_env_enabled(), 'structure handoff env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_structure_dry_step_env_enabled(), 'structure dry-step env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_structure_commit_gate_env_enabled(), 'structure commit env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_reaction_force_candidate_env_enabled(), 'reaction candidate env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_reaction_spreading_buffer_env_enabled(), 'reaction spreading env gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_force_buffer_rhs_gate_env_enabled(), 'force-buffer RHS gate defaulted on')
+src/fibre_prod_p0_closure_check.f90:  call require(.not. fibre_prod_synthetic_closed_loop_env_enabled(), 'synthetic closed-loop env gate defaulted on')
+src/fibre_prod_force_buffer_rhs_gate.f90:                                               fibre_prod_structure_commit_gate_set_enabled, &
+src/fibre_prod_force_buffer_rhs_gate.f90:  public :: fibre_prod_force_buffer_rhs_gate_env_enabled
+src/fibre_prod_force_buffer_rhs_gate.f90:  logical function fibre_prod_force_buffer_rhs_gate_env_enabled() result(enabled)
+src/fibre_prod_force_buffer_rhs_gate.f90:    call get_environment_variable('FIBRE_PROD_FORCE_BUFFER_RHS_GATE_ENABLE', raw, length=length, status=env_status)
+src/fibre_prod_force_buffer_rhs_gate.f90:  end function fibre_prod_force_buffer_rhs_gate_env_enabled
+src/fibre_prod_force_buffer_rhs_gate.f90:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(commit_gate, .true., status)
+src/xcompact3d.f90:  use fibre_prod_velocity_bridge, only : fibre_prod_velocity_bridge_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_state_velocity_attachment, only : fibre_prod_state_velocity_attachment_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_hydro_input_candidate, only : fibre_prod_hydro_input_candidate_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_structure_input_handoff, only : fibre_prod_structure_input_handoff_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_structure_dry_step, only : fibre_prod_structure_dry_step_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_structure_commit_gate, only : fibre_prod_structure_commit_gate_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_reaction_force_candidate, only : fibre_prod_reaction_force_candidate_env_enabled
+src/xcompact3d.f90:  use fibre_prod_reaction_spreading_buffer, only : fibre_prod_reaction_spreading_buffer_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled, &
+src/xcompact3d.f90:  use fibre_prod_synthetic_closed_loop, only : fibre_prod_synthetic_closed_loop_env_enabled, &
+src/xcompact3d.f90:  logical :: fibre_prod_bridge_initialized, fibre_prod_bridge_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_velocity_sample_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_state_velocity_attach_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_hydro_input_candidate_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_structure_input_handoff_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_structure_dry_step_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_structure_commit_gate_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_reaction_force_candidate_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_reaction_spreading_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_force_buffer_rhs_gate_enabled
+src/xcompact3d.f90:  logical :: fibre_prod_synthetic_closed_loop_enabled
+src/xcompact3d.f90:  fibre_prod_velocity_sample_enabled = fibre_prod_velocity_bridge_env_enabled()
+src/xcompact3d.f90:  fibre_prod_state_velocity_attach_enabled = fibre_prod_state_velocity_attachment_env_enabled()
+src/xcompact3d.f90:  fibre_prod_hydro_input_candidate_enabled = fibre_prod_hydro_input_candidate_env_enabled()
+src/xcompact3d.f90:  fibre_prod_structure_input_handoff_enabled = fibre_prod_structure_input_handoff_env_enabled()
+src/xcompact3d.f90:  fibre_prod_structure_dry_step_enabled = fibre_prod_structure_dry_step_env_enabled()
+src/xcompact3d.f90:  fibre_prod_structure_commit_gate_enabled = fibre_prod_structure_commit_gate_env_enabled()
+src/xcompact3d.f90:  fibre_prod_reaction_force_candidate_enabled = fibre_prod_reaction_force_candidate_env_enabled()
+src/xcompact3d.f90:  fibre_prod_reaction_spreading_enabled = fibre_prod_reaction_spreading_buffer_env_enabled()
+src/xcompact3d.f90:  fibre_prod_force_buffer_rhs_gate_enabled = fibre_prod_force_buffer_rhs_gate_env_enabled()
+src/xcompact3d.f90:  fibre_prod_synthetic_closed_loop_enabled = fibre_prod_synthetic_closed_loop_env_enabled()
+src/xcompact3d.f90:        if (fibre_prod_velocity_sample_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_velocity_status /= 0) fibre_prod_velocity_sample_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_state_velocity_attach_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_state_velocity_status /= 0) fibre_prod_state_velocity_attach_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_hydro_input_candidate_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_hydro_input_status /= 0) fibre_prod_hydro_input_candidate_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_structure_input_handoff_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_structure_input_status /= 0) fibre_prod_structure_input_handoff_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_structure_dry_step_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_structure_dry_step_status /= 0) fibre_prod_structure_dry_step_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_structure_commit_gate_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_structure_commit_gate_status /= 0) fibre_prod_structure_commit_gate_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_reaction_force_candidate_enabled .and. fibre_prod_reaction_spreading_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_reaction_spreading_status /= 0) fibre_prod_reaction_spreading_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_reaction_force_candidate_enabled .and. fibre_prod_reaction_spreading_enabled .and. &
+src/xcompact3d.f90:             fibre_prod_force_buffer_rhs_gate_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_force_buffer_rhs_gate_status /= 0) fibre_prod_force_buffer_rhs_gate_enabled = .false.
+src/xcompact3d.f90:        if (fibre_prod_synthetic_closed_loop_enabled) then
+src/xcompact3d.f90:           if (fibre_prod_synthetic_closed_loop_status /= 0) fibre_prod_synthetic_closed_loop_enabled = .false.
+src/xcompact3d.f90:              call fibre_prod_main_hook_get_runtime_config_status(fibre_prod_bridge_enabled, &
+src/xcompact3d.f90:              if (fibre_prod_r10_status == 0 .and. ((.not. fibre_prod_bridge_enabled) .or. &

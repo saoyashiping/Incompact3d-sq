@@ -1,0 +1,66 @@
+P0.9 structure commit gate source:
+1:module fibre_prod_structure_commit_gate
+45:  public :: fibre_prod_structure_commit_gate_type
+46:  public :: fibre_prod_structure_commit_gate_init
+47:  public :: fibre_prod_structure_commit_gate_set_enabled
+48:  public :: fibre_prod_structure_commit_gate_evaluate
+49:  public :: fibre_prod_structure_commit_gate_commit_to_state
+50:  public :: fibre_prod_structure_commit_gate_finalize
+51:  public :: fibre_prod_structure_commit_gate_env_enabled
+52:  public :: fibre_prod_structure_commit_gate_env_max_allowed_dx
+53:  public :: fibre_prod_structure_commit_gate_runtime_diagnostic
+55:  type :: fibre_prod_structure_commit_gate_type
+57:    logical :: gate_enabled = .false.
+61:    integer :: reject_code = fibre_prod_commit_reject_not_initialized
+68:  end type fibre_prod_structure_commit_gate_type
+72:  subroutine fibre_prod_structure_commit_gate_init(gate, nnode, max_allowed_dx, status)
+73:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+79:    call fibre_prod_structure_commit_gate_finalize(gate)
+89:    gate%gate_enabled = .false.
+93:    gate%reject_code = fibre_prod_commit_reject_none
+96:  end subroutine fibre_prod_structure_commit_gate_init
+98:  subroutine fibre_prod_structure_commit_gate_set_enabled(gate, enabled, status)
+99:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+108:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+111:    gate%gate_enabled = enabled
+115:    gate%reject_code = fibre_prod_commit_reject_none
+116:  end subroutine fibre_prod_structure_commit_gate_set_enabled
+118:  subroutine fibre_prod_structure_commit_gate_evaluate(gate, x_trial, u_trial, dx_trial, status)
+119:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+132:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+140:      gate%reject_code = fibre_prod_commit_reject_shape
+147:      gate%reject_code = fibre_prod_commit_reject_nonfinite
+157:      gate%reject_code = fibre_prod_commit_reject_bound
+160:    if (.not. gate%gate_enabled) then
+162:      gate%reject_code = fibre_prod_commit_reject_disabled
+167:    gate%reject_code = fibre_prod_commit_reject_none
+168:  end subroutine fibre_prod_structure_commit_gate_evaluate
+170:  subroutine fibre_prod_structure_commit_gate_commit_to_state(gate, state, x_trial, u_trial, status)
+171:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+182:      gate%reject_code = fibre_prod_commit_reject_not_initialized
+185:    if (.not. gate%gate_enabled .or. .not. gate%accepted .or. gate%rejected) then
+186:      if (gate%reject_code == fibre_prod_commit_reject_none) gate%reject_code = fibre_prod_commit_reject_disabled
+194:      gate%reject_code = fibre_prod_commit_reject_shape
+202:      gate%reject_code = fibre_prod_commit_reject_state
+206:  end subroutine fibre_prod_structure_commit_gate_commit_to_state
+208:  subroutine fibre_prod_structure_commit_gate_finalize(gate)
+209:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+212:    gate%gate_enabled = .false.
+216:    gate%reject_code = fibre_prod_commit_reject_not_initialized
+223:  end subroutine fibre_prod_structure_commit_gate_finalize
+225:  logical function fibre_prod_structure_commit_gate_env_enabled() result(enabled)
+237:  end function fibre_prod_structure_commit_gate_env_enabled
+239:  real(dp) function fibre_prod_structure_commit_gate_env_max_allowed_dx() result(value)
+241:  end function fibre_prod_structure_commit_gate_env_max_allowed_dx
+243:  subroutine fibre_prod_structure_commit_gate_runtime_diagnostic(ux, uy, uz, status)
+254:    type(fibre_prod_structure_commit_gate_type) :: gate
+291:                                                                      fibre_prod_structure_commit_gate_env_max_allowed_dx(), status)
+292:    if (status == 0) call fibre_prod_structure_commit_gate_init(gate, 3, &
+293:                                                               fibre_prod_structure_commit_gate_env_max_allowed_dx(), status)
+294:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(gate, &
+295:                                                                       fibre_prod_structure_commit_gate_env_enabled(), status)
+296:    if (status == 0) call fibre_prod_structure_commit_gate_evaluate(gate, dry%x_trial, dry%u_trial, dry%dx_trial, status)
+297:    if (status == 0) call fibre_prod_structure_commit_gate_commit_to_state(gate, state, dry%x_trial, dry%u_trial, status)
+298:    call fibre_prod_structure_commit_gate_finalize(gate)
+317:  end subroutine fibre_prod_structure_commit_gate_runtime_diagnostic
+334:end module fibre_prod_structure_commit_gate

@@ -1,0 +1,3 @@
+# P0.4 xcompact3d One-Way Call Path Audit
+
+Static audit confirms xcompact3d has a default-off velocity bridge call path guarded by FIBRE_PROD_VELOCITY_SAMPLE_ENABLE and reading ux1/uy1/uz1.

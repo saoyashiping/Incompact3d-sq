@@ -1,0 +1,9 @@
+P0_12 xcompact3d synthetic call path audit
+  use fibre_prod_synthetic_closed_loop, only : fibre_prod_synthetic_closed_loop_env_enabled, &
+       fibre_prod_synthetic_closed_loop_runtime_diagnostic
+  logical :: fibre_prod_synthetic_closed_loop_enabled
+  integer :: fibre_prod_synthetic_closed_loop_status
+  fibre_prod_synthetic_closed_loop_enabled = fibre_prod_synthetic_closed_loop_env_enabled()
+        if (fibre_prod_synthetic_closed_loop_enabled) then
+           call fibre_prod_synthetic_closed_loop_runtime_diagnostic(fibre_prod_synthetic_closed_loop_status)
+           if (fibre_prod_synthetic_closed_loop_status /= 0) fibre_prod_synthetic_closed_loop_enabled = .false.

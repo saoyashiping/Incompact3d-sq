@@ -1,0 +1,24 @@
+P0_13 P1 entry gate audit
+# P0_13 P1 Entry Gate
+
+P1 entry gate: BLOCKED UNTIL P0_13 PASS
+
+Allowed next action after PASS:
+P1_0 single-fibre real channel DNS-FSI guarded micro-case preflight.
+
+P1_0 allowed scope:
+
+* small channel DNS case;
+* single fibre;
+* short guarded run;
+* small lambda;
+* lambda=0 no-contamination regression;
+* no long-time production statistics;
+* no paper-scale conclusion.
+
+Not allowed:
+
+* paper-scale long-time DNS;
+* mesh/timestep final production study;
+* multi-parameter production campaign;
+* publication-level statistics claim.
