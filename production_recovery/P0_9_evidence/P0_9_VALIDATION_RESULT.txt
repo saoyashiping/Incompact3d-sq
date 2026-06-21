@@ -1,0 +1,34 @@
+P0.9 validation started
+ROOT_DIR=/workspace/Incompact3d-sq
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+PASS: commit gate source exists
+PASS: state has structure velocity commit storage/helper
+PASS: xcompact3d imports commit gate
+PASS: commit gate call path is env gated
+PASS: commit gate does not call RHS adapter
+PASS: commit gate does not call force-buffer main hook
+PASS: commit gate does not write Eulerian force buffers
+PASS: commit gate has no IBM spreading path
+PASS: commit gate contains no reaction-force path
+PASS: old uniform RHS contribution path absent
+PASS: P0.9 CMake target exists
+Configuring CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+Result: FAIL
+Result: FAIL
+
+Meaning: FAIL means one or more P0.9 static/build/run checks did not complete successfully. The controlled commit gate must not be used for production DNS-FSI until this stage passes in an environment with the required toolchain.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: Resolve P0.9 validation failures, then rerun P0.9 before P0.10.

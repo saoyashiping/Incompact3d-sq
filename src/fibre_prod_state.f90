@@ -21,6 +21,9 @@ module fibre_prod_state
   public :: fibre_prod_state_attach_structure_input_force
   public :: fibre_prod_state_get_structure_coordinates
   public :: fibre_prod_state_get_structure_velocity_or_zero
+  public :: fibre_prod_state_allocate_structure_u
+  public :: fibre_prod_state_attach_structure_u
+  public :: fibre_prod_state_commit_structure_trial
 
   type :: fibre_prod_state_type
     integer :: nfibre = 0
@@ -40,6 +43,8 @@ module fibre_prod_state
     logical :: has_hydro_force_candidate = .false.
     real(real64), allocatable :: structure_input_force(:, :)
     logical :: has_structure_input_force = .false.
+    real(real64), allocatable :: structure_u(:, :)
+    logical :: has_structure_u = .false.
   end type fibre_prod_state_type
 
 contains
@@ -153,12 +158,14 @@ contains
     if (allocated(state%sampled_u)) deallocate(state%sampled_u)
     if (allocated(state%hydro_force_candidate)) deallocate(state%hydro_force_candidate)
     if (allocated(state%structure_input_force)) deallocate(state%structure_input_force)
+    if (allocated(state%structure_u)) deallocate(state%structure_u)
     state%nfibre = 0
     state%nnode = 0
     state%ndim = 3
     state%has_sampled_velocity = .false.
     state%has_hydro_force_candidate = .false.
     state%has_structure_input_force = .false.
+    state%has_structure_u = .false.
   end subroutine fibre_prod_state_destroy
 
 
@@ -325,6 +332,85 @@ contains
   end subroutine fibre_prod_state_attach_structure_input_force
 
 
+  subroutine fibre_prod_state_allocate_structure_u(state, nnode, status)
+    type(fibre_prod_state_type), intent(inout) :: state
+    integer, intent(in) :: nnode
+    integer, intent(out) :: status
+    integer :: ierr
+
+    status = 0
+    ierr = 0
+    if (nnode <= 0) then
+      status = 1
+      return
+    end if
+    if (state%nnode /= 0 .and. state%nnode /= nnode) then
+      status = 2
+      return
+    end if
+    if (allocated(state%structure_u)) deallocate(state%structure_u)
+    allocate(state%structure_u(nnode, 3), stat=ierr)
+    if (ierr /= 0) then
+      status = 3
+      state%has_structure_u = .false.
+      return
+    end if
+    state%structure_u = 0.0_real64
+    state%has_structure_u = .false.
+  end subroutine fibre_prod_state_allocate_structure_u
+
+  subroutine fibre_prod_state_attach_structure_u(state, structure_u, status)
+    type(fibre_prod_state_type), intent(inout) :: state
+    real(real64), intent(in) :: structure_u(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (size(structure_u, 2) /= 3) then
+      status = 4
+      return
+    end if
+    if (state%nnode /= 0 .and. size(structure_u, 1) /= state%nnode) then
+      status = 5
+      return
+    end if
+    if (.not. allocated(state%structure_u)) then
+      call fibre_prod_state_allocate_structure_u(state, size(structure_u, 1), status)
+      if (status /= 0) return
+    else if (size(state%structure_u, 1) /= size(structure_u, 1) .or. size(state%structure_u, 2) /= 3) then
+      status = 6
+      return
+    end if
+    state%structure_u = structure_u
+    state%has_structure_u = .true.
+    if (allocated(state%v) .and. state%nfibre >= 1 .and. size(state%v, 2) == size(structure_u, 1)) then
+      state%v(1, :, :) = structure_u
+    end if
+  end subroutine fibre_prod_state_attach_structure_u
+
+  subroutine fibre_prod_state_commit_structure_trial(state, x_trial, u_trial, status)
+    type(fibre_prod_state_type), intent(inout) :: state
+    real(real64), intent(in) :: x_trial(:, :)
+    real(real64), intent(in) :: u_trial(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (.not. allocated(state%x) .or. state%nfibre < 1 .or. state%nnode <= 0) then
+      status = 1
+      return
+    end if
+    if (size(x_trial, 1) /= state%nnode .or. size(x_trial, 2) /= 3) then
+      status = 2
+      return
+    end if
+    if (size(u_trial, 1) /= state%nnode .or. size(u_trial, 2) /= 3) then
+      status = 3
+      return
+    end if
+    state%x(1, :, :) = x_trial
+    call fibre_prod_state_attach_structure_u(state, u_trial, status)
+    if (status /= 0) status = 4
+  end subroutine fibre_prod_state_commit_structure_trial
+
 
   subroutine fibre_prod_state_get_structure_coordinates(state, x, status)
     type(fibre_prod_state_type), intent(in) :: state
@@ -357,7 +443,9 @@ contains
       status = 2
       return
     end if
-    if (allocated(state%v) .and. state%nfibre >= 1) then
+    if (allocated(state%structure_u) .and. state%has_structure_u) then
+      structure_u = state%structure_u
+    else if (allocated(state%v) .and. state%nfibre >= 1) then
       structure_u = state%v(1, :, :)
     else
       structure_u = 0.0_real64
