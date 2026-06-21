@@ -1,21 +1,29 @@
-# P0.9 validation script repair note
+# P0.9 validation environment fix
 
-The latest P0.9 run passed the static audits and built the requested targets, including `fibre_prod_main_hook_check` and `fibre_prod_structure_commit_gate_check`, but failed at the run phase because the validation script tried to execute checks from:
+This patch fixes the latest P0.9 validation failure after executable-path discovery was repaired.
 
-```text
-build_p0_9/src/<target>
-```
-
-In the actual CMake layout, the linked executables are placed under:
+Observed failure:
 
 ```text
-build_p0_9/bin/<target>
+Running fibre_prod_force_buffer_rhs_path_check (.../build_p0_9/bin/fibre_prod_force_buffer_rhs_path_check)
+ERROR STOP 9
+... fibre_prod_force_buffer_rhs_path_check.f90:73
+FAIL: run fibre_prod_force_buffer_rhs_path_check
 ```
+
+Root cause:
+
+`fibre_prod_force_buffer_rhs_path_check` is the P0.2 regression executable and intentionally requires the coupling environment variables `FIBRE_PROD_LAMBDA` and `FIBRE_PROD_PENALTY_BETA`. P0.9 ran this executable without those variables, so its local environment read failed at line 73.
 
 Fix:
-- add `find_built_exe()` to resolve executable paths robustly;
-- search in `build_p0_9/bin`, `build_p0_9/src`, and `build_p0_9` before falling back to `find`;
-- update the run loop to execute the resolved path and report it in `P0_9_VALIDATION_RESULT.txt`;
-- keep all P0.9 production Fortran source unchanged.
 
-No physics, RHS coupling, pressure/projection/RK3/channel-forcing, force-buffer, IBM spreading, or production DNS logic was changed by this repair. P0.9 remains blocked until the repaired validation script is rerun and reports `Result: PASS`.
+`P0_9_VALIDATION_COMMAND.sh` now runs only `fibre_prod_force_buffer_rhs_path_check` with the same deterministic P0.2 micro-coupling environment used by earlier passing P0.2/P0.3 validations:
+
+```bash
+FIBRE_PROD_ENABLE=1
+FIBRE_PROD_LAMBDA=1.0e-3
+FIBRE_PROD_PENALTY_BETA=2.0
+FIBRE_PROD_DIAGNOSTICS=0
+```
+
+No Fortran production source was changed.

@@ -116,18 +116,36 @@ if [[ "$fail" -eq 0 ]]; then
   fi
 fi
 
+run_built_check() {
+  local exe="$1"
+  local exe_path
+  if exe_path="$(find_built_exe "$exe")"; then
+    case "$exe" in
+      fibre_prod_force_buffer_rhs_path_check)
+        log "Running $exe ($exe_path) with P0.2 coupling environment"
+        env FIBRE_PROD_ENABLE=1 \
+            FIBRE_PROD_LAMBDA=1.0e-3 \
+            FIBRE_PROD_PENALTY_BETA=2.0 \
+            FIBRE_PROD_DIAGNOSTICS=0 \
+            "$exe_path" >> "$RESULT_FILE" 2>&1
+        ;;
+      *)
+        log "Running $exe ($exe_path)"
+        "$exe_path" >> "$RESULT_FILE" 2>&1
+        ;;
+    esac
+  else
+    fail_check "missing executable $exe under $BUILD_DIR"
+    return 1
+  fi
+}
+
 if [[ "$fail" -eq 0 ]]; then
   for exe in fibre_prod_main_hook_check fibre_prod_force_buffer_rhs_path_check fibre_prod_runtime_bridge_check \
              fibre_prod_velocity_bridge_check fibre_prod_state_velocity_attachment_check \
              fibre_prod_hydro_input_candidate_check fibre_prod_structure_input_handoff_check \
              fibre_prod_structure_dry_step_check fibre_prod_structure_commit_gate_check; do
-    if exe_path="$(find_built_exe "$exe")"; then
-      log "Running $exe ($exe_path)"
-      "$exe_path" >> "$RESULT_FILE" 2>&1 || { fail_check "run $exe"; break; }
-    else
-      fail_check "missing executable $exe under $BUILD_DIR"
-      break
-    fi
+    run_built_check "$exe" || { fail_check "run $exe"; break; }
   done
 fi
 
