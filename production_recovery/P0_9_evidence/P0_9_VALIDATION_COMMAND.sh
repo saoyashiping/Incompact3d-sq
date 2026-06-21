@@ -16,14 +16,33 @@ log() { printf '%s\n' "$*" | tee -a "$RESULT_FILE"; }
 pass() { log "PASS: $*"; }
 fail_check() { log "FAIL: $*"; fail=1; }
 
+search_quiet_regex() {
+  local pattern="$1" file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q "$pattern" "$file"
+  else
+    grep -Eq "$pattern" "$file"
+  fi
+}
+
+search_lines_regex() {
+  local pattern="$1"
+  shift
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "$pattern" "$@"
+  else
+    grep -En "$pattern" "$@"
+  fi
+}
+
 contains() {
   local file="$1" pattern="$2"
-  [[ -f "$file" ]] && rg -q "$pattern" "$file"
+  [[ -f "$file" ]] && search_quiet_regex "$pattern" "$file"
 }
 
 not_contains() {
   local file="$1" pattern="$2"
-  [[ -f "$file" ]] && ! rg -q "$pattern" "$file"
+  [[ -f "$file" ]] && ! search_quiet_regex "$pattern" "$file"
 }
 
 log "P0.9 validation started"
@@ -44,19 +63,19 @@ contains "$ROOT_DIR/src/CMakeLists.txt" "fibre_prod_structure_commit_gate_check"
 
 {
   echo "P0.9 structure commit gate source:"
-  rg -n "commit_gate|reject_code|gate_enabled|commit_to_state" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" || true
+  search_lines_regex "commit_gate|reject_code|gate_enabled|commit_to_state" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" || true
 } > "$EVIDENCE_DIR/P0_9_STRUCTURE_COMMIT_GATE_AUDIT.txt"
 {
   echo "P0.9 accept/reject evidence:"
-  rg -n "reject|accepted|committed|nonfinite|bound|disabled" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate_check.f90" || true
+  search_lines_regex "reject|accepted|committed|nonfinite|bound|disabled" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate_check.f90" || true
 } > "$EVIDENCE_DIR/P0_9_COMMIT_ACCEPT_REJECT_AUDIT.txt"
 {
   echo "P0.9 xcompact3d call path evidence:"
-  rg -n "structure_commit_gate|FIBRE_PROD_STRUCTURE_DRY_COMMIT_ENABLE" "$ROOT_DIR/src/xcompact3d.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" || true
+  search_lines_regex "structure_commit_gate|FIBRE_PROD_STRUCTURE_DRY_COMMIT_ENABLE" "$ROOT_DIR/src/xcompact3d.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" || true
 } > "$EVIDENCE_DIR/P0_9_XCOMPACT3D_COMMIT_GATE_CALL_PATH_AUDIT.txt"
 {
   echo "P0.9 no RHS feedback evidence:"
-  rg -n "rhs_adapter|apply_force_buffer|force_buffer|RHS|rhs" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate_check.f90" || true
+  search_lines_regex "rhs_adapter|apply_force_buffer|force_buffer|RHS|rhs" "$ROOT_DIR/src/fibre_prod_structure_commit_gate.f90" "$ROOT_DIR/src/fibre_prod_structure_commit_gate_check.f90" || true
 } > "$EVIDENCE_DIR/P0_9_NO_RHS_FEEDBACK_AUDIT.txt"
 
 if [[ "$fail" -eq 0 ]]; then
@@ -98,7 +117,7 @@ if [[ "$fail" -eq 0 ]]; then
     "P0_9_STRUCTURE_COMMIT_GATE_CHECK PASS"
   )
   for token in "${required_tokens[@]}"; do
-    rg -q "$token" "$RESULT_FILE" && pass "found token $token" || fail_check "missing token $token"
+    grep -Fq "$token" "$RESULT_FILE" && pass "found token $token" || fail_check "missing token $token"
   done
 fi
 
@@ -110,7 +129,7 @@ Meaning: PASS means a controlled structure dry-step commit gate can accept finit
 
 Production-run status: STILL BLOCKED
 
-Next required stage: P0.10 structure-to-fluid reaction-force candidate diagnostics, no Eulerian spreading and no RHS feedback.
+Next required stage: P0_10 reaction-force candidate + Eulerian spreading buffer, no RHS feedback.
 PASS_EOF
   log "Result: PASS"
 else
