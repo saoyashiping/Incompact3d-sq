@@ -1,0 +1,7 @@
+# R12 helper log for fibre_prod_wall_contact_check
+## Build command
+cmake --build "/workspace/Incompact3d-sq/build_r12_final_validation" --target fibre_prod_wall_contact_check -j 2
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+build_status=2
+BLOCKED: target fibre_prod_wall_contact_check could not be built; expected token R8_FIBRE_PROD_WALL_CONTACT_CHECK PASS was not produced.

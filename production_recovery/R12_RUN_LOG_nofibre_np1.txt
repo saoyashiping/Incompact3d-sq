@@ -1,0 +1,5 @@
+# R12 no-fibre np=1 log
+BLOCKED: xcompact3d executable was not produced; no no-fibre MPI run was executed.
+FIBRE_PROD_ENABLE=0
+FIBRE_PROD_LAMBDA=0
+FIBRE_PROD_DIAGNOSTICS=0

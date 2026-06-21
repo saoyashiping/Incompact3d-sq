@@ -1,0 +1,25 @@
+# R12 build log
+ROOT_DIR=/workspace/Incompact3d-sq
+BUILD_DIR=/workspace/Incompact3d-sq/build_r12_final_validation
+DECOMP_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+
+## Configure command
+cmake -S . -B "/workspace/Incompact3d-sq/build_r12_final_validation" -DCMAKE_Fortran_COMPILER=mpif90 -DDECOMP2D_ROOT="/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4" -DCMAKE_PREFIX_PATH="/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4"
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  The CMAKE_Fortran_COMPILER:
+
+    mpif90
+
+  is not a full path and was not found in the PATH.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+configure_status=1
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+xcompact3d_build_status=2

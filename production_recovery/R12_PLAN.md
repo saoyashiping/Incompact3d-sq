@@ -1,52 +1,31 @@
-# Production Recovery R12 Plan
+# Production Recovery R12 Plan — Final Validation Matrix and Closure
 
-## Scope
+## R12 scope
 
-R12 is the final production-recovery validation matrix for the controlled Xcompact3D fibre-FSI recovery branch.
+R12 performs the final Production Recovery validation matrix.  It reruns/reaudits the helper chain, reruns R11 consistency, checks no-fibre baseline np=1/2/4, checks restart/statistics/visualization smoke evidence, audits source boundaries, and writes final matrix and closure reports.
 
-R12 validates, in one reproducible workflow:
+## R12 non-goals
 
-1. R11 controlled main-loop hook np=1/2/4 MPI consistency is re-run and must PASS;
-2. R2-R10 standalone helper/check targets build and run;
-3. no-fibre main-program baseline runs for np=1/2/4;
-4. lambda=0 no-contamination evidence from R11 is PASS for np=1/2/4;
-5. small-lambda response evidence from R11 is PASS for np=1/2/4;
-6. restart/statistics/visualization smoke evidence exists in all main-program runs;
-7. final closure boundaries are recorded.
+R12 does not add physical models, does not modify source code, does not modify `src/xcompact3d.f90`, does not modify CMake, does not modify RK3, does not modify pressure/projection, does not modify channel forcing, does not modify restart/statistics/visualization semantics, does not enter R13, and does not claim long-duration production DNS or paper-grade physical validation.
 
-## Non-goals
+## Validation matrix
 
-R12 does not introduce new physics.
-R12 does not modify `src/xcompact3d.f90`.
-R12 does not modify RK3, pressure/projection, channel forcing, restart, statistics, or visualization implementation.
-R12 does not perform mesh refinement.
-R12 does not run a long production DNS.
-R12 does not claim high-Reynolds-number physical validation against experiments.
+The final matrix records: source boundary, standalone helper chain, R11 rerun, no-fibre np=1/2/4, lambda=0 np=1/2/4, small-lambda np=1/2/4, restart/statistics/visualization smoke, no source modification, no RK3/projection/channel forcing modification, and no R13 entry.
 
-## Files created
+## Build strategy
 
-- `production_recovery/R12_PLAN.md`
-- `production_recovery/R12_PASS_FAIL.md`
-- `production_recovery/R12_SOURCE_DIFF_SUMMARY.md`
-- `production_recovery/R12_evidence/README.md`
-- `production_recovery/R12_evidence/R12_VALIDATION_COMMAND_FIXED.sh`
-- `production_recovery/R12_evidence/R12_FINAL_VALIDATION_MATRIX.md`
-- `production_recovery/R12_evidence/R12_STANDALONE_HELPER_AUDIT.md`
-- `production_recovery/R12_evidence/R12_NO_FIBRE_BASELINE_AUDIT.md`
-- `production_recovery/R12_evidence/R12_RESTART_STATS_VISU_AUDIT.md`
-- `production_recovery/R12_evidence/R12_FINAL_CLOSURE_REPORT.md`
+Use `build_r12_final_validation`, configure with `mpif90` and the configured 2decomp root, then build the helper targets and `xcompact3d`.
+
+## Run strategy
+
+Run the R2-R10 standalone helper checks, rerun R11 validation, run no-fibre baseline np=1/2/4 with copied input files, and inspect restart/statistics/visualization smoke evidence.
 
 ## Pass/fail criteria
 
-R12 PASS requires all of the following:
+R12 PASS requires all matrix booleans to be `1` and both `R12_FINAL_VALIDATION_MATRIX.md` and `R12_FINAL_CLOSURE_REPORT.md` to contain `Result: PASS`.
 
-1. R11 rerun writes `production_recovery/R11_PASS_FAIL.md` with `Result: PASS`;
-2. R11 MPI audit writes `Result: PASS`;
-3. all six R11 lambda=0/small-lambda audits write `Result: PASS`;
-4. R2-R10 standalone check targets all print their exact PASS strings;
-5. no-fibre np=1/2/4 main-program runs all finish with `Good job! Xcompact3d finished successfully!`;
-6. restart, snapshot/visualization, and statistics messages are found in main-program logs;
-7. no R12 source modifications are required.
+R12 FAIL applies if any required validation matrix item fails or remains unavailable.
 
-R12 FAIL applies if the workflow runs but any required validation criterion fails.
-R12 BLOCKED applies if build, MPI, input case, or executable prerequisites are unavailable.
+## Evidence boundary
+
+R12 PASS would close the R0-R12 Production Recovery validation matrix only.  It would not claim long-time DNS completion, paper-grade physical statistics, all research cases, grid/time-step independence, or experimental comparison completion.

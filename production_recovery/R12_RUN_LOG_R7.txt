@@ -1,0 +1,7 @@
+# R12 helper log for fibre_prod_fsi_closed_loop_check
+## Build command
+cmake --build "/workspace/Incompact3d-sq/build_r12_final_validation" --target fibre_prod_fsi_closed_loop_check -j 2
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+build_status=2
+BLOCKED: target fibre_prod_fsi_closed_loop_check could not be built; expected token R7_FIBRE_PROD_FSI_CLOSED_LOOP_CHECK PASS was not produced.
