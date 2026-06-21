@@ -1,0 +1,3 @@
+# P0.5 Velocity Attachment Audit
+
+Static audit confirms the attachment module exists and does not call RHS feedback APIs. Dynamic attachment evidence is provided by the P0.5 check executable.

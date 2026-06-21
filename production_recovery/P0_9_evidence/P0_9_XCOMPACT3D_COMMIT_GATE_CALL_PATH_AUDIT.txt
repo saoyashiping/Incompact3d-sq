@@ -1,0 +1,54 @@
+P0.9 xcompact3d call path evidence:
+/workspace/Incompact3d-sq/src/xcompact3d.f90:73:  use fibre_prod_structure_commit_gate, only : fibre_prod_structure_commit_gate_env_enabled, &
+/workspace/Incompact3d-sq/src/xcompact3d.f90:74:       fibre_prod_structure_commit_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/xcompact3d.f90:93:  logical :: fibre_prod_structure_commit_gate_enabled
+/workspace/Incompact3d-sq/src/xcompact3d.f90:101:  integer :: fibre_prod_structure_commit_gate_status
+/workspace/Incompact3d-sq/src/xcompact3d.f90:172:  fibre_prod_structure_commit_gate_enabled = fibre_prod_structure_commit_gate_env_enabled()
+/workspace/Incompact3d-sq/src/xcompact3d.f90:246:        if (fibre_prod_structure_commit_gate_enabled) then
+/workspace/Incompact3d-sq/src/xcompact3d.f90:247:           call fibre_prod_structure_commit_gate_runtime_diagnostic(ux1,uy1,uz1, fibre_prod_structure_commit_gate_status)
+/workspace/Incompact3d-sq/src/xcompact3d.f90:248:           if (fibre_prod_structure_commit_gate_status /= 0) fibre_prod_structure_commit_gate_enabled = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:1:module fibre_prod_structure_commit_gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:45:  public :: fibre_prod_structure_commit_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:46:  public :: fibre_prod_structure_commit_gate_init
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:47:  public :: fibre_prod_structure_commit_gate_set_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:48:  public :: fibre_prod_structure_commit_gate_evaluate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:49:  public :: fibre_prod_structure_commit_gate_commit_to_state
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:50:  public :: fibre_prod_structure_commit_gate_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:51:  public :: fibre_prod_structure_commit_gate_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:52:  public :: fibre_prod_structure_commit_gate_env_max_allowed_dx
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:53:  public :: fibre_prod_structure_commit_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:55:  type :: fibre_prod_structure_commit_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:68:  end type fibre_prod_structure_commit_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:72:  subroutine fibre_prod_structure_commit_gate_init(gate, nnode, max_allowed_dx, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:73:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:79:    call fibre_prod_structure_commit_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:96:  end subroutine fibre_prod_structure_commit_gate_init
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:98:  subroutine fibre_prod_structure_commit_gate_set_enabled(gate, enabled, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:99:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:116:  end subroutine fibre_prod_structure_commit_gate_set_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:118:  subroutine fibre_prod_structure_commit_gate_evaluate(gate, x_trial, u_trial, dx_trial, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:119:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:168:  end subroutine fibre_prod_structure_commit_gate_evaluate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:170:  subroutine fibre_prod_structure_commit_gate_commit_to_state(gate, state, x_trial, u_trial, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:171:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:206:  end subroutine fibre_prod_structure_commit_gate_commit_to_state
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:208:  subroutine fibre_prod_structure_commit_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:209:    type(fibre_prod_structure_commit_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:223:  end subroutine fibre_prod_structure_commit_gate_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:225:  logical function fibre_prod_structure_commit_gate_env_enabled() result(enabled)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:231:    call get_environment_variable('FIBRE_PROD_STRUCTURE_DRY_COMMIT_ENABLE', raw, length=length, status=env_status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:237:  end function fibre_prod_structure_commit_gate_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:239:  real(dp) function fibre_prod_structure_commit_gate_env_max_allowed_dx() result(value)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:241:  end function fibre_prod_structure_commit_gate_env_max_allowed_dx
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:243:  subroutine fibre_prod_structure_commit_gate_runtime_diagnostic(ux, uy, uz, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:254:    type(fibre_prod_structure_commit_gate_type) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:291:                                                                      fibre_prod_structure_commit_gate_env_max_allowed_dx(), status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:292:    if (status == 0) call fibre_prod_structure_commit_gate_init(gate, 3, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:293:                                                               fibre_prod_structure_commit_gate_env_max_allowed_dx(), status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:294:    if (status == 0) call fibre_prod_structure_commit_gate_set_enabled(gate, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:295:                                                                       fibre_prod_structure_commit_gate_env_enabled(), status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:296:    if (status == 0) call fibre_prod_structure_commit_gate_evaluate(gate, dry%x_trial, dry%u_trial, dry%dx_trial, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:297:    if (status == 0) call fibre_prod_structure_commit_gate_commit_to_state(gate, state, dry%x_trial, dry%u_trial, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:298:    call fibre_prod_structure_commit_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:317:  end subroutine fibre_prod_structure_commit_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate.f90:334:end module fibre_prod_structure_commit_gate

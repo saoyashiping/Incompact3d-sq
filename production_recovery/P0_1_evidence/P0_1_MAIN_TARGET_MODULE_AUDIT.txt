@@ -1,0 +1,29 @@
+# P0.1 Main Target Module Audit
+
+`src/CMakeLists.txt` was updated so the `xcompact3d` target includes the complete production fibre module chain required for build-chain integration:
+
+- fibre_prod_state.f90
+- fibre_prod_grid_adapter.f90
+- fibre_prod_ibm_delta.f90
+- fibre_prod_ibm_interpolation.f90
+- fibre_prod_ibm_force_buffer.f90
+- fibre_prod_ibm_spreading.f90
+- fibre_prod_boundary_conditions.f90
+- fibre_prod_bending_solver.f90
+- fibre_prod_tension_solver.f90
+- fibre_prod_structure_solver.f90
+- fibre_prod_fsi_config.f90
+- fibre_prod_fluid_surrogate.f90
+- fibre_prod_fsi_coupling.f90
+- fibre_prod_fsi_diagnostics.f90
+- fibre_prod_wall_geometry.f90
+- fibre_prod_wall_contact.f90
+- fibre_prod_fibre_collision.f90
+- fibre_prod_runtime_config.f90
+- fibre_prod_main_diagnostics.f90
+- fibre_prod_rhs_adapter.f90
+- fibre_prod_main_hook.f90
+
+The auxiliary dependency `fibre_prod_collision_geometry.f90` is also included because `fibre_prod_fibre_collision.f90` uses it.
+
+This audit only establishes main-target build-chain inclusion. It does not certify production DNS-FSI readiness.
