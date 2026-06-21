@@ -17,6 +17,8 @@ module fibre_prod_state
   public :: fibre_prod_state_attach_sampled_velocity
   public :: fibre_prod_state_allocate_hydro_force_candidate
   public :: fibre_prod_state_attach_hydro_force_candidate
+  public :: fibre_prod_state_allocate_structure_input_force
+  public :: fibre_prod_state_attach_structure_input_force
 
   type :: fibre_prod_state_type
     integer :: nfibre = 0
@@ -34,6 +36,8 @@ module fibre_prod_state
     logical :: has_sampled_velocity = .false.
     real(real64), allocatable :: hydro_force_candidate(:, :)
     logical :: has_hydro_force_candidate = .false.
+    real(real64), allocatable :: structure_input_force(:, :)
+    logical :: has_structure_input_force = .false.
   end type fibre_prod_state_type
 
 contains
@@ -146,11 +150,13 @@ contains
     if (allocated(state%f_total)) deallocate(state%f_total)
     if (allocated(state%sampled_u)) deallocate(state%sampled_u)
     if (allocated(state%hydro_force_candidate)) deallocate(state%hydro_force_candidate)
+    if (allocated(state%structure_input_force)) deallocate(state%structure_input_force)
     state%nfibre = 0
     state%nnode = 0
     state%ndim = 3
     state%has_sampled_velocity = .false.
     state%has_hydro_force_candidate = .false.
+    state%has_structure_input_force = .false.
   end subroutine fibre_prod_state_destroy
 
 
@@ -260,6 +266,61 @@ contains
     state%hydro_force_candidate = candidate_force
     state%has_hydro_force_candidate = .true.
   end subroutine fibre_prod_state_attach_hydro_force_candidate
+
+
+
+  subroutine fibre_prod_state_allocate_structure_input_force(state, nnode, status)
+    type(fibre_prod_state_type), intent(inout) :: state
+    integer, intent(in) :: nnode
+    integer, intent(out) :: status
+    integer :: ierr
+
+    status = 0
+    ierr = 0
+    if (nnode <= 0) then
+      status = 1
+      return
+    end if
+    if (state%nnode /= 0 .and. state%nnode /= nnode) then
+      status = 2
+      return
+    end if
+    if (allocated(state%structure_input_force)) deallocate(state%structure_input_force)
+    allocate(state%structure_input_force(nnode, 3), stat=ierr)
+    if (ierr /= 0) then
+      status = 3
+      state%has_structure_input_force = .false.
+      return
+    end if
+    state%structure_input_force = 0.0_real64
+    state%has_structure_input_force = .false.
+  end subroutine fibre_prod_state_allocate_structure_input_force
+
+  subroutine fibre_prod_state_attach_structure_input_force(state, structure_input_force, status)
+    type(fibre_prod_state_type), intent(inout) :: state
+    real(real64), intent(in) :: structure_input_force(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (size(structure_input_force, 2) /= 3) then
+      status = 4
+      return
+    end if
+    if (state%nnode /= 0 .and. size(structure_input_force, 1) /= state%nnode) then
+      status = 5
+      return
+    end if
+    if (.not. allocated(state%structure_input_force)) then
+      call fibre_prod_state_allocate_structure_input_force(state, size(structure_input_force, 1), status)
+      if (status /= 0) return
+    else if (size(state%structure_input_force, 1) /= size(structure_input_force, 1) .or. &
+             size(state%structure_input_force, 2) /= 3) then
+      status = 6
+      return
+    end if
+    state%structure_input_force = structure_input_force
+    state%has_structure_input_force = .true.
+  end subroutine fibre_prod_state_attach_structure_input_force
 
   pure logical function fibre_prod_state_is_allocated(state) result(is_allocated)
     type(fibre_prod_state_type), intent(in) :: state
