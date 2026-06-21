@@ -19,6 +19,8 @@ module fibre_prod_state
   public :: fibre_prod_state_attach_hydro_force_candidate
   public :: fibre_prod_state_allocate_structure_input_force
   public :: fibre_prod_state_attach_structure_input_force
+  public :: fibre_prod_state_get_structure_coordinates
+  public :: fibre_prod_state_get_structure_velocity_or_zero
 
   type :: fibre_prod_state_type
     integer :: nfibre = 0
@@ -321,6 +323,46 @@ contains
     state%structure_input_force = structure_input_force
     state%has_structure_input_force = .true.
   end subroutine fibre_prod_state_attach_structure_input_force
+
+
+
+  subroutine fibre_prod_state_get_structure_coordinates(state, x, status)
+    type(fibre_prod_state_type), intent(in) :: state
+    real(real64), intent(out) :: x(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (.not. allocated(state%x) .or. state%nfibre < 1 .or. state%nnode <= 0) then
+      status = 1
+      return
+    end if
+    if (size(x, 1) /= state%nnode .or. size(x, 2) /= 3) then
+      status = 2
+      return
+    end if
+    x = state%x(1, :, :)
+  end subroutine fibre_prod_state_get_structure_coordinates
+
+  subroutine fibre_prod_state_get_structure_velocity_or_zero(state, structure_u, status)
+    type(fibre_prod_state_type), intent(in) :: state
+    real(real64), intent(out) :: structure_u(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (state%nnode <= 0) then
+      status = 1
+      return
+    end if
+    if (size(structure_u, 1) /= state%nnode .or. size(structure_u, 2) /= 3) then
+      status = 2
+      return
+    end if
+    if (allocated(state%v) .and. state%nfibre >= 1) then
+      structure_u = state%v(1, :, :)
+    else
+      structure_u = 0.0_real64
+    end if
+  end subroutine fibre_prod_state_get_structure_velocity_or_zero
 
   pure logical function fibre_prod_state_is_allocated(state) result(is_allocated)
     type(fibre_prod_state_type), intent(in) :: state
