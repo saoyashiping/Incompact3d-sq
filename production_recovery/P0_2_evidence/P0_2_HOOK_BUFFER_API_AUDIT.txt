@@ -1,0 +1,20 @@
+# P0.2 Hook Buffer API Audit
+
+`fibre_prod_main_hook.f90` now exposes:
+
+```fortran
+subroutine fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)
+```
+
+The API:
+
+- requires initialized hook state;
+- validates runtime config;
+- checks RHS component shape consistency;
+- checks `fibre_prod_force_buffer_type` allocation and finiteness;
+- checks force-buffer shapes against RHS shapes;
+- preserves lambda=0 no-op through the RHS adapter;
+- passes `force_buffer%fx/fy/fz` into `fibre_prod_rhs_adapter_apply`;
+- records diagnostics;
+- does not construct pseudo force;
+- does not apply a uniform RHS constant.

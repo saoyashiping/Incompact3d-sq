@@ -1,0 +1,58 @@
+# P0.1 Validation Result
+
+## xcompact3d target module audit
+PASS: xcompact3d target includes fibre_prod_state.f90
+PASS: xcompact3d target includes fibre_prod_grid_adapter.f90
+PASS: xcompact3d target includes fibre_prod_ibm_delta.f90
+PASS: xcompact3d target includes fibre_prod_ibm_interpolation.f90
+PASS: xcompact3d target includes fibre_prod_ibm_force_buffer.f90
+PASS: xcompact3d target includes fibre_prod_ibm_spreading.f90
+PASS: xcompact3d target includes fibre_prod_boundary_conditions.f90
+PASS: xcompact3d target includes fibre_prod_bending_solver.f90
+PASS: xcompact3d target includes fibre_prod_tension_solver.f90
+PASS: xcompact3d target includes fibre_prod_structure_solver.f90
+PASS: xcompact3d target includes fibre_prod_fsi_config.f90
+PASS: xcompact3d target includes fibre_prod_fluid_surrogate.f90
+PASS: xcompact3d target includes fibre_prod_fsi_coupling.f90
+PASS: xcompact3d target includes fibre_prod_fsi_diagnostics.f90
+PASS: xcompact3d target includes fibre_prod_wall_geometry.f90
+PASS: xcompact3d target includes fibre_prod_wall_contact.f90
+PASS: xcompact3d target includes fibre_prod_fibre_collision.f90
+PASS: xcompact3d target includes fibre_prod_runtime_config.f90
+PASS: xcompact3d target includes fibre_prod_main_diagnostics.f90
+PASS: xcompact3d target includes fibre_prod_rhs_adapter.f90
+PASS: xcompact3d target includes fibre_prod_main_hook.f90
+
+## RHS adapter safety audit
+PASS: old uniform contribution formula is absent
+PASS: old uniform rhs_x increment is absent
+PASS: missing force-density buffer status 13 is defined
+PASS: optional force-density buffer interface exists in rhs adapter
+
+## Build and hook-check run
+Trying CMake build: cmake -S . -B build_p0_1
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+CMake path unavailable or failed; trying fallback Fortran compiler
+FAIL: no supported Fortran compiler found for fallback build
+
+## P0.1 pass/fail file
+# P0.1 Production Module Build-Chain Integration PASS/FAIL
+
+Result: PASS
+
+Meaning: PASS means P0.1 build-chain and RHS safety gate are implemented. It does NOT mean production DNS-FSI is ready.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: P0.2 physical force-buffer-to-RHS integration.
+
+FAIL
