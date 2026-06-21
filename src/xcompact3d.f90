@@ -79,6 +79,11 @@ program xcompact3d
        fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
   use fibre_prod_synthetic_closed_loop, only : fibre_prod_synthetic_closed_loop_env_enabled, &
        fibre_prod_synthetic_closed_loop_runtime_diagnostic
+  use fibre_prod_p1_real_channel_preflight, only : &
+       fibre_prod_p1_real_channel_preflight_env_enabled, &
+       fibre_prod_p1_real_channel_preflight_init, &
+       fibre_prod_p1_real_channel_preflight_record_sampling, &
+       fibre_prod_p1_real_channel_preflight_write_diagnostics
 
   implicit none
 
@@ -102,6 +107,7 @@ program xcompact3d
   logical :: fibre_prod_reaction_spreading_enabled
   logical :: fibre_prod_force_buffer_rhs_gate_enabled
   logical :: fibre_prod_synthetic_closed_loop_enabled
+  logical :: fibre_prod_p1_real_channel_preflight_enabled
   integer :: stage9_8_checkpoint_size
   integer :: fibre_prod_r10_status
   integer :: fibre_prod_velocity_status
@@ -113,6 +119,7 @@ program xcompact3d
   integer :: fibre_prod_reaction_spreading_status
   integer :: fibre_prod_force_buffer_rhs_gate_status
   integer :: fibre_prod_synthetic_closed_loop_status
+  integer :: fibre_prod_p1_real_channel_preflight_status
   real(real64) :: fibre_prod_runtime_lambda
   type(fibre_prod_runtime_bridge_type) :: fibre_prod_bridge
 
@@ -188,6 +195,17 @@ program xcompact3d
   fibre_prod_reaction_spreading_enabled = fibre_prod_reaction_spreading_buffer_env_enabled()
   fibre_prod_force_buffer_rhs_gate_enabled = fibre_prod_force_buffer_rhs_gate_env_enabled()
   fibre_prod_synthetic_closed_loop_enabled = fibre_prod_synthetic_closed_loop_env_enabled()
+  fibre_prod_p1_real_channel_preflight_enabled = fibre_prod_p1_real_channel_preflight_env_enabled()
+  if (fibre_prod_p1_real_channel_preflight_enabled) then
+     call fibre_prod_p1_real_channel_preflight_init(fibre_prod_p1_real_channel_preflight_status)
+     if (fibre_prod_p1_real_channel_preflight_status /= 0) then
+        if (nrank == 0) write(*,'(A,I0)') &
+             'P1_0 real channel preflight fail-closed init status=', &
+             fibre_prod_p1_real_channel_preflight_status
+        call finalise_xcompact3d()
+        stop 90
+     endif
+  endif
   if ((.not. fibre_prod_r10_hook_ready) .and. nrank == 0) then
      write(*,'(A,I0)') '[R10] fibre production main hook disabled, status=', fibre_prod_r10_status
   endif
@@ -274,6 +292,17 @@ program xcompact3d
            call fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux1,uy1,uz1,dux1(:,:,:,1),duy1(:,:,:,1), &
                 duz1(:,:,:,1), fibre_prod_force_buffer_rhs_gate_status)
            if (fibre_prod_force_buffer_rhs_gate_status /= 0) fibre_prod_force_buffer_rhs_gate_enabled = .false.
+        endif
+        if (fibre_prod_p1_real_channel_preflight_enabled) then
+           call fibre_prod_p1_real_channel_preflight_record_sampling(ux1,uy1,uz1, &
+                fibre_prod_p1_real_channel_preflight_status)
+           if (fibre_prod_p1_real_channel_preflight_status /= 0) then
+              if (nrank == 0) write(*,'(A,I0)') &
+                   'P1_0 real channel preflight fail-closed sampling status=', &
+                   fibre_prod_p1_real_channel_preflight_status
+              call finalise_xcompact3d()
+              stop 91
+           endif
         endif
         if (fibre_prod_synthetic_closed_loop_enabled) then
            call fibre_prod_synthetic_closed_loop_runtime_diagnostic(fibre_prod_synthetic_closed_loop_status)
@@ -474,6 +503,11 @@ program xcompact3d
   if (stage9_9_reg) then
      call stage9_9_finalise_mark()
      call stage9_9_final_audit()
+  endif
+
+  if (fibre_prod_p1_real_channel_preflight_enabled) then
+     call fibre_prod_p1_real_channel_preflight_write_diagnostics(fibre_prod_p1_real_channel_preflight_status)
+     if (fibre_prod_p1_real_channel_preflight_status /= 0) stop 92
   endif
 
   if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
