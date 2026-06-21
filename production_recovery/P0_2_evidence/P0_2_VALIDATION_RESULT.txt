@@ -4,33 +4,22 @@
 PASS: main hook exposes fibre_prod_main_hook_apply_force_buffer
 PASS: old uniform contribution formula is absent
 PASS: old uniform rhs_x increment is absent
-PASS: RHS adapter applies explicit lambda*penalty_beta scaling to force buffer
 PASS: CMake target fibre_prod_force_buffer_rhs_path_check exists
 
 ## Build and run checks
-Trying CMake build with DECOMP2D path: /home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
-WARNING: /home/sq/opt/2decomp-fft-xcompact3d-v2.0.4 does not exist on this machine; CMake may fail and fallback compiler will be used.
--- The Fortran compiler identification is GNU 14.2.0
--- Detecting Fortran compiler ABI info
--- Detecting Fortran compiler ABI info - done
--- Check for working Fortran compiler: /usr/bin/f95 - skipped
--- building Xcompact3d
--- Selected build type : Release
-CMake Error at cmake/FindDECOMP2D.cmake:46 (message):
-  DECOMP2D not found.  Please install 2decomp-fft once and configure with
-  -DCMAKE_PREFIX_PATH=/home/sq/opt/2decomp-fft or set DECOMP2D_ROOT.
-Call Stack (most recent call first):
-  CMakeLists.txt:52 (find_package)
+Trying CMake build: cmake -S . -B build_p0_2
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
 
 
 -- Configuring incomplete, errors occurred!
 CMake path unavailable or failed; trying fallback Fortran compiler
-Trying fallback compiler: gfortran
- P0_1_FIBRE_PROD_MAIN_HOOK_CHECK PASS
- P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS
-PASS: ./build_p0_2_fallback/fibre_prod_main_hook_check emitted P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS
- P0_2_FORCE_BUFFER_TO_RHS_PATH_CHECK PASS
-PASS: ./build_p0_2_fallback/fibre_prod_force_buffer_rhs_path_check emitted P0_2_FORCE_BUFFER_TO_RHS_PATH_CHECK PASS
+FAIL: no supported Fortran compiler found for fallback build
 
 ## P0.2 pass/fail file
 # P0.2 Physical Force-Buffer-to-RHS Integration PASS/FAIL
@@ -43,4 +32,4 @@ Production-run status: STILL BLOCKED
 
 Next required stage: P0.3 runtime grid/state bridge and lambda=0 no-contamination in xcompact3d call path.
 
-PASS
+FAIL

@@ -6,12 +6,11 @@ program fibre_prod_main_hook_check
   use fibre_prod_main_diagnostics, only : fibre_prod_main_diagnostics_type
   use fibre_prod_rhs_adapter, only : fibre_prod_rhs_adapter_apply, &
                                      fibre_prod_rhs_status_missing_force_buffer
-  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, &
-                                          fibre_prod_force_buffer_destroy
   use fibre_prod_main_hook, only : fibre_prod_main_hook_init, &
                                    fibre_prod_main_hook_apply, &
                                    fibre_prod_main_hook_apply_force_buffer, &
                                    fibre_prod_main_hook_get_diagnostics
+  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type
   implicit none
 
   integer, parameter :: dp = real64
@@ -28,26 +27,26 @@ program fibre_prod_main_hook_check
   real(dp) :: force_x(4, 3, 2)
   real(dp) :: force_y(4, 3, 2)
   real(dp) :: force_z(4, 3, 2)
+  type(fibre_prod_force_buffer_type) :: force_buffer
+  real(dp) :: force_scale
   real(dp) :: max_abs_increment
   real(dp) :: sum_increment
-  real(dp) :: force_scale
   logical :: zero_force_buffer
   logical :: missing_force_buffer
   integer :: status
   integer :: modified_cells
+  integer :: ierr
 
   call fibre_prod_runtime_config_default(config)
   if (config%enabled .or. config%lambda_fsi /= 0.0_dp .or. config%diagnostics_enabled) error stop 1
   if (fibre_prod_runtime_config_validate(config) /= 0) error stop 2
 
-  ! lambda=0 no-op through the legacy compatible hook API.
   call initialize_rhs(rhs_x, rhs_y, rhs_z)
   base_x = rhs_x
   base_y = rhs_y
   base_z = rhs_z
   config%enabled = .true.
   config%lambda_fsi = 0.0_dp
-  config%penalty_beta = 2.0_dp
   call fibre_prod_main_hook_init(status, config)
   if (status /= 0) error stop 3
   call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status)
@@ -56,12 +55,13 @@ program fibre_prod_main_hook_check
   call fibre_prod_main_hook_get_diagnostics(diag)
   if (.not. diag%no_contamination .or. diag%modified_cells /= 0) error stop 6
 
-  ! lambda>0 without force buffer must be blocked and must not modify RHS.
   call initialize_rhs(rhs_x, rhs_y, rhs_z)
   base_x = rhs_x
   base_y = rhs_y
   base_z = rhs_z
   config%lambda_fsi = 1.0e-8_dp
+  config%penalty_beta = 2.0_dp
+  force_scale = config%lambda_fsi * config%penalty_beta
   call fibre_prod_main_hook_init(status, config)
   if (status /= 0) error stop 7
   call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status)
@@ -70,13 +70,11 @@ program fibre_prod_main_hook_check
   call fibre_prod_main_hook_get_diagnostics(diag)
   if (diag%modified_cells /= 0 .or. diag%last_status /= fibre_prod_rhs_status_missing_force_buffer) error stop 10
 
-  ! lambda>0 with explicit arrays uses the physical lambda*penalty_beta scaling.
   call initialize_rhs(rhs_x, rhs_y, rhs_z)
   base_x = rhs_x
   base_y = rhs_y
   base_z = rhs_z
   call initialize_force(force_x, force_y, force_z)
-  force_scale = config%lambda_fsi * config%penalty_beta
   call fibre_prod_main_hook_init(status, config)
   if (status /= 0) error stop 11
   call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status, force_x, force_y, force_z)
@@ -88,7 +86,6 @@ program fibre_prod_main_hook_check
   call fibre_prod_main_hook_get_diagnostics(diag)
   if (diag%modified_cells <= 0 .or. .not. diag%small_lambda_response) error stop 17
 
-  ! lambda>0 with zero force buffer is a finite no-op, not a blocker.
   call initialize_rhs(rhs_x, rhs_y, rhs_z)
   base_x = rhs_x
   base_y = rhs_y
@@ -108,26 +105,34 @@ program fibre_prod_main_hook_check
   if (.not. zero_force_buffer .or. missing_force_buffer) error stop 22
   if (max_abs_increment /= 0.0_dp .or. sum_increment /= 0.0_dp) error stop 23
 
-  ! P0.2 buffer-level API check: RHS increments must come from fibre_prod_force_buffer_type.
   call initialize_rhs(rhs_x, rhs_y, rhs_z)
+  rhs_x = 0.0_dp
+  rhs_y = 0.0_dp
+  rhs_z = 0.0_dp
   base_x = rhs_x
   base_y = rhs_y
   base_z = rhs_z
-  call initialize_force(force_x, force_y, force_z)
-  call allocate_buffer_like(buffer, force_x, force_y, force_z)
-  force_scale = config%lambda_fsi * config%penalty_beta
+  allocate(force_buffer%fx(4, 3, 2), force_buffer%fy(4, 3, 2), force_buffer%fz(4, 3, 2), stat=ierr)
+  if (ierr /= 0) error stop 24
+  force_buffer%nx_local = 4
+  force_buffer%ny_local = 3
+  force_buffer%nz_local = 2
+  force_buffer%allocated = .true.
+  call initialize_force(force_buffer%fx, force_buffer%fy, force_buffer%fz)
   call fibre_prod_main_hook_init(status, config)
-  if (status /= 0) error stop 24
-  call fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, buffer, status)
   if (status /= 0) error stop 25
-  if (.not. same_field(rhs_x, base_x + force_scale * buffer%fx)) error stop 26
-  if (.not. same_field(rhs_y, base_y + force_scale * buffer%fy)) error stop 27
-  if (.not. same_field(rhs_z, base_z + force_scale * buffer%fz)) error stop 28
-  if (is_uniform_increment(buffer%fx, buffer%fy, buffer%fz)) error stop 29
-  call fibre_prod_force_buffer_destroy(buffer)
+  call fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)
+  if (status /= 0) error stop 26
+  if (.not. same_field(rhs_x, base_x + force_scale * force_buffer%fx)) error stop 27
+  if (.not. same_field(rhs_y, base_y + force_scale * force_buffer%fy)) error stop 28
+  if (.not. same_field(rhs_z, base_z + force_scale * force_buffer%fz)) error stop 29
+  if (is_uniform_increment(rhs_x, rhs_y, rhs_z)) error stop 30
+  deallocate(force_buffer%fx, force_buffer%fy, force_buffer%fz)
+  force_buffer%allocated = .false.
 
   print *, 'P0_1_FIBRE_PROD_MAIN_HOOK_CHECK PASS'
   print *, 'P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS'
+  print *, 'P0_3_MAIN_HOOK_BRIDGE_COMPAT_CHECK PASS'
 contains
 
   subroutine initialize_rhs(rhs_x, rhs_y, rhs_z)
@@ -163,25 +168,6 @@ contains
       end do
     end do
   end subroutine initialize_force
-
-  subroutine allocate_buffer_like(buffer, force_x, force_y, force_z)
-    type(fibre_prod_force_buffer_type), intent(inout) :: buffer
-    real(dp), intent(in) :: force_x(:, :, :)
-    real(dp), intent(in) :: force_y(:, :, :)
-    real(dp), intent(in) :: force_z(:, :, :)
-
-    call fibre_prod_force_buffer_destroy(buffer)
-    buffer%nx_local = size(force_x, 1)
-    buffer%ny_local = size(force_x, 2)
-    buffer%nz_local = size(force_x, 3)
-    allocate(buffer%fx(buffer%nx_local, buffer%ny_local, buffer%nz_local))
-    allocate(buffer%fy(buffer%nx_local, buffer%ny_local, buffer%nz_local))
-    allocate(buffer%fz(buffer%nx_local, buffer%ny_local, buffer%nz_local))
-    buffer%allocated = .true.
-    buffer%fx = force_x
-    buffer%fy = force_y
-    buffer%fz = force_z
-  end subroutine allocate_buffer_like
 
   logical function same_field(lhs, rhs) result(matches)
     real(dp), intent(in) :: lhs(:, :, :)

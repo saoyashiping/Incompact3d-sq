@@ -20,6 +20,8 @@ module fibre_prod_main_hook
   public :: fibre_prod_main_hook_init
   public :: fibre_prod_main_hook_apply
   public :: fibre_prod_main_hook_apply_force_buffer
+  public :: fibre_prod_main_hook_runtime_bridge_ready
+  public :: fibre_prod_main_hook_get_runtime_config_status
   public :: fibre_prod_main_hook_finalize
   public :: fibre_prod_main_hook_get_diagnostics
 
@@ -119,6 +121,26 @@ contains
     call fibre_prod_main_diagnostics_record(runtime_diagnostics, runtime_config%enabled, &
                                             runtime_config%lambda_fsi, before, after, modified_cells, status)
   end subroutine fibre_prod_main_hook_apply_force_buffer
+
+
+  logical function fibre_prod_main_hook_runtime_bridge_ready() result(is_ready)
+
+    is_ready = hook_initialized
+  end function fibre_prod_main_hook_runtime_bridge_ready
+
+  subroutine fibre_prod_main_hook_get_runtime_config_status(enabled, lambda_fsi, status)
+    logical, intent(out) :: enabled
+    real(dp), intent(out) :: lambda_fsi
+    integer, intent(out) :: status
+
+    enabled = runtime_config%enabled
+    lambda_fsi = runtime_config%lambda_fsi
+    if (.not. hook_initialized) then
+      status = 1
+    else
+      status = fibre_prod_runtime_config_validate(runtime_config)
+    end if
+  end subroutine fibre_prod_main_hook_get_runtime_config_status
 
   subroutine fibre_prod_main_hook_finalize(status)
     integer, intent(out) :: status

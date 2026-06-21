@@ -39,6 +39,7 @@ contains
     integer :: k
     real(dp) :: local_max_abs_increment
     real(dp) :: local_sum_increment
+    real(dp) :: force_scale
     logical :: has_force_buffer
     logical :: local_zero_force_buffer
     logical :: local_missing_force_buffer
@@ -47,6 +48,7 @@ contains
     local_max_abs_increment = 0.0_dp
     local_sum_increment = 0.0_dp
     local_zero_force_buffer = .false.
+    force_scale = 0.0_dp
     local_missing_force_buffer = .false.
     status = fibre_prod_runtime_config_validate(config)
     before = fibre_prod_main_signature(rhs_x, rhs_y, rhs_z)
@@ -91,6 +93,12 @@ contains
       return
     end if
 
+    force_scale = config%lambda_fsi * config%penalty_beta
+    if (.not. ieee_is_finite(force_scale)) then
+      status = 16
+      return
+    end if
+
     local_zero_force_buffer = all(force_x == 0.0_dp) .and. all(force_y == 0.0_dp) .and. all(force_z == 0.0_dp)
     if (local_zero_force_buffer) then
       if (present(zero_force_buffer)) zero_force_buffer = local_zero_force_buffer
@@ -103,15 +111,13 @@ contains
           if (force_x(i, j, k) /= 0.0_dp .or. force_y(i, j, k) /= 0.0_dp .or. force_z(i, j, k) /= 0.0_dp) then
             modified_cells = modified_cells + 1
           end if
-          rhs_x(i, j, k) = rhs_x(i, j, k) + config%lambda_fsi * config%penalty_beta * force_x(i, j, k)
-          rhs_y(i, j, k) = rhs_y(i, j, k) + config%lambda_fsi * config%penalty_beta * force_y(i, j, k)
-          rhs_z(i, j, k) = rhs_z(i, j, k) + config%lambda_fsi * config%penalty_beta * force_z(i, j, k)
-          local_sum_increment = local_sum_increment + config%lambda_fsi * config%penalty_beta * &
-                                                (force_x(i, j, k) + force_y(i, j, k) + force_z(i, j, k))
-          local_max_abs_increment = max(local_max_abs_increment, &
-                                        abs(config%lambda_fsi * config%penalty_beta * force_x(i, j, k)), &
-                                        abs(config%lambda_fsi * config%penalty_beta * force_y(i, j, k)), &
-                                        abs(config%lambda_fsi * config%penalty_beta * force_z(i, j, k)))
+          rhs_x(i, j, k) = rhs_x(i, j, k) + force_scale * force_x(i, j, k)
+          rhs_y(i, j, k) = rhs_y(i, j, k) + force_scale * force_y(i, j, k)
+          rhs_z(i, j, k) = rhs_z(i, j, k) + force_scale * force_z(i, j, k)
+          local_sum_increment = local_sum_increment + force_scale * &
+                                (force_x(i, j, k) + force_y(i, j, k) + force_z(i, j, k))
+          local_max_abs_increment = max(local_max_abs_increment, abs(force_scale * force_x(i, j, k)), &
+                                        abs(force_scale * force_y(i, j, k)), abs(force_scale * force_z(i, j, k)))
         end do
       end do
     end do
