@@ -1,0 +1,25 @@
+# P0.0 RHS Adapter Audit
+
+Source audited: src/fibre_prod_rhs_adapter.f90
+
+## Current small-lambda logic
+
+The current nonzero-lambda adapter computes a scalar contribution:
+
+```fortran
+contribution = config%lambda_fsi * config%penalty_beta * config%dt
+```
+
+Then it loops over the whole RHS field and applies that same scalar to every `rhs_x` cell:
+
+```fortran
+rhs_x(i, j, k) = rhs_x(i, j, k) + contribution
+```
+
+## Production-readiness interpretation
+
+This is a whole-field uniform RHS injection test. It is useful as a controlled hook smoke signal, but it is not IBM spreading, not a Lagrangian fibre reaction force, and not production DNS-FSI coupling.
+
+## Audit conclusion
+
+The current RHS adapter can demonstrate that the main hook can perturb `rhs_x` in a finite and detectable way under small lambda. It does not demonstrate physical FSI force construction or Eulerian spreading from fibre dynamics.

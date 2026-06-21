@@ -26,19 +26,28 @@ module fibre_prod_main_hook
 
 contains
 
-  subroutine fibre_prod_main_hook_init(status)
+  subroutine fibre_prod_main_hook_init(status, config_override)
     integer, intent(out) :: status
+    type(fibre_prod_runtime_config_type), intent(in), optional :: config_override
 
-    call fibre_prod_runtime_config_load_env(runtime_config, status)
+    if (present(config_override)) then
+      runtime_config = config_override
+      status = fibre_prod_runtime_config_validate(runtime_config)
+    else
+      call fibre_prod_runtime_config_load_env(runtime_config, status)
+    end if
     call fibre_prod_main_diagnostics_reset(runtime_diagnostics)
     hook_initialized = status == 0
   end subroutine fibre_prod_main_hook_init
 
-  subroutine fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status)
+  subroutine fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status, force_x, force_y, force_z)
     real(dp), intent(inout) :: rhs_x(:, :, :)
     real(dp), intent(inout) :: rhs_y(:, :, :)
     real(dp), intent(inout) :: rhs_z(:, :, :)
     integer, intent(out) :: status
+    real(dp), intent(in), optional :: force_x(:, :, :)
+    real(dp), intent(in), optional :: force_y(:, :, :)
+    real(dp), intent(in), optional :: force_z(:, :, :)
     type(fibre_prod_rhs_signature_type) :: before
     type(fibre_prod_rhs_signature_type) :: after
     integer :: modified_cells
@@ -49,10 +58,10 @@ contains
     end if
     status = fibre_prod_runtime_config_validate(runtime_config)
     if (status /= 0) return
-    call fibre_prod_rhs_adapter_apply(runtime_config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
+    call fibre_prod_rhs_adapter_apply(runtime_config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status, &
+                                      force_x, force_y, force_z)
     call fibre_prod_main_diagnostics_record(runtime_diagnostics, runtime_config%enabled, &
                                             runtime_config%lambda_fsi, before, after, modified_cells, status)
-    if (status /= 0) return
   end subroutine fibre_prod_main_hook_apply
 
   subroutine fibre_prod_main_hook_finalize(status)
