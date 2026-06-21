@@ -1,23 +1,28 @@
-# R10 Fix Note
+# R10 Fix Note — finalized audit reliability repair
 
-## Diagnosed problem
+## Problem diagnosed
 
-The R10 Fortran hook-check and `xcompact3d` np=1 runs can complete, but the R10 audit files may remain as stale `BLOCKED` files generated before the real run. The previous shell-side validation also used broad `grep -qi "PASS"`, which can falsely pass a `BLOCKED` audit because the text contains phrases such as `Required PASS evidence`.
+The latest R10 build and both `xcompact3d` np=1 runs completed, but `R10_PASS_FAIL.md` remained FAIL because the audit files were not regenerated. The observed audit files still contained stale `Result: BLOCKED` content.
+
+The main technical weakness was that `src/xcompact3d.f90` used a single flag, `fibre_prod_r10_hook_ready`, for both applying the hook and deciding whether to finalize the hook. If one `fibre_prod_main_hook_apply` call returned a nonzero status, `fibre_prod_r10_hook_ready` was set to `.false.`, and the finalizer was skipped. Therefore no fresh audit file could be written, even though the main solver finished successfully.
 
 ## Fix applied
 
-1. Added `FIBRE_PROD_DIAGNOSTICS_DIR` support in `fibre_prod_runtime_config.f90`.
-2. Made `fibre_prod_main_hook_finalize` write runtime diagnostics and the correct R10 audit file to the configured diagnostics directory.
-3. Added exact audit writers for:
-   - `R10_LAMBDA0_NO_CONTAMINATION_AUDIT.txt`
-   - `R10_SMALL_LAMBDA_RESPONSE_AUDIT.txt`
-4. Audit files now contain explicit `Result: PASS` or `Result: FAIL` lines based on runtime diagnostics.
-5. Direct standalone gfortran validation confirms the R10 hook check still prints `R10_FIBRE_PROD_MAIN_HOOK_CHECK PASS`.
-6. Direct runtime-hook validation confirms the lambda=0 and small-lambda audit writers produce `Result: PASS` under controlled artificial RHS buffers.
+1. Added a separate `fibre_prod_r10_hook_initialized` flag in `src/xcompact3d.f90`.
+2. R10 finalization now depends on initialization, not on whether further apply calls remain enabled.
+3. If an apply call returns nonzero status, the hook stops applying further RHS changes, but finalization still writes diagnostics and audit files.
+4. `fibre_prod_main_hook_apply` now records diagnostics even when the adapter returns a nonzero status.
+5. R10 diagnostics now record `last_status` and `failed_calls`.
+6. Audit PASS now requires `last_status=0` and `failed_calls=0`.
+7. `R10_VALIDATION_COMMAND_FIXED.sh` now uses an absolute `FIBRE_PROD_DIAGNOSTICS_DIR`, removes stale audit files before running, and writes explicit FAIL files if the finalizer fails to generate audit output.
+8. The PASS check remains strict: it only accepts exact `^Result: PASS` lines.
 
 ## Boundary
 
-This fix does not enter R11.
-This fix does not perform np=1/2/4 MPI consistency.
-This fix does not claim final production DNS-FSI closure.
-This fix does not change pressure projection, RK3 coefficients, channel forcing, restart, statistics, or visualization logic.
+- `src/xcompact3d.f90` is modified only to make R10 finalization robust and auditable.
+- The R10 hook site remains after `calculate_transeq_rhs(...)` and before `int_time(...)`.
+- RK3 coefficients are not modified.
+- Pressure/projection order is not modified.
+- Channel forcing is not modified.
+- Restart/statistics/visualization logic is not modified.
+- R11/R12 are not entered.
