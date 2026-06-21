@@ -1,0 +1,51 @@
+# P0.0 R10/R11/R12 Status Audit
+
+Commands executed from repository root:
+- grep -nE "BLOCKED|FAIL|PASS" production_recovery/R10_PASS_FAIL.md
+- grep -nE "BLOCKED|FAIL|PASS" production_recovery/R11_PASS_FAIL.md
+- grep -nE "BLOCKED|FAIL|PASS" production_recovery/R12_PASS_FAIL.md
+- grep -nE "BLOCKED|FAIL|PASS" production_recovery/R12_evidence/R12_FINAL_VALIDATION_MATRIX.md
+- grep -nE "BLOCKED|FAIL|PASS" production_recovery/R12_evidence/R12_FINAL_CLOSURE_REPORT.md
+
+## Summary
+
+| Evidence file | Recorded result | P0.0 interpretation |
+|---|---:|---|
+| production_recovery/R10_PASS_FAIL.md | BLOCKED | R10 did not produce production-ready evidence in this environment. |
+| production_recovery/R11_PASS_FAIL.md | BLOCKED | R11 did not produce production-ready MPI consistency evidence in this environment. |
+| production_recovery/R12_PASS_FAIL.md | BLOCKED | R12 overall closure is blocked. |
+| production_recovery/R12_evidence/R12_FINAL_VALIDATION_MATRIX.md | FAIL | Final validation matrix did not close. |
+| production_recovery/R12_evidence/R12_FINAL_CLOSURE_REPORT.md | FAIL | Final closure report did not close. |
+
+## Extracted grep evidence
+
+### production_recovery/R10_PASS_FAIL.md
+```text
+3:Result: BLOCKED
+```
+
+### production_recovery/R11_PASS_FAIL.md
+```text
+3:Result: BLOCKED
+```
+
+### production_recovery/R12_PASS_FAIL.md
+```text
+3:Result: BLOCKED
+```
+
+### production_recovery/R12_evidence/R12_FINAL_VALIDATION_MATRIX.md
+```text
+3:Result: FAIL
+16:R12 is FAIL because the environment could not configure/build with mpif90, helper checks did not run, R11 rerun evidence is not PASS, and no no-fibre np=1/2/4 runs completed.
+```
+
+### production_recovery/R12_evidence/R12_FINAL_CLOSURE_REPORT.md
+```text
+3:Result: FAIL
+5:R0-R12 Production Recovery validation matrix is not closed in this environment. Required helper-chain, R11 rerun, no-fibre baseline, and restart/statistics/visualization smoke evidence did not reach PASS.
+```
+
+## Audit conclusion
+
+R10/R11/R12 evidence does not support immediate production DNS-FSI paper runs. The prior recovery chain is BLOCKED/FAIL at closure level, so P0.0 records production-run status as BLOCKED.
