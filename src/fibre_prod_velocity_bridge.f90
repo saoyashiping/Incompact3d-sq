@@ -13,6 +13,7 @@ module fibre_prod_velocity_bridge
   public :: fibre_prod_velocity_sample_allocate
   public :: fibre_prod_velocity_sample_set_points
   public :: fibre_prod_velocity_bridge_sample
+  public :: fibre_prod_velocity_bridge_sample_points
   public :: fibre_prod_velocity_sample_finalize
   public :: fibre_prod_velocity_bridge_env_enabled
   public :: fibre_prod_velocity_bridge_sample_runtime_unit_grid
@@ -114,6 +115,29 @@ contains
     end do
     deallocate(velocity_field)
   end subroutine fibre_prod_velocity_bridge_sample
+
+
+  subroutine fibre_prod_velocity_bridge_sample_points(grid, ux, uy, uz, points, sampled_u, status)
+    type(fibre_prod_grid_type), intent(in) :: grid
+    real(dp), intent(in) :: ux(:, :, :)
+    real(dp), intent(in) :: uy(:, :, :)
+    real(dp), intent(in) :: uz(:, :, :)
+    real(dp), intent(in) :: points(:, :)
+    real(dp), intent(out) :: sampled_u(:, :)
+    integer, intent(out) :: status
+    type(fibre_prod_velocity_sample_type) :: sample
+
+    status = 0
+    if (size(points, 2) /= 3 .or. size(sampled_u, 2) /= 3 .or. size(points, 1) /= size(sampled_u, 1)) then
+      status = 10
+      return
+    end if
+    call fibre_prod_velocity_sample_allocate(sample, size(points, 1), status)
+    if (status == 0) call fibre_prod_velocity_sample_set_points(sample, points, status)
+    if (status == 0) call fibre_prod_velocity_bridge_sample(grid, ux, uy, uz, sample, status)
+    if (status == 0) sampled_u = sample%u
+    call fibre_prod_velocity_sample_finalize(sample)
+  end subroutine fibre_prod_velocity_bridge_sample_points
 
   subroutine fibre_prod_velocity_sample_finalize(sample)
     type(fibre_prod_velocity_sample_type), intent(inout) :: sample

@@ -19,13 +19,3 @@ Added `fibre_prod_velocity_bridge.f90` to `xcompact3d` and added the `fibre_prod
 ## Production readiness boundary
 
 P0.4 verifies one-way velocity sampling mechanics. It does not mean production DNS-FSI is ready.
-
-## P0.4 repair addendum
-
-The original P0.4 attempt failed before dynamic validation because two static integration requirements were incomplete:
-
-- `xcompact3d.f90` called the velocity sampling bridge but did not import `fibre_prod_velocity_bridge` or declare/initialize the velocity sampling guard variables.
-- `src/CMakeLists.txt` did not include `fibre_prod_velocity_bridge.f90` in the `xcompact3d` target and did not define the `fibre_prod_velocity_bridge_check` target.
-
-This repair adds only the missing one-way diagnostic integration pieces. It does not modify pressure/projection/RK3/channel-forcing, does not generate feedback force, and does not make the code production DNS-FSI ready.
-
