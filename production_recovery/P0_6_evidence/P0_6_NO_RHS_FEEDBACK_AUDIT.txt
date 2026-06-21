@@ -1,0 +1,3 @@
+P0.6 no RHS feedback audit
+Static audit confirms the candidate module does not call RHS adapter, does not call main_hook force-buffer-to-RHS, and does not write force-buffer components.
+Dynamic evidence verifies velocity/RHS/force-buffer no-contamination when fibre_prod_hydro_input_candidate_check emits PASS.

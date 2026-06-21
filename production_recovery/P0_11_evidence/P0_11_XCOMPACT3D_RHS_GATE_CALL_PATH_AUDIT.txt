@@ -1,0 +1,42 @@
+/workspace/Incompact3d-sq/src/xcompact3d.f90:78:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled, &
+/workspace/Incompact3d-sq/src/xcompact3d.f90:79:       fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/xcompact3d.f90:101:  logical :: fibre_prod_force_buffer_rhs_gate_enabled
+/workspace/Incompact3d-sq/src/xcompact3d.f90:111:  integer :: fibre_prod_force_buffer_rhs_gate_status
+/workspace/Incompact3d-sq/src/xcompact3d.f90:185:  fibre_prod_force_buffer_rhs_gate_enabled = fibre_prod_force_buffer_rhs_gate_env_enabled()
+/workspace/Incompact3d-sq/src/xcompact3d.f90:268:             fibre_prod_force_buffer_rhs_gate_enabled) then
+/workspace/Incompact3d-sq/src/xcompact3d.f90:269:           call fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux1,uy1,uz1,dux1(:,:,:,1),duy1(:,:,:,1), &
+/workspace/Incompact3d-sq/src/xcompact3d.f90:270:                duz1(:,:,:,1), fibre_prod_force_buffer_rhs_gate_status)
+/workspace/Incompact3d-sq/src/xcompact3d.f90:271:           if (fibre_prod_force_buffer_rhs_gate_status /= 0) fibre_prod_force_buffer_rhs_gate_enabled = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:1:module fibre_prod_force_buffer_rhs_gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:45:  public :: fibre_prod_force_buffer_rhs_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:46:  public :: fibre_prod_force_buffer_rhs_gate_init
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:47:  public :: fibre_prod_force_buffer_rhs_gate_apply
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:48:  public :: fibre_prod_force_buffer_rhs_gate_check_linear_response
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:49:  public :: fibre_prod_force_buffer_rhs_gate_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:50:  public :: fibre_prod_force_buffer_rhs_gate_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:51:  public :: fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:53:  type :: fibre_prod_force_buffer_rhs_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:68:  end type fibre_prod_force_buffer_rhs_gate_type
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:72:  subroutine fibre_prod_force_buffer_rhs_gate_init(gate, nx, ny, nz, lambda_fsi, penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:73:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:82:    call fibre_prod_force_buffer_rhs_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:103:  end subroutine fibre_prod_force_buffer_rhs_gate_init
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:105:  subroutine fibre_prod_force_buffer_rhs_gate_apply(gate, config, rhs_x, rhs_y, rhs_z, force_buffer, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:106:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:200:  end subroutine fibre_prod_force_buffer_rhs_gate_apply
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:202:  subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response(gate, rhs_increment_1, rhs_increment_2, &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:204:    type(fibre_prod_force_buffer_rhs_gate_type), intent(in) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:230:  end subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:232:  subroutine fibre_prod_force_buffer_rhs_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:233:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:249:  end subroutine fibre_prod_force_buffer_rhs_gate_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:251:  logical function fibre_prod_force_buffer_rhs_gate_env_enabled() result(enabled)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:257:    call get_environment_variable('FIBRE_PROD_FORCE_BUFFER_RHS_GATE_ENABLE', raw, length=length, status=env_status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:263:  end function fibre_prod_force_buffer_rhs_gate_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:265:  subroutine fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux, uy, uz, rhs_x, rhs_y, rhs_z, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:275:    type(fibre_prod_force_buffer_rhs_gate_type) :: gate
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:293:      call fibre_prod_force_buffer_rhs_gate_init(gate, size(rhs_x, 1), size(rhs_x, 2), size(rhs_x, 3), &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:296:    if (status == 0) call fibre_prod_force_buffer_rhs_gate_apply(gate, config, rhs_x, rhs_y, rhs_z, force_buffer, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:297:    call fibre_prod_force_buffer_rhs_gate_finalize(gate)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:303:  end subroutine fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:396:end module fibre_prod_force_buffer_rhs_gate

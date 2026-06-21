@@ -1,0 +1,39 @@
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:48:  public :: fibre_prod_force_buffer_rhs_gate_check_linear_response
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:61:    real(dp) :: penalty_beta = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:72:  subroutine fibre_prod_force_buffer_rhs_gate_init(gate, nx, ny, nz, lambda_fsi, penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:78:    real(dp), intent(in) :: penalty_beta
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:91:    if (.not. ieee_is_finite(penalty_beta)) then
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:100:    gate%penalty_beta = penalty_beta
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:101:    gate%expected_scale = lambda_fsi * penalty_beta
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:175:    scale = config%lambda_fsi * config%penalty_beta
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:186:    gate%penalty_beta = config%penalty_beta
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:202:  subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response(gate, rhs_increment_1, rhs_increment_2, &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:203:                                                                    lambda_1, lambda_2, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:208:    real(dp), intent(in) :: lambda_2
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:210:    real(dp) :: expected_ratio
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:222:    if (.not. ieee_is_finite(lambda_1) .or. .not. ieee_is_finite(lambda_2) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:223:        lambda_1 <= 0.0_dp .or. lambda_2 <= 0.0_dp) then
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:227:    expected_ratio = lambda_2 / lambda_1
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:228:    max_error = maxval(abs(rhs_increment_2 - expected_ratio * rhs_increment_1))
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:230:  end subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:242:    gate%penalty_beta = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:292:      call read_env_real('FIBRE_PROD_PENALTY_BETA', config%penalty_beta, 1.0_dp)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate.f90:294:                                                config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:14:                                               fibre_prod_force_buffer_rhs_gate_check_linear_response, &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:33:  real(dp) :: inc_lambda1(3,3,3), inc_lambda2(3,3,3), inc_beta1(3,3,3), inc_beta2(3,3,3)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:65:  config%enabled = .true.; config%lambda_fsi = 0.0_dp; config%penalty_beta = 2.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:66:  call fibre_prod_force_buffer_rhs_gate_init(gate, 3, 3, 3, config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:72:  config%lambda_fsi = 1.0e-3_dp; config%penalty_beta = 2.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:74:  call fibre_prod_force_buffer_rhs_gate_init(gate, 3, 3, 3, config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:80:  call require(maxval(abs(inc_lambda1 - config%lambda_fsi * config%penalty_beta * force_buffer%fx)) <= 1.0e-12_dp, &
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:86:  config%lambda_fsi = 2.0e-3_dp; config%penalty_beta = 2.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:88:  call fibre_prod_force_buffer_rhs_gate_init(gate, 3, 3, 3, config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:92:  call fibre_prod_force_buffer_rhs_gate_check_linear_response(gate, inc_lambda1, inc_lambda2, 1.0e-3_dp, 2.0e-3_dp, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:93:  call require(status == 0, 'lambda linear response failed')
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:95:  config%lambda_fsi = 1.0e-3_dp; config%penalty_beta = 1.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:97:  call fibre_prod_force_buffer_rhs_gate_init(gate, 3, 3, 3, config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:100:  inc_beta1 = rhs_x - rhs0_x
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:101:  config%penalty_beta = 2.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:103:  call fibre_prod_force_buffer_rhs_gate_init(gate, 3, 3, 3, config%lambda_fsi, config%penalty_beta, status)
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:106:  inc_beta2 = rhs_x - rhs0_x
+/workspace/Incompact3d-sq/src/fibre_prod_force_buffer_rhs_gate_check.f90:107:  call require(maxval(abs(inc_beta2 - 2.0_dp * inc_beta1)) <= 1.0e-12_dp, 'penalty-beta linear response failed')

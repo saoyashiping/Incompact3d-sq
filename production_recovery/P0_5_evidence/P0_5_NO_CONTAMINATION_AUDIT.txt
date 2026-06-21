@@ -1,0 +1,3 @@
+# P0.5 No-Contamination Audit
+
+Dynamic no-contamination evidence is provided by fibre_prod_state_velocity_attachment_check when it emits P0_5_STATE_VELOCITY_ATTACHMENT_CHECK PASS.

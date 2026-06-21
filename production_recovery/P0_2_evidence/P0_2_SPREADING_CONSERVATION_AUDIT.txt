@@ -1,0 +1,11 @@
+# P0.2 Spreading Conservation Audit
+
+The new `fibre_prod_force_buffer_rhs_path_check` performs the conservation micro-check:
+
+1. Initializes a small structured grid.
+2. Allocates a `fibre_prod_force_buffer_type`.
+3. Calls `fibre_prod_spread_point_force` with a Lagrangian point force.
+4. Calls `fibre_prod_force_buffer_total_force` and checks that the volume-integrated Eulerian force-density buffer matches the input Lagrangian force.
+5. Routes the buffer through the main hook and checks that volume-integrated RHS equals `lambda_fsi * penalty_beta *` the integrated force buffer.
+
+The check rejects uniform whole-domain RHS increments and also covers lambda=0 no-op and invalid-buffer blocking.

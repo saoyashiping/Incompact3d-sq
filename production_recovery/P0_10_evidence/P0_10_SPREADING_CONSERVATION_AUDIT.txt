@@ -1,0 +1,13 @@
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:62:    real(dp) :: net_lagrangian_force(3) = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:63:    real(dp) :: net_eulerian_force(3) = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:64:    real(dp) :: conservation_error(3) = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:138:    spread%net_lagrangian_force = sum(reaction_force, dim=1)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:139:    call compute_eulerian_net_force(grid, force_buffer, spread%net_eulerian_force)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:140:    spread%conservation_error = spread%net_eulerian_force - spread%net_lagrangian_force
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:163:        .not. all(ieee_is_finite(spread%net_lagrangian_force)) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:164:        .not. all(ieee_is_finite(spread%net_eulerian_force)) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:165:        .not. all(ieee_is_finite(spread%conservation_error))) then
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:183:    spread%net_lagrangian_force = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:184:    spread%net_eulerian_force = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:185:    spread%conservation_error = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:107:  call require(maxval(abs(spread%conservation_error)) <= 1.0e-8_dp, 'spreading conservation failed')
