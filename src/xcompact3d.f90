@@ -75,6 +75,8 @@ program xcompact3d
   use fibre_prod_reaction_force_candidate, only : fibre_prod_reaction_force_candidate_env_enabled
   use fibre_prod_reaction_spreading_buffer, only : fibre_prod_reaction_spreading_buffer_env_enabled, &
        fibre_prod_reaction_spreading_buffer_runtime_diagnostic
+  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_env_enabled, &
+       fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
 
   implicit none
 
@@ -96,6 +98,7 @@ program xcompact3d
   logical :: fibre_prod_structure_commit_gate_enabled
   logical :: fibre_prod_reaction_force_candidate_enabled
   logical :: fibre_prod_reaction_spreading_enabled
+  logical :: fibre_prod_force_buffer_rhs_gate_enabled
   integer :: stage9_8_checkpoint_size
   integer :: fibre_prod_r10_status
   integer :: fibre_prod_velocity_status
@@ -105,6 +108,7 @@ program xcompact3d
   integer :: fibre_prod_structure_dry_step_status
   integer :: fibre_prod_structure_commit_gate_status
   integer :: fibre_prod_reaction_spreading_status
+  integer :: fibre_prod_force_buffer_rhs_gate_status
   real(real64) :: fibre_prod_runtime_lambda
   type(fibre_prod_runtime_bridge_type) :: fibre_prod_bridge
 
@@ -178,6 +182,7 @@ program xcompact3d
   fibre_prod_structure_commit_gate_enabled = fibre_prod_structure_commit_gate_env_enabled()
   fibre_prod_reaction_force_candidate_enabled = fibre_prod_reaction_force_candidate_env_enabled()
   fibre_prod_reaction_spreading_enabled = fibre_prod_reaction_spreading_buffer_env_enabled()
+  fibre_prod_force_buffer_rhs_gate_enabled = fibre_prod_force_buffer_rhs_gate_env_enabled()
   if ((.not. fibre_prod_r10_hook_ready) .and. nrank == 0) then
      write(*,'(A,I0)') '[R10] fibre production main hook disabled, status=', fibre_prod_r10_status
   endif
@@ -258,6 +263,12 @@ program xcompact3d
         if (fibre_prod_reaction_force_candidate_enabled .and. fibre_prod_reaction_spreading_enabled) then
            call fibre_prod_reaction_spreading_buffer_runtime_diagnostic(ux1,uy1,uz1, fibre_prod_reaction_spreading_status)
            if (fibre_prod_reaction_spreading_status /= 0) fibre_prod_reaction_spreading_enabled = .false.
+        endif
+        if (fibre_prod_reaction_force_candidate_enabled .and. fibre_prod_reaction_spreading_enabled .and. &
+             fibre_prod_force_buffer_rhs_gate_enabled) then
+           call fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux1,uy1,uz1,dux1(:,:,:,1),duy1(:,:,:,1), &
+                duz1(:,:,:,1), fibre_prod_force_buffer_rhs_gate_status)
+           if (fibre_prod_force_buffer_rhs_gate_status /= 0) fibre_prod_force_buffer_rhs_gate_enabled = .false.
         endif
         if (fibre_prod_r10_hook_ready) then
            if (.not. fibre_prod_bridge_initialized) then
