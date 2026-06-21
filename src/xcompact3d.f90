@@ -4,6 +4,7 @@
 
 program xcompact3d
 
+  use, intrinsic :: iso_fortran_env, only : real64
   use var
   use case
 
@@ -54,7 +55,17 @@ program xcompact3d
        stage15_production_structure_hook_apply, &
        stage15_production_structure_hook_finalize
   use fibre_prod_main_hook, only : fibre_prod_main_hook_init, &
-       fibre_prod_main_hook_apply, fibre_prod_main_hook_finalize
+       fibre_prod_main_hook_apply, fibre_prod_main_hook_finalize, &
+       fibre_prod_main_hook_get_runtime_config_status
+  use fibre_prod_runtime_bridge, only : fibre_prod_runtime_bridge_type, &
+       fibre_prod_runtime_bridge_init_from_rhs, fibre_prod_runtime_bridge_apply_lambda0_noop, &
+       fibre_prod_runtime_bridge_finalize
+  use fibre_prod_velocity_bridge, only : fibre_prod_velocity_bridge_env_enabled, &
+       fibre_prod_velocity_bridge_sample_runtime_unit_grid
+  use fibre_prod_state_velocity_attachment, only : fibre_prod_state_velocity_attachment_env_enabled, &
+       fibre_prod_state_velocity_attachment_runtime_unit_grid
+  use fibre_prod_hydro_input_candidate, only : fibre_prod_hydro_input_candidate_env_enabled, &
+       fibre_prod_hydro_input_candidate_runtime_diagnostic
 
   implicit none
 
@@ -67,8 +78,17 @@ program xcompact3d
   logical :: stage10_reg, stage11_oneway_reg, stage12_feedback_reg, stage13_force_density_reg
   logical :: stage14_rhs_reg, stage15_structure_hook_reg
   logical :: fibre_prod_r10_hook_ready, fibre_prod_r10_hook_initialized
+  logical :: fibre_prod_bridge_initialized, fibre_prod_bridge_enabled
+  logical :: fibre_prod_velocity_sample_enabled
+  logical :: fibre_prod_state_velocity_attach_enabled
+  logical :: fibre_prod_hydro_input_candidate_enabled
   integer :: stage9_8_checkpoint_size
   integer :: fibre_prod_r10_status
+  integer :: fibre_prod_velocity_status
+  integer :: fibre_prod_state_velocity_status
+  integer :: fibre_prod_hydro_input_status
+  real(real64) :: fibre_prod_runtime_lambda
+  type(fibre_prod_runtime_bridge_type) :: fibre_prod_bridge
 
   call init_xcompact3d()
 
@@ -131,6 +151,10 @@ program xcompact3d
   call fibre_prod_main_hook_init(fibre_prod_r10_status)
   fibre_prod_r10_hook_initialized = (fibre_prod_r10_status == 0)
   fibre_prod_r10_hook_ready = fibre_prod_r10_hook_initialized
+  fibre_prod_bridge_initialized = .false.
+  fibre_prod_velocity_sample_enabled = fibre_prod_velocity_bridge_env_enabled()
+  fibre_prod_state_velocity_attach_enabled = fibre_prod_state_velocity_attachment_env_enabled()
+  fibre_prod_hydro_input_candidate_enabled = fibre_prod_hydro_input_candidate_env_enabled()
   if ((.not. fibre_prod_r10_hook_ready) .and. nrank == 0) then
      write(*,'(A,I0)') '[R10] fibre production main hook disabled, status=', fibre_prod_r10_status
   endif
@@ -141,6 +165,7 @@ program xcompact3d
      if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
      if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
      if (stage15_structure_hook_reg) call stage15_production_structure_hook_finalize()
+     if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
      if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      call finalise_xcompact3d()
      stop
@@ -183,9 +208,36 @@ program xcompact3d
         call stage9_6_record_rhs_finite_status(drho1,dux1,duy1,duz1)
         if (stage14_rhs_reg) call stage14_production_rhs_injection_apply( &
              dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1))
+        if (fibre_prod_velocity_sample_enabled) then
+           call fibre_prod_velocity_bridge_sample_runtime_unit_grid(ux1,uy1,uz1, fibre_prod_velocity_status)
+           if (fibre_prod_velocity_status /= 0) fibre_prod_velocity_sample_enabled = .false.
+        endif
+        if (fibre_prod_state_velocity_attach_enabled) then
+           call fibre_prod_state_velocity_attachment_runtime_unit_grid(ux1,uy1,uz1, fibre_prod_state_velocity_status)
+           if (fibre_prod_state_velocity_status /= 0) fibre_prod_state_velocity_attach_enabled = .false.
+        endif
+        if (fibre_prod_hydro_input_candidate_enabled) then
+           call fibre_prod_hydro_input_candidate_runtime_diagnostic(ux1,uy1,uz1, fibre_prod_hydro_input_status)
+           if (fibre_prod_hydro_input_status /= 0) fibre_prod_hydro_input_candidate_enabled = .false.
+        endif
         if (fibre_prod_r10_hook_ready) then
-           call fibre_prod_main_hook_apply(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
-                fibre_prod_r10_status)
+           if (.not. fibre_prod_bridge_initialized) then
+              call fibre_prod_runtime_bridge_init_from_rhs(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
+                   fibre_prod_bridge, fibre_prod_r10_status)
+              fibre_prod_bridge_initialized = (fibre_prod_r10_status == 0)
+           endif
+           if (fibre_prod_bridge_initialized) then
+              call fibre_prod_main_hook_get_runtime_config_status(fibre_prod_bridge_enabled, &
+                   fibre_prod_runtime_lambda, fibre_prod_r10_status)
+              if (fibre_prod_r10_status == 0 .and. ((.not. fibre_prod_bridge_enabled) .or. &
+                   fibre_prod_runtime_lambda == 0.0_real64)) then
+                 call fibre_prod_runtime_bridge_apply_lambda0_noop(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
+                      fibre_prod_bridge, fibre_prod_r10_status)
+              else if (fibre_prod_r10_status == 0) then
+                 call fibre_prod_main_hook_apply(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
+                      fibre_prod_r10_status)
+              endif
+           endif
            if (fibre_prod_r10_status /= 0) then
               if (nrank == 0) write(*,'(A,I0)') '[R10] fibre production main hook apply disabled, status=', fibre_prod_r10_status
               fibre_prod_r10_hook_ready = .false.
@@ -274,7 +326,8 @@ program xcompact3d
           if (nrank==0) write(*,'(A)') "[STAGE9.8] final audit starting"
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
-          if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+          if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
+     if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -293,7 +346,8 @@ program xcompact3d
         if (stage9_9_stop_now) then
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
-           if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+           if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
+     if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -313,7 +367,8 @@ program xcompact3d
            call stage9_7_record_coarse_io_path(1,1,1,1)
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
-           if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+           if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
+     if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -362,6 +417,7 @@ program xcompact3d
      call stage9_9_final_audit()
   endif
 
+  if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
   if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
   if (stage11_oneway_reg) call stage11_production_oneway_finalize()
@@ -390,6 +446,7 @@ subroutine init_xcompact3d()
        stage9_8_record_restart_read_path, stage9_8_record_restart_file_status, &
        stage9_8_record_signature
 
+  use, intrinsic :: iso_fortran_env, only : real64
   use var
 
   use navier, only : calc_divu_constraint

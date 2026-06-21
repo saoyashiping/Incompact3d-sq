@@ -1,0 +1,3 @@
+# P0.4 Interpolation Accuracy Audit
+
+Dynamic interpolation accuracy evidence is provided by fibre_prod_velocity_bridge_check when it emits P0_4_VELOCITY_BRIDGE_CHECK PASS.

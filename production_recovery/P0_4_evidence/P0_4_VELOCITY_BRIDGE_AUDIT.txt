@@ -1,0 +1,3 @@
+# P0.4 Velocity Bridge Audit
+
+Static audit confirms the velocity bridge source exists, xcompact3d imports it, and the bridge does not call RHS feedback APIs.

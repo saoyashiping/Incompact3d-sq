@@ -1,0 +1,45 @@
+# P0.4 Validation Result
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+
+## Static velocity bridge audits
+PASS: velocity bridge source exists
+PASS: xcompact3d imports fibre_prod_velocity_bridge
+PASS: xcompact3d velocity bridge call path reads ux1/uy1/uz1
+PASS: velocity bridge does not call RHS adapter
+PASS: velocity bridge does not call force-buffer-to-RHS hook
+PASS: uniform contribution old path is absent
+PASS: CMake target fibre_prod_velocity_bridge_check exists
+
+## CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+FAIL: failed to build xcompact3d
+FAIL: failed to build fibre_prod_main_hook_check
+FAIL: failed to build fibre_prod_force_buffer_rhs_path_check
+FAIL: failed to build fibre_prod_runtime_bridge_check
+FAIL: failed to build fibre_prod_velocity_bridge_check
+
+## Run checks
+FAIL: skipping executable runs because build failed
+
+FAIL
+
+## P0.4 pass/fail file
+# P0.4 Runtime Velocity Interpolation Bridge PASS/FAIL
+
+Result: FAIL
+
+Meaning: PASS means the production runtime velocity bridge can sample xcompact3d velocity fields at Lagrangian fibre points in one-way diagnostic mode, while preserving velocity/RHS no-contamination and keeping P0.2/P0.3 validations intact. It does NOT mean production DNS-FSI is ready.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: P0.5 production fibre state initialization and one-way sampled velocity attachment.
