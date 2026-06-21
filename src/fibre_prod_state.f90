@@ -24,6 +24,7 @@ module fibre_prod_state
   public :: fibre_prod_state_allocate_structure_u
   public :: fibre_prod_state_attach_structure_u
   public :: fibre_prod_state_commit_structure_trial
+  public :: fibre_prod_state_get_structure_input_force
 
   type :: fibre_prod_state_type
     integer :: nfibre = 0
@@ -410,6 +411,25 @@ contains
     call fibre_prod_state_attach_structure_u(state, u_trial, status)
     if (status /= 0) status = 4
   end subroutine fibre_prod_state_commit_structure_trial
+
+
+  subroutine fibre_prod_state_get_structure_input_force(state, structure_input_force, status)
+    type(fibre_prod_state_type), intent(in) :: state
+    real(real64), intent(out) :: structure_input_force(:, :)
+    integer, intent(out) :: status
+
+    status = 0
+    if (.not. state%has_structure_input_force .or. .not. allocated(state%structure_input_force)) then
+      status = 1
+      return
+    end if
+    if (size(structure_input_force, 1) /= size(state%structure_input_force, 1) .or. &
+        size(structure_input_force, 2) /= 3) then
+      status = 2
+      return
+    end if
+    structure_input_force = state%structure_input_force
+  end subroutine fibre_prod_state_get_structure_input_force
 
 
   subroutine fibre_prod_state_get_structure_coordinates(state, x, status)
