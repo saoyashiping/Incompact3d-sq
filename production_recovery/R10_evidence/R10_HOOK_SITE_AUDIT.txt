@@ -1,0 +1,39 @@
+# R10 Hook Site Audit
+
+## Hook insertion location
+
+R10 inserts the controlled production fibre hook in `src/xcompact3d.f90` immediately after `calculate_transeq_rhs(...)`, after the existing Stage 14 RHS injection candidate, and before `int_time(...)` advances the state.
+
+## Hook context
+
+The surrounding sequence is:
+
+1. `calculate_transeq_rhs(...)` computes transient RHS arrays `drho1`, `dux1`, `duy1`, `duz1`, and `dphi1`.
+2. Stage 9.6 records RHS finite status.
+3. Stage 14 may apply its already-existing RHS injection candidate to `dux1(:,:,:,1)`, `duy1(:,:,:,1)`, and `duz1(:,:,:,1)`.
+4. R10 applies `fibre_prod_main_hook_apply(...)` to the same first RHS time slice under strict runtime gating.
+5. Existing LMN momentum conversion, `int_time(...)`, pressure/projection, correction, statistics, restart, and visualization flow continue unchanged.
+
+## Why this is an RHS/velocity-update safe position
+
+The hook operates on the already-computed RHS buffers before `int_time(...)`, so it does not bypass the time integrator.  It uses the same first RHS time slice interface already exposed to Stage 14, and it does not edit velocity arrays directly after projection.
+
+## Why lambda=0 does not contaminate
+
+`fibre_prod_rhs_adapter_apply(...)` returns without writing when `enabled=false` or `lambda_fsi == 0.0_dp`.  It still records before/after signatures so diagnostics can prove no-contamination when the hook is called with `FIBRE_PROD_ENABLE=1` and `FIBRE_PROD_LAMBDA=0`.
+
+## Why pressure/projection is not broken
+
+The hook is placed before `int_time(...)`, `pre_correc(...)`, `calc_divu_constraint(...)`, `solve_poisson(...)`, and `cor_vel(...)`.  Those pressure/projection calls remain in their original order and are not modified.
+
+## Why RK3 is not broken
+
+R10 does not modify `iadvance_time`, `itr`, RK coefficients, or `int_time(...)`.  It only adds a gated RHS contribution before the existing time integrator call.
+
+## Why restart/statistics/visualization are not broken
+
+R10 does not modify `restart(...)`, `simu_stats(...)`, or `postprocessing(...)`.  Existing calls remain after the substep loop in their original positions.
+
+## Evidence boundary
+
+This audit identifies a controlled hook site only.  It does not certify np=1/2/4 MPI consistency, restart/statistics/visualization final validation, paper-grade validation, or production DNS-FSI final closure.

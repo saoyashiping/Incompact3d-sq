@@ -63,6 +63,10 @@ add_executable(xcompact3d
                     fibre_stage15_config.f90
                     fibre_stage15_structure_state.f90
                     fibre_stage15_production_structure_hook.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -167,6 +171,16 @@ add_executable(fibre_prod_fibre_collision_check
                     fibre_prod_fibre_collision.f90
                     fibre_prod_collision_diagnostics.f90
                     fibre_prod_fibre_collision_check.f90)
+
+
+
+add_executable(fibre_prod_main_hook_check
+                    fibre_prod_config.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_main_hook_check.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
