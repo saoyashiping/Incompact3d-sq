@@ -213,8 +213,15 @@ contains
       rhs_increment_x = rhs_x - rhs0_x
       scale = lambda_fsi * penalty_beta
       if (lambda_fsi == 0.0_dp .and. maxval(abs(rhs_increment_x)) /= 0.0_dp) status = 40
-      if (lambda_fsi > 0.0_dp .and. maxval(abs(rhs_increment_x)) <= 0.0_dp) status = 41
       if (status == 0 .and. maxval(abs(rhs_increment_x - scale * force_buffer%fx)) > 1.0e-10_dp) status = 42
+      ! P0_12/P0_13 closure: a nonzero RHS increment is required only when the
+      ! Eulerian force-buffer component being checked is nonzero.  The
+      ! zero-force proxy case deliberately sets beta_hydro=0, producing a zero
+      ! reaction force, zero force_buffer%fx, and therefore zero RHS increment
+      ! even when lambda_fsi>0.  That is a valid no-response proof, not a fail.
+      if (status == 0 .and. lambda_fsi > 0.0_dp .and. &
+          maxval(abs(force_buffer%fx)) > 0.0_dp .and. &
+          maxval(abs(rhs_increment_x)) <= 0.0_dp) status = 41
     end if
 
     if (status == 0) then
