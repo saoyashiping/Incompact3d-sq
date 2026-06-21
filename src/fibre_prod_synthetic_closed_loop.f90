@@ -212,12 +212,9 @@ contains
     if (status == 0) then
       rhs_increment_x = rhs_x - rhs0_x
       scale = lambda_fsi * penalty_beta
-      ! P0_12: RHS increments are required only when the force buffer is nonzero.
-      ! A valid zero-force proxy case must pass with zero force buffer and zero RHS response.
       if (lambda_fsi == 0.0_dp .and. maxval(abs(rhs_increment_x)) /= 0.0_dp) status = 40
+      if (lambda_fsi > 0.0_dp .and. maxval(abs(rhs_increment_x)) <= 0.0_dp) status = 41
       if (status == 0 .and. maxval(abs(rhs_increment_x - scale * force_buffer%fx)) > 1.0e-10_dp) status = 42
-      if (status == 0 .and. lambda_fsi > 0.0_dp .and. maxval(abs(force_buffer%fx)) > 0.0_dp .and. &
-          maxval(abs(rhs_increment_x)) <= 0.0_dp) status = 41
     end if
 
     if (status == 0) then
