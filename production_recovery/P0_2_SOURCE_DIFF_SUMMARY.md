@@ -1,27 +1,33 @@
 # P0.2 Source Diff Summary
 
-## Modified files
+## Files modified
 
-### `src/fibre_prod_main_hook.f90`
+- `src/fibre_prod_rhs_adapter.f90`
+- `src/fibre_prod_main_hook_check.f90`
+- `production_recovery/P0_2_PASS_FAIL.md`
+- `production_recovery/P0_2_evidence/P0_2_VALIDATION_COMMAND.sh`
+- `production_recovery/P0_2_SOURCE_DIFF_SUMMARY.md`
+- `production_recovery/P0_2_evidence/P0_2_FORCE_BUFFER_TO_RHS_AUDIT.txt`
 
-Added the public `fibre_prod_main_hook_apply_force_buffer` API. It validates hook initialization, runtime config, RHS shape, and `fibre_prod_force_buffer_type` allocation/finiteness/shape before delegating to the RHS adapter with `force_buffer%fx`, `force_buffer%fy`, and `force_buffer%fz`.
+## Fixes applied
 
-### `src/fibre_prod_main_hook_check.f90`
+1. The RHS adapter now applies the explicit production scaling
+   `lambda_fsi * penalty_beta * force_buffer` when a valid force-density buffer is supplied.
 
-Preserved the P0.1 checks and added a buffer-level API smoke check that constructs a small `fibre_prod_force_buffer_type`, calls `fibre_prod_main_hook_apply_force_buffer`, checks scaled RHS increments, and emits `P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS`.
+2. The previous P0.2 failure at `ERROR STOP 12` was caused by a mismatch between the P0.2 check and the adapter implementation: the check expected scaled RHS increments, while the adapter added raw `force_x/force_y/force_z` values. This is now fixed.
 
-### `src/fibre_prod_rhs_adapter.f90`
+3. `fibre_prod_main_hook_check.f90` now emits both:
+   - `P0_1_FIBRE_PROD_MAIN_HOOK_CHECK PASS`
+   - `P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS`
 
-Kept the P0.1 safety gate and updated the explicit force-buffer path to apply `lambda_fsi * penalty_beta` scaling to nonzero force-density buffers. The old uniform RHS contribution path was not restored.
+4. The P0.2 validation script now passes the user's real 2decomp-fft/Xcompact3D dependency path to CMake by default:
+   `/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4`.
 
-### `src/fibre_prod_force_buffer_rhs_path_check.f90`
+5. The P0.2 validation script no longer trusts a prewritten static PASS file. It rewrites `production_recovery/P0_2_PASS_FAIL.md` to PASS or FAIL based on the actual validation result.
 
-Added the P0.2 core micro-check. It initializes a small grid, allocates and resets a production force buffer, generates a buffer through IBM spreading, verifies force conservation, routes the buffer through the main hook into RHS, checks scaled RHS equality and volume-integrated RHS conservation, checks lambda=0 no-op, and checks invalid-buffer blocking.
+## Preserved safety boundaries
 
-### `src/CMakeLists.txt`
-
-Added the `fibre_prod_force_buffer_rhs_path_check` target and updated `fibre_prod_main_hook_check` dependencies so both hook-level and buffer-path checks can compile with the buffer-level main-hook API.
-
-## Production readiness boundary
-
-P0.2 PASS means the IBM-generated Eulerian force-density buffer can be passed through the production main hook into DNS RHS in a controlled micro-check. It does not mean production DNS-FSI is ready.
+- No pressure/projection/RK3/channel-forcing logic was modified.
+- No long production DNS is run in P0.2.
+- The old uniform RHS contribution path is not restored.
+- `Production-run status` remains `STILL BLOCKED` after P0.2 PASS.
