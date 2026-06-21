@@ -1,0 +1,37 @@
+# R11 build log
+ROOT_DIR=/workspace/Incompact3d-sq
+BUILD_DIR=/workspace/Incompact3d-sq/build_r11_mpi_consistency
+DECOMP_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+
+## Configure command
+cmake -S . -B "/workspace/Incompact3d-sq/build_r11_mpi_consistency" -DCMAKE_Fortran_COMPILER=mpif90 -DDECOMP2D_ROOT="/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4" -DCMAKE_PREFIX_PATH="/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4"
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  The CMAKE_Fortran_COMPILER:
+
+    mpif90
+
+  is not a full path and was not found in the PATH.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+
+## Build hook-check command
+cmake --build "/workspace/Incompact3d-sq/build_r11_mpi_consistency" --target fibre_prod_main_hook_check -j 2
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+
+## Build xcompact3d command
+cmake --build "/workspace/Incompact3d-sq/build_r11_mpi_consistency" --target xcompact3d -j 2
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+
+## R11 command statuses
+configure_status=1
+hook_build_status=2
+hook_run_status=127
+xcompact_build_status=2

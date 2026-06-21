@@ -1,0 +1,5 @@
+# R10 small-lambda np=1 run log
+BLOCKED: xcompact3d executable was not produced because configure/build did not complete.
+FIBRE_PROD_ENABLE=1
+FIBRE_PROD_LAMBDA=1.0e-8
+FIBRE_PROD_DIAGNOSTICS=1

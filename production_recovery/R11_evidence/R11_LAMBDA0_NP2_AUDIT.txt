@@ -1,0 +1,3 @@
+Result: BLOCKED
+Reason: R11 build/run prerequisites were unavailable or incomplete; configure_status=1, hook_build_status=2, hook_run_status=127, xcompact_build_status=2.
+Required PASS evidence was not produced for lambda=0 np=2.
