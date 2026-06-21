@@ -63,6 +63,28 @@ add_executable(xcompact3d
                     fibre_stage15_config.f90
                     fibre_stage15_structure_state.f90
                     fibre_stage15_production_structure_hook.f90
+                    fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_boundary_conditions.f90
+                    fibre_prod_bending_solver.f90
+                    fibre_prod_tension_solver.f90
+                    fibre_prod_structure_solver.f90
+                    fibre_prod_fsi_config.f90
+                    fibre_prod_fluid_surrogate.f90
+                    fibre_prod_fsi_coupling.f90
+                    fibre_prod_fsi_diagnostics.f90
+                    fibre_prod_wall_geometry.f90
+                    fibre_prod_wall_contact.f90
+                    fibre_prod_wall_contact_diagnostics.f90
+                    fibre_prod_collision_geometry.f90
+                    fibre_prod_fibre_collision.f90
+                    fibre_prod_collision_diagnostics.f90
                     fibre_prod_runtime_config.f90
                     fibre_prod_main_diagnostics.f90
                     fibre_prod_rhs_adapter.f90
@@ -176,6 +198,27 @@ add_executable(fibre_prod_fibre_collision_check
 
 add_executable(fibre_prod_main_hook_check
                     fibre_prod_config.f90
+                    fibre_prod_state.f90
+                    fibre_prod_diagnostics.f90
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_boundary_conditions.f90
+                    fibre_prod_bending_solver.f90
+                    fibre_prod_tension_solver.f90
+                    fibre_prod_structure_solver.f90
+                    fibre_prod_fsi_config.f90
+                    fibre_prod_fluid_surrogate.f90
+                    fibre_prod_fsi_coupling.f90
+                    fibre_prod_fsi_diagnostics.f90
+                    fibre_prod_wall_geometry.f90
+                    fibre_prod_wall_contact.f90
+                    fibre_prod_wall_contact_diagnostics.f90
+                    fibre_prod_collision_geometry.f90
+                    fibre_prod_fibre_collision.f90
+                    fibre_prod_collision_diagnostics.f90
                     fibre_prod_runtime_config.f90
                     fibre_prod_main_diagnostics.f90
                     fibre_prod_rhs_adapter.f90

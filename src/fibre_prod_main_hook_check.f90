@@ -19,6 +19,9 @@ program fibre_prod_main_hook_check
   real(dp) :: rhs_x(4, 3, 2)
   real(dp) :: rhs_y(4, 3, 2)
   real(dp) :: rhs_z(4, 3, 2)
+  real(dp) :: force_x(4, 3, 2)
+  real(dp) :: force_y(4, 3, 2)
+  real(dp) :: force_z(4, 3, 2)
   real(dp) :: before_sum
   integer :: modified_cells
   integer :: status
@@ -39,24 +42,38 @@ program fibre_prod_main_hook_check
   call fibre_prod_main_diagnostics_record(diag, config%enabled, config%lambda_fsi, before, after, modified_cells)
   if (.not. diag%no_contamination) error stop 5
 
+  ! P0.1: nonzero lambda without a physical Eulerian force-density buffer must be blocked.
   config%lambda_fsi = 1.0e-8_dp
   call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
-  if (status /= 0 .or. modified_cells <= 0) error stop 6
-  if (sum(rhs_x) + sum(rhs_y) + sum(rhs_z) <= before_sum) error stop 7
+  if (status /= 13 .or. modified_cells /= 0) error stop 6
+  if (sum(rhs_x) + sum(rhs_y) + sum(rhs_z) /= before_sum) error stop 7
+
+  ! P0.1: a finite physical force-density buffer is the only allowed nonzero-lambda RHS path.
+  force_x = 0.0_dp
+  force_y = 0.0_dp
+  force_z = 0.0_dp
+  force_x(2, 2, 1) = 1.0_dp
+  force_y(2, 2, 1) = -0.5_dp
+  force_z(2, 2, 1) = 0.25_dp
+  call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status, &
+                                    force_x, force_y, force_z)
+  if (status /= 0 .or. modified_cells /= 1) error stop 8
+  if (sum(rhs_x) + sum(rhs_y) + sum(rhs_z) <= before_sum) error stop 9
   call fibre_prod_main_diagnostics_record(diag, config%enabled, config%lambda_fsi, before, after, modified_cells)
-  if (.not. diag%small_lambda_response) error stop 8
+  if (.not. diag%small_lambda_response) error stop 10
 
   config%lambda_fsi = -1.0_dp
   call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
-  if (status == 0) error stop 9
+  if (status == 0) error stop 11
 
   call fibre_prod_runtime_config_default(config)
   config%enabled = .true.
   config%lambda_fsi = 1.0e-8_dp
   rhs_x(1, 1, 1) = ieee_value(0.0_dp, ieee_quiet_nan)
-  call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
-  if (status == 0) error stop 10
-  if (.not. fibre_prod_main_diagnostics_finite(diag)) error stop 11
+  call fibre_prod_rhs_adapter_apply(config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status, &
+                                    force_x, force_y, force_z)
+  if (status == 0) error stop 12
+  if (.not. fibre_prod_main_diagnostics_finite(diag)) error stop 13
 
-  print *, 'R10_FIBRE_PROD_MAIN_HOOK_CHECK PASS'
+  print *, 'P0_1_FIBRE_PROD_MAIN_HOOK_CHECK PASS'
 end program fibre_prod_main_hook_check
