@@ -45,6 +45,28 @@ not_contains() {
   [[ -f "$file" ]] && ! search_quiet_regex "$pattern" "$file"
 }
 
+find_built_exe() {
+  local exe="$1"
+  local candidate
+  for candidate in \
+    "$BUILD_DIR/bin/$exe" \
+    "$BUILD_DIR/src/$exe" \
+    "$BUILD_DIR/$exe"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  candidate="$(find "$BUILD_DIR" -type f -name "$exe" -perm -111 2>/dev/null | head -n 1 || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
 log "P0.9 validation started"
 log "ROOT_DIR=$ROOT_DIR"
 log "DECOMP2D_ROOT=$DECOMP2D_ROOT"
@@ -99,8 +121,13 @@ if [[ "$fail" -eq 0 ]]; then
              fibre_prod_velocity_bridge_check fibre_prod_state_velocity_attachment_check \
              fibre_prod_hydro_input_candidate_check fibre_prod_structure_input_handoff_check \
              fibre_prod_structure_dry_step_check fibre_prod_structure_commit_gate_check; do
-    log "Running $exe"
-    "$BUILD_DIR/src/$exe" >> "$RESULT_FILE" 2>&1 || { fail_check "run $exe"; break; }
+    if exe_path="$(find_built_exe "$exe")"; then
+      log "Running $exe ($exe_path)"
+      "$exe_path" >> "$RESULT_FILE" 2>&1 || { fail_check "run $exe"; break; }
+    else
+      fail_check "missing executable $exe under $BUILD_DIR"
+      break
+    fi
   done
 fi
 
