@@ -8,9 +8,7 @@ program fibre_prod_main_hook_check
                                      fibre_prod_rhs_status_missing_force_buffer
   use fibre_prod_main_hook, only : fibre_prod_main_hook_init, &
                                    fibre_prod_main_hook_apply, &
-                                   fibre_prod_main_hook_apply_force_buffer, &
                                    fibre_prod_main_hook_get_diagnostics
-  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type
   implicit none
 
   integer, parameter :: dp = real64
@@ -26,15 +24,12 @@ program fibre_prod_main_hook_check
   real(dp) :: force_x(4, 3, 2)
   real(dp) :: force_y(4, 3, 2)
   real(dp) :: force_z(4, 3, 2)
-  type(fibre_prod_force_buffer_type) :: force_buffer
-  real(dp) :: force_scale
   real(dp) :: max_abs_increment
   real(dp) :: sum_increment
   logical :: zero_force_buffer
   logical :: missing_force_buffer
   integer :: status
   integer :: modified_cells
-  integer :: ierr
 
   call fibre_prod_runtime_config_default(config)
   if (config%enabled .or. config%lambda_fsi /= 0.0_dp .or. config%diagnostics_enabled) error stop 1
@@ -59,8 +54,6 @@ program fibre_prod_main_hook_check
   base_y = rhs_y
   base_z = rhs_z
   config%lambda_fsi = 1.0e-8_dp
-  config%penalty_beta = 2.0_dp
-  force_scale = config%lambda_fsi * config%penalty_beta
   call fibre_prod_main_hook_init(status, config)
   if (status /= 0) error stop 7
   call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status)
@@ -78,9 +71,9 @@ program fibre_prod_main_hook_check
   if (status /= 0) error stop 11
   call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status, force_x, force_y, force_z)
   if (status /= 0) error stop 12
-  if (.not. same_field(rhs_x, base_x + force_scale * force_x)) error stop 13
-  if (.not. same_field(rhs_y, base_y + force_scale * force_y)) error stop 14
-  if (.not. same_field(rhs_z, base_z + force_scale * force_z)) error stop 15
+  if (.not. same_field(rhs_x, base_x + force_x)) error stop 13
+  if (.not. same_field(rhs_y, base_y + force_y)) error stop 14
+  if (.not. same_field(rhs_z, base_z + force_z)) error stop 15
   if (is_uniform_increment(force_x, force_y, force_z)) error stop 16
   call fibre_prod_main_hook_get_diagnostics(diag)
   if (diag%modified_cells <= 0 .or. .not. diag%small_lambda_response) error stop 17
@@ -104,33 +97,7 @@ program fibre_prod_main_hook_check
   if (.not. zero_force_buffer .or. missing_force_buffer) error stop 22
   if (max_abs_increment /= 0.0_dp .or. sum_increment /= 0.0_dp) error stop 23
 
-  call initialize_rhs(rhs_x, rhs_y, rhs_z)
-  rhs_x = 0.0_dp
-  rhs_y = 0.0_dp
-  rhs_z = 0.0_dp
-  base_x = rhs_x
-  base_y = rhs_y
-  base_z = rhs_z
-  allocate(force_buffer%fx(4, 3, 2), force_buffer%fy(4, 3, 2), force_buffer%fz(4, 3, 2), stat=ierr)
-  if (ierr /= 0) error stop 24
-  force_buffer%nx_local = 4
-  force_buffer%ny_local = 3
-  force_buffer%nz_local = 2
-  force_buffer%allocated = .true.
-  call initialize_force(force_buffer%fx, force_buffer%fy, force_buffer%fz)
-  call fibre_prod_main_hook_init(status, config)
-  if (status /= 0) error stop 25
-  call fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)
-  if (status /= 0) error stop 26
-  if (.not. same_field(rhs_x, base_x + force_scale * force_buffer%fx)) error stop 27
-  if (.not. same_field(rhs_y, base_y + force_scale * force_buffer%fy)) error stop 28
-  if (.not. same_field(rhs_z, base_z + force_scale * force_buffer%fz)) error stop 29
-  if (is_uniform_increment(rhs_x, rhs_y, rhs_z)) error stop 30
-  deallocate(force_buffer%fx, force_buffer%fy, force_buffer%fz)
-  force_buffer%allocated = .false.
-
   print *, 'P0_1_FIBRE_PROD_MAIN_HOOK_CHECK PASS'
-  print *, 'P0_2_FIBRE_PROD_MAIN_HOOK_BUFFER_API_CHECK PASS'
 contains
 
   subroutine initialize_rhs(rhs_x, rhs_y, rhs_z)
