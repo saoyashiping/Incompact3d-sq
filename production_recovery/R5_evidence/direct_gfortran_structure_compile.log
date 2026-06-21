@@ -1,0 +1,3 @@
+Command:
+gfortran -c src/fibre_prod_config.f90 src/fibre_prod_state.f90 src/fibre_prod_diagnostics.f90 src/fibre_prod_boundary_conditions.f90 src/fibre_prod_bending_solver.f90 src/fibre_prod_tension_solver.f90 src/fibre_prod_structure_solver.f90 src/fibre_prod_structure_solver_check.f90
+compile_status=0
