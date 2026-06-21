@@ -50,9 +50,9 @@ contains
     status = fibre_prod_runtime_config_validate(runtime_config)
     if (status /= 0) return
     call fibre_prod_rhs_adapter_apply(runtime_config, rhs_x, rhs_y, rhs_z, before, after, modified_cells, status)
-    if (status /= 0) return
     call fibre_prod_main_diagnostics_record(runtime_diagnostics, runtime_config%enabled, &
-                                            runtime_config%lambda_fsi, before, after, modified_cells)
+                                            runtime_config%lambda_fsi, before, after, modified_cells, status)
+    if (status /= 0) return
   end subroutine fibre_prod_main_hook_apply
 
   subroutine fibre_prod_main_hook_finalize(status)

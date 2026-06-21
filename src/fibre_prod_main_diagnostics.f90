@@ -28,6 +28,8 @@ module fibre_prod_main_diagnostics
     logical :: enabled = .false.
     logical :: no_contamination = .true.
     logical :: small_lambda_response = .false.
+    integer :: last_status = 0
+    integer :: failed_calls = 0
     type(fibre_prod_rhs_signature_type) :: before
     type(fibre_prod_rhs_signature_type) :: after
   end type fibre_prod_main_diagnostics_type
@@ -57,17 +59,24 @@ contains
     diag = fibre_prod_main_diagnostics_type()
   end subroutine fibre_prod_main_diagnostics_reset
 
-  subroutine fibre_prod_main_diagnostics_record(diag, enabled, lambda_fsi, before, after, modified_cells)
+  subroutine fibre_prod_main_diagnostics_record(diag, enabled, lambda_fsi, before, after, modified_cells, status_code)
     type(fibre_prod_main_diagnostics_type), intent(inout) :: diag
     logical, intent(in) :: enabled
     real(dp), intent(in) :: lambda_fsi
     type(fibre_prod_rhs_signature_type), intent(in) :: before
     type(fibre_prod_rhs_signature_type), intent(in) :: after
     integer, intent(in) :: modified_cells
+    integer, intent(in), optional :: status_code
     real(dp) :: delta_sum
     real(dp) :: delta_max
+    integer :: local_status
+
+    local_status = 0
+    if (present(status_code)) local_status = status_code
 
     diag%hook_calls = diag%hook_calls + 1
+    diag%last_status = local_status
+    if (local_status /= 0) diag%failed_calls = diag%failed_calls + 1
     diag%enabled = enabled
     diag%lambda_fsi = lambda_fsi
     diag%before = before
@@ -111,6 +120,8 @@ contains
     write(unit_id,'(A,L1)') 'enabled=', diag%enabled
     write(unit_id,'(A,ES24.16)') 'lambda_fsi=', diag%lambda_fsi
     write(unit_id,'(A,I0)') 'modified_cells=', diag%modified_cells
+    write(unit_id,'(A,I0)') 'last_status=', diag%last_status
+    write(unit_id,'(A,I0)') 'failed_calls=', diag%failed_calls
     write(unit_id,'(A,L1)') 'before_finite=', diag%before%finite
     write(unit_id,'(A,L1)') 'after_finite=', diag%after%finite
     write(unit_id,'(A,ES24.16)') 'before_sum=', diag%before%sum_value
@@ -139,10 +150,12 @@ contains
     pass_ok = .false.
     if (trim(mode) == 'lambda0') then
       pass_ok = diag%hook_calls > 0 .and. diag%enabled .and. diag%lambda_fsi == 0.0_dp .and. &
-                diag%modified_cells == 0 .and. diag%no_contamination .and. finite_ok
+                diag%modified_cells == 0 .and. diag%failed_calls == 0 .and. diag%last_status == 0 .and. &
+                diag%no_contamination .and. finite_ok
     else if (trim(mode) == 'smalllambda') then
       pass_ok = diag%hook_calls > 0 .and. diag%enabled .and. diag%lambda_fsi > 0.0_dp .and. &
-                diag%modified_cells > 0 .and. diag%small_lambda_response .and. finite_ok
+                diag%modified_cells > 0 .and. diag%failed_calls == 0 .and. diag%last_status == 0 .and. &
+                diag%small_lambda_response .and. finite_ok
     end if
 
     status = 0
@@ -163,6 +176,8 @@ contains
     write(unit_id,'(A,L1)') 'enabled=', diag%enabled
     write(unit_id,'(A,ES24.16)') 'lambda_fsi=', diag%lambda_fsi
     write(unit_id,'(A,I0)') 'modified_cells=', diag%modified_cells
+    write(unit_id,'(A,I0)') 'last_status=', diag%last_status
+    write(unit_id,'(A,I0)') 'failed_calls=', diag%failed_calls
     write(unit_id,'(A,L1)') 'finite=', finite_ok
     write(unit_id,'(A,L1)') 'no_contamination=', diag%no_contamination
     write(unit_id,'(A,L1)') 'small_lambda_response=', diag%small_lambda_response
