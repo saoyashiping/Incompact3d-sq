@@ -86,6 +86,7 @@ add_executable(xcompact3d
                     fibre_prod_rhs_adapter.f90
                     fibre_prod_main_hook.f90
                     fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -225,6 +226,19 @@ add_executable(fibre_prod_force_buffer_rhs_path_check
                     fibre_prod_rhs_adapter.f90
                     fibre_prod_main_hook.f90
                     fibre_prod_force_buffer_rhs_path_check.f90)
+
+add_executable(fibre_prod_velocity_bridge_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_velocity_bridge_check.f90)
 
 target_link_libraries(xcompact3d PRIVATE decomp2d)
 
