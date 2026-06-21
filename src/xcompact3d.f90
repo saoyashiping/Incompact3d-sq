@@ -193,6 +193,10 @@ program xcompact3d
         call stage9_6_record_rhs_finite_status(drho1,dux1,duy1,duz1)
         if (stage14_rhs_reg) call stage14_production_rhs_injection_apply( &
              dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1))
+        if (fibre_prod_velocity_sample_enabled) then
+           call fibre_prod_velocity_bridge_sample_runtime_unit_grid(ux1,uy1,uz1, fibre_prod_velocity_status)
+           if (fibre_prod_velocity_status /= 0) fibre_prod_velocity_sample_enabled = .false.
+        endif
         if (fibre_prod_r10_hook_ready) then
            if (.not. fibre_prod_bridge_initialized) then
               call fibre_prod_runtime_bridge_init_from_rhs(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
