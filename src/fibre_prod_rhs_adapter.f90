@@ -66,6 +66,9 @@ contains
       status = 10
       return
     end if
+
+    ! Disabled and lambda=0 modes must be strict no-ops. This is the safety gate
+    ! needed before any production DNS-FSI path is allowed to run.
     if (.not. config%enabled .or. config%lambda_fsi == 0.0_dp) return
 
     has_force_buffer = present(force_x) .and. present(force_y) .and. present(force_z)
