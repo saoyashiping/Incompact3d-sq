@@ -66,7 +66,7 @@ program xcompact3d
   logical :: stage9_7_stop_now, stage9_8_stop_now, stage9_9_stop_now, stage9_8_checkpoint_exists
   logical :: stage10_reg, stage11_oneway_reg, stage12_feedback_reg, stage13_force_density_reg
   logical :: stage14_rhs_reg, stage15_structure_hook_reg
-  logical :: fibre_prod_r10_hook_ready, fibre_prod_r10_hook_initialized
+  logical :: fibre_prod_r10_hook_ready
   integer :: stage9_8_checkpoint_size
   integer :: fibre_prod_r10_status
 
@@ -129,8 +129,7 @@ program xcompact3d
      call stage15_production_structure_hook_register(1)
   endif
   call fibre_prod_main_hook_init(fibre_prod_r10_status)
-  fibre_prod_r10_hook_initialized = (fibre_prod_r10_status == 0)
-  fibre_prod_r10_hook_ready = fibre_prod_r10_hook_initialized
+  fibre_prod_r10_hook_ready = (fibre_prod_r10_status == 0)
   if ((.not. fibre_prod_r10_hook_ready) .and. nrank == 0) then
      write(*,'(A,I0)') '[R10] fibre production main hook disabled, status=', fibre_prod_r10_status
   endif
@@ -141,7 +140,7 @@ program xcompact3d
      if (stage13_force_density_reg) call stage13_production_force_density_candidate_finalize()
      if (stage14_rhs_reg) call stage14_production_rhs_injection_finalize()
      if (stage15_structure_hook_reg) call stage15_production_structure_hook_finalize()
-     if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+     if (fibre_prod_r10_hook_ready) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      call finalise_xcompact3d()
      stop
   endif
@@ -186,10 +185,7 @@ program xcompact3d
         if (fibre_prod_r10_hook_ready) then
            call fibre_prod_main_hook_apply(dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
                 fibre_prod_r10_status)
-           if (fibre_prod_r10_status /= 0) then
-              if (nrank == 0) write(*,'(A,I0)') '[R10] fibre production main hook apply disabled, status=', fibre_prod_r10_status
-              fibre_prod_r10_hook_ready = .false.
-           endif
+           if (fibre_prod_r10_status /= 0) fibre_prod_r10_hook_ready = .false.
         endif
 
 #ifdef DEBG
@@ -274,7 +270,7 @@ program xcompact3d
           if (nrank==0) write(*,'(A)') "[STAGE9.8] final audit starting"
           call stage9_8_finalise_mark()
           call stage9_8_final_audit()
-          if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+          if (fibre_prod_r10_hook_ready) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
           if (stage11_oneway_reg) call stage11_production_oneway_finalize()
           if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -293,7 +289,7 @@ program xcompact3d
         if (stage9_9_stop_now) then
            call stage9_9_finalise_mark()
            call stage9_9_final_audit()
-           if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+           if (fibre_prod_r10_hook_ready) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -313,7 +309,7 @@ program xcompact3d
            call stage9_7_record_coarse_io_path(1,1,1,1)
            call stage9_7_finalise_mark()
            call stage9_7_final_audit()
-           if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+           if (fibre_prod_r10_hook_ready) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
            if (stage11_oneway_reg) call stage11_production_oneway_finalize()
            if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()
@@ -362,7 +358,7 @@ program xcompact3d
      call stage9_9_final_audit()
   endif
 
-  if (fibre_prod_r10_hook_initialized) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
+  if (fibre_prod_r10_hook_ready) call fibre_prod_main_hook_finalize(fibre_prod_r10_status)
      if (stage10_reg) call stage10_hook_finalize()
   if (stage11_oneway_reg) call stage11_production_oneway_finalize()
   if (stage12_feedback_reg) call stage12_production_feedback_candidate_finalize()

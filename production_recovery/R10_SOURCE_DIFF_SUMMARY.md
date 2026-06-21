@@ -1,77 +1,69 @@
 # Production Recovery R10 Source Diff Summary
 
-## Modified source files
+## New source files
 
-1. `src/fibre_prod_main_diagnostics.f90`
-   - Added `last_status` and `failed_calls` to the R10 diagnostics state.
-   - `fibre_prod_main_diagnostics_record(...)` now accepts an optional `status_code`.
-   - Lambda=0 PASS now requires zero failed calls and `last_status=0`.
-   - Small-lambda PASS now requires zero failed calls and `last_status=0`.
-   - Audit files now report `last_status` and `failed_calls`.
+- `src/fibre_prod_runtime_config.f90` — environment-gated runtime config with default disabled state and fail-closed validation.
+- `src/fibre_prod_rhs_adapter.f90` — minimal gated RHS adapter with before/after signatures and no-write behavior for disabled or lambda=0 states.
+- `src/fibre_prod_main_diagnostics.f90` — hook call, signature, finite, modified-cell, no-contamination, and small-lambda response diagnostics.
+- `src/fibre_prod_main_hook.f90` — init/apply/finalize API used by the controlled main-loop hook.
+- `src/fibre_prod_main_hook_check.f90` — standalone hook check for default disabled, lambda=0 no-op, small-lambda response, negative-lambda failure, NaN failure, and diagnostics finite behavior.
 
-2. `src/fibre_prod_main_hook.f90`
-   - `fibre_prod_main_hook_apply(...)` now records diagnostics even if the RHS adapter returns a nonzero status.
-   - This prevents silent loss of R10 failure evidence.
+## New evidence/documentation files
 
-3. `src/xcompact3d.f90`
-   - Added a separate `fibre_prod_r10_hook_initialized` flag.
-   - R10 finalization is now called when the hook was initialized, even if later apply calls were disabled after a nonzero status.
-   - Added a short rank-zero message when R10 apply is disabled by a nonzero status.
-   - The hook site remains the same: after `calculate_transeq_rhs(...)`, after the Stage 14 RHS candidate, and before `int_time(...)`.
+- `production_recovery/R10_PLAN.md`
+- `production_recovery/R10_BUILD_LOG.txt`
+- `production_recovery/R10_RUN_LOG_hook_check.txt`
+- `production_recovery/R10_RUN_LOG_lambda0_np1.txt`
+- `production_recovery/R10_RUN_LOG_smalllambda_np1.txt`
+- `production_recovery/R10_MAIN_HOOK_AUDIT.md`
+- `production_recovery/R10_SOURCE_DIFF_SUMMARY.md`
+- `production_recovery/R10_PASS_FAIL.md`
+- `production_recovery/R10_evidence/README.md`
+- `production_recovery/R10_evidence/R10_HOOK_SITE_AUDIT.txt`
+- `production_recovery/R10_evidence/R10_LAMBDA0_NO_CONTAMINATION_AUDIT.txt`
+- `production_recovery/R10_evidence/R10_SMALL_LAMBDA_RESPONSE_AUDIT.txt`
 
-## Modified validation/evidence files
+## Modified files
 
-1. `production_recovery/R10_evidence/R10_VALIDATION_COMMAND_FIXED.sh`
-   - Uses absolute `FIBRE_PROD_DIAGNOSTICS_DIR`.
-   - Removes stale audit files before new validation.
-   - Creates explicit FAIL audit files if the finalizer does not generate them.
-   - Checks only exact `^Result: PASS` lines.
+- `src/xcompact3d.f90` — adds minimal R10 use/init/apply/finalize calls.
+- `src/CMakeLists.txt` — adds R10 modules to `xcompact3d` and adds standalone `fibre_prod_main_hook_check` target.
 
-2. `production_recovery/R10_evidence/R10_FIX_NOTE.md`
-3. `production_recovery/R10_SOURCE_DIFF_SUMMARY.md`
+## `src/xcompact3d.f90` modified?
+
+Yes.  R10 is the first controlled main-loop hook stage and modifies `src/xcompact3d.f90` only for the R10 hook use/init/apply/finalize calls.
 
 ## `src/CMakeLists.txt` modified?
 
-No.
+Yes.  R10 modules are added to the `xcompact3d` executable compile chain, and `fibre_prod_main_hook_check` is added as a standalone target.
 
 ## Connected to `xcompact3d` executable?
 
-Yes. R10 remains the first controlled main-loop hook stage.
+Yes.  R10 runtime config, diagnostics, RHS adapter, and main hook modules are added to the `xcompact3d` executable compile chain.
 
-## Real RHS write?
+## Real RHS coupling implemented?
 
-Only through the existing gated R10 RHS adapter. No write occurs for `FIBRE_PROD_LAMBDA=0`. A small diagnostic RHS contribution is applied only when `FIBRE_PROD_ENABLE=1` and `FIBRE_PROD_LAMBDA>0`.
+R10 implements only a strictly gated, diagnostic RHS adapter contribution at the audited hook site.  It is default-off, lambda=0 no-op, and small-lambda bounded.  It is not final production DNS-FSI closure.
 
 ## RK3 modified?
 
-No.
+No.  R10 does not modify RK3 coefficients, `iadvance_time`, or `int_time(...)`.
 
 ## Pressure/projection modified?
 
-No.
-
-## Channel forcing modified?
-
-No.
+No.  R10 does not modify `pre_correc(...)`, `calc_divu_constraint(...)`, `solve_poisson(...)`, or `cor_vel(...)`.
 
 ## Restart/statistics/visualization modified?
 
-No.
+No.  R10 does not modify restart, statistics, or visualization semantics.
 
-## R11/R12 entered?
+## np=1/2/4 final consistency executed?
 
-No.
+No.  R10 does not execute R11 np=1/2/4 final consistency.
 
-## Current result
+## production DNS-FSI final closure executed?
 
-BLOCKED pending real Ubuntu re-run of:
+No.  R10 does not execute or claim production DNS-FSI final closure.
 
-```bash
-bash production_recovery/R10_evidence/R10_VALIDATION_COMMAND_FIXED.sh
-```
+## R10 build/run final result
 
-After the re-run, `R10_PASS_FAIL.md` must be written by the script as PASS only if:
-
-1. `R10_FIBRE_PROD_MAIN_HOOK_CHECK PASS` is printed;
-2. `R10_LAMBDA0_NO_CONTAMINATION_AUDIT.txt` contains `Result: PASS`;
-3. `R10_SMALL_LAMBDA_RESPONSE_AUDIT.txt` contains `Result: PASS`.
+R10 is BLOCKED in this environment because `mpif90` is unavailable, so configure/build did not produce `fibre_prod_main_hook_check` or `xcompact3d`, and lambda=0/small-lambda np=1 runs could not be executed.

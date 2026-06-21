@@ -1,0 +1,9 @@
+Result: BLOCKED
+enabled=UNKNOWN
+lambda_fsi=0
+modified_cells=UNKNOWN
+last_status=UNKNOWN
+failed_calls=UNKNOWN
+before_finite=UNKNOWN
+after_finite=UNKNOWN
+no_contamination=UNKNOWN
