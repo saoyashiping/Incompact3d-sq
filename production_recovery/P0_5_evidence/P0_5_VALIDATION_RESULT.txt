@@ -1,0 +1,48 @@
+# P0.5 Validation Result
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+
+## Static state velocity attachment audits
+PASS: state velocity attachment source exists
+PASS: fibre_prod_state sampled velocity storage exists
+PASS: xcompact3d imports state velocity attachment
+PASS: state attachment path is env-gated by FIBRE_PROD_STATE_VELOCITY_ATTACH_ENABLE
+PASS: state attachment does not call RHS adapter
+PASS: state attachment does not call force-buffer RHS hook
+PASS: state attachment does not reference structure advance
+PASS: uniform contribution old path is absent
+PASS: CMake target fibre_prod_state_velocity_attachment_check exists
+
+## CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+FAIL: failed to build xcompact3d
+FAIL: failed to build fibre_prod_main_hook_check
+FAIL: failed to build fibre_prod_force_buffer_rhs_path_check
+FAIL: failed to build fibre_prod_runtime_bridge_check
+FAIL: failed to build fibre_prod_velocity_bridge_check
+FAIL: failed to build fibre_prod_state_velocity_attachment_check
+
+## Run checks
+FAIL: skipping executable runs because build failed
+
+FAIL
+
+## P0.5 pass/fail file
+# P0.5 Production Fibre State Velocity Attachment PASS/FAIL
+
+Result: FAIL
+
+Meaning: PASS means a production fibre state can be initialized, one-way sampled fluid velocity can be attached to the fibre state, and velocity/RHS no-contamination is preserved while P0.2/P0.3/P0.4 validations remain intact. It does NOT mean production DNS-FSI is ready.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: P0.6 sampled-velocity-to-fluid-force-input candidate diagnostics, no RHS feedback.

@@ -1,0 +1,31 @@
+P0_11 validation started
+ROOT_DIR=/workspace/Incompact3d-sq
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+PASS: RHS gate source exists
+PASS: RHS gate check source exists
+PASS: xcompact3d imports RHS gate
+PASS: P0_11 xcompact3d path is env gated
+PASS: RHS gate uses force-buffer main-hook path
+PASS: old uniform RHS contribution path absent
+PASS: P0_11 CMake target exists
+PASS: RHS gate module has no pressure/projection/channel-forcing path
+Configuring CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+Result: FAIL
+Result: FAIL
+
+Meaning: FAIL means one or more P0_11 static/build/run checks did not complete successfully. The force-buffer RHS gate must not be used for production DNS-FSI until this stage passes in an environment with the required toolchain.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: Resolve P0_11 validation failures, then rerun P0_11 before P0_12.

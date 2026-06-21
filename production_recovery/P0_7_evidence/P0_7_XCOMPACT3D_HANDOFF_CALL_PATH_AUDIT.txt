@@ -1,0 +1,2 @@
+P0.7 xcompact3d handoff call path audit
+Static audit confirms xcompact3d imports fibre_prod_structure_input_handoff and the handoff path is gated by FIBRE_PROD_STRUCTURE_INPUT_HANDOFF_ENABLE.

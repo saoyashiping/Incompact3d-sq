@@ -1,0 +1,17 @@
+P0.9 no RHS feedback evidence:
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:5:  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, fibre_prod_force_buffer_allocate, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:6:                                          fibre_prod_force_buffer_destroy
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:34:  use fibre_prod_runtime_bridge, only : fibre_prod_runtime_bridge_type, fibre_prod_runtime_bridge_init_from_rhs, &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:46:  type(fibre_prod_force_buffer_type) :: force_buffer
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:50:  real(dp) :: rhs_x(2,2,2), rhs_y(2,2,2), rhs_z(2,2,2)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:51:  real(dp) :: rhs_x0(2,2,2), rhs_y0(2,2,2), rhs_z0(2,2,2)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:109:  rhs_x = ux * 0.25_dp; rhs_y = uy * 0.25_dp; rhs_z = uz * 0.25_dp
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:110:  rhs_x0 = rhs_x; rhs_y0 = rhs_y; rhs_z0 = rhs_z
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:114:  call fibre_prod_force_buffer_allocate(force_buffer, grid, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:118:  call fibre_prod_runtime_bridge_init_from_rhs(rhs_x, rhs_y, rhs_z, bridge, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:124:  call fibre_prod_runtime_bridge_apply_lambda0_noop(rhs_x, rhs_y, rhs_z, bridge, status)
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:127:  call require(all(rhs_x == rhs_x0) .and. all(rhs_y == rhs_y0) .and. all(rhs_z == rhs_z0), 'RHS fields changed')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:128:  call require(all(force_buffer%fx == 0.0_dp) .and. all(force_buffer%fy == 0.0_dp) .and. &
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:129:               all(force_buffer%fz == 0.0_dp), 'force buffer changed')
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:131:  print *, 'P0_9_DIAGNOSTIC: structure dry-step commit only, no back-coupling payload, no RHS feedback'
+/workspace/Incompact3d-sq/src/fibre_prod_structure_commit_gate_check.f90:135:  call fibre_prod_force_buffer_destroy(force_buffer)

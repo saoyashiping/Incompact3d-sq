@@ -1,0 +1,3 @@
+P0.6 relative velocity audit
+Static audit confirms candidate computation stores relative_u and candidate_force diagnostics.
+Dynamic evidence verifies relative_u = sampled_u - structure_u and candidate_force = beta_hydro * relative_u.

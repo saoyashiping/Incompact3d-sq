@@ -1,0 +1,45 @@
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:6:  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, fibre_prod_force_buffer_is_finite, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:7:                                          fibre_prod_force_buffer_reset_to_zero, fibre_prod_force_buffer_allocate, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:8:                                          fibre_prod_force_buffer_destroy
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:55:    logical :: has_spread = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:60:    real(dp) :: max_abs_force_buffer = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:61:    real(dp) :: sum_abs_force_buffer = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:90:  subroutine fibre_prod_reaction_spreading_buffer_apply(spread, grid, fibre_points, reaction_force, force_buffer, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:95:    type(fibre_prod_force_buffer_type), intent(inout) :: force_buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:120:    if (.not. force_buffer%allocated .or. .not. allocated(force_buffer%fx) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:121:        .not. allocated(force_buffer%fy) .or. .not. allocated(force_buffer%fz)) then
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:125:    if (force_buffer%nx_local /= spread%nx .or. force_buffer%ny_local /= spread%ny .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:126:        force_buffer%nz_local /= spread%nz) then
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:130:    call fibre_prod_force_buffer_reset_to_zero(force_buffer, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:132:    call fibre_prod_spread_multiple_point_forces(grid, force_buffer, fibre_points, reaction_force, status, min_weight_sum)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:134:    if (.not. fibre_prod_force_buffer_is_finite(force_buffer)) then
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:139:    call compute_eulerian_net_force(grid, force_buffer, spread%net_eulerian_force)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:141:    spread%max_abs_force_buffer = max(maxval(abs(force_buffer%fx)), &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:142:                                      max(maxval(abs(force_buffer%fy)), maxval(abs(force_buffer%fz))))
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:143:    spread%sum_abs_force_buffer = sum(abs(force_buffer%fx)) + sum(abs(force_buffer%fy)) + sum(abs(force_buffer%fz))
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:144:    spread%has_spread = .true.
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:153:    if (.not. spread%initialized .or. .not. spread%has_spread) then
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:161:    if (.not. ieee_is_finite(spread%max_abs_force_buffer) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:162:        .not. ieee_is_finite(spread%sum_abs_force_buffer) .or. &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:169:    if (spread%max_abs_force_buffer > max_allowed_force) status = 13
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:176:    spread%has_spread = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:181:    spread%max_abs_force_buffer = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:182:    spread%sum_abs_force_buffer = 0.0_dp
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:219:    type(fibre_prod_force_buffer_type) :: buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:262:    if (status == 0) call fibre_prod_force_buffer_allocate(buffer, grid, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:268:    call fibre_prod_force_buffer_destroy(buffer)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:291:  subroutine compute_eulerian_net_force(grid, force_buffer, net_force)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:293:    type(fibre_prod_force_buffer_type), intent(in) :: force_buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:296:    net_force(1) = sum(force_buffer%fx * grid%cell_volume)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:297:    net_force(2) = sum(force_buffer%fy * grid%cell_volume)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:298:    net_force(3) = sum(force_buffer%fz * grid%cell_volume)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:5:  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, fibre_prod_force_buffer_allocate, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:6:                                          fibre_prod_force_buffer_destroy
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:48:  type(fibre_prod_force_buffer_type) :: buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:49:  type(fibre_prod_force_buffer_type) :: unallocated_buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:90:  call require(abs(react%max_abs_reaction_force - maxval(abs(react%reaction_force))) <= 0.0_dp, 'max diagnostic failed')
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:91:  call require(abs(react%sum_abs_reaction_force - sum(abs(react%reaction_force))) <= 0.0_dp, 'sum diagnostic failed')
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:95:  call fibre_prod_force_buffer_allocate(buffer, grid, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:100:  call require(status == 0 .and. spread%has_spread, 'reaction spreading failed')
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:103:  call require(spread%max_abs_force_buffer > 0.0_dp .and. spread%sum_abs_force_buffer > 0.0_dp, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer_check.f90:163:  call fibre_prod_force_buffer_destroy(buffer)

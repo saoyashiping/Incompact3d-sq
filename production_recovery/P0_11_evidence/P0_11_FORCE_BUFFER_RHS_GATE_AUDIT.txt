@@ -1,0 +1,68 @@
+1:module fibre_prod_force_buffer_rhs_gate
+6:  use fibre_prod_main_hook, only : fibre_prod_main_hook_init, fibre_prod_main_hook_apply_force_buffer
+7:  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, fibre_prod_force_buffer_is_finite, &
+8:                                          fibre_prod_force_buffer_allocate, fibre_prod_force_buffer_destroy
+45:  public :: fibre_prod_force_buffer_rhs_gate_type
+46:  public :: fibre_prod_force_buffer_rhs_gate_init
+47:  public :: fibre_prod_force_buffer_rhs_gate_apply
+48:  public :: fibre_prod_force_buffer_rhs_gate_check_linear_response
+49:  public :: fibre_prod_force_buffer_rhs_gate_finalize
+50:  public :: fibre_prod_force_buffer_rhs_gate_env_enabled
+51:  public :: fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+53:  type :: fibre_prod_force_buffer_rhs_gate_type
+62:    real(dp) :: max_abs_force_buffer = 0.0_dp
+63:    real(dp) :: sum_abs_force_buffer = 0.0_dp
+66:    real(dp) :: expected_scale = 0.0_dp
+67:    real(dp) :: measured_scale_error = 0.0_dp
+68:  end type fibre_prod_force_buffer_rhs_gate_type
+72:  subroutine fibre_prod_force_buffer_rhs_gate_init(gate, nx, ny, nz, lambda_fsi, penalty_beta, status)
+73:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+82:    call fibre_prod_force_buffer_rhs_gate_finalize(gate)
+101:    gate%expected_scale = lambda_fsi * penalty_beta
+103:  end subroutine fibre_prod_force_buffer_rhs_gate_init
+105:  subroutine fibre_prod_force_buffer_rhs_gate_apply(gate, config, rhs_x, rhs_y, rhs_z, force_buffer, status)
+106:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+111:    type(fibre_prod_force_buffer_type), intent(in) :: force_buffer
+138:    if (.not. force_buffer%allocated .or. .not. allocated(force_buffer%fx) .or. &
+139:        .not. allocated(force_buffer%fy) .or. .not. allocated(force_buffer%fz)) then
+143:    if (.not. same_shape(rhs_x, force_buffer%fx) .or. .not. same_shape(rhs_y, force_buffer%fy) .or. &
+144:        .not. same_shape(rhs_z, force_buffer%fz)) then
+148:    if (.not. fibre_prod_force_buffer_is_finite(force_buffer)) then
+166:    call fibre_prod_main_hook_init(status, config)
+167:    if (status == 0) call fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)
+179:    gate%max_abs_force_buffer = max(maxval(abs(force_buffer%fx)), &
+180:                                    max(maxval(abs(force_buffer%fy)), maxval(abs(force_buffer%fz))))
+181:    gate%sum_abs_force_buffer = sum(abs(force_buffer%fx)) + sum(abs(force_buffer%fy)) + sum(abs(force_buffer%fz))
+184:    gate%expected_scale = scale
+188:    gate%measured_scale_error = max(maxval(abs(inc_x - scale * force_buffer%fx)), &
+189:                                    max(maxval(abs(inc_y - scale * force_buffer%fy)), &
+190:                                        maxval(abs(inc_z - scale * force_buffer%fz))))
+192:    if (status == 0 .and. gate%measured_scale_error > 1.0e-10_dp) status = 13
+200:  end subroutine fibre_prod_force_buffer_rhs_gate_apply
+202:  subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response(gate, rhs_increment_1, rhs_increment_2, &
+204:    type(fibre_prod_force_buffer_rhs_gate_type), intent(in) :: gate
+230:  end subroutine fibre_prod_force_buffer_rhs_gate_check_linear_response
+232:  subroutine fibre_prod_force_buffer_rhs_gate_finalize(gate)
+233:    type(fibre_prod_force_buffer_rhs_gate_type), intent(inout) :: gate
+243:    gate%max_abs_force_buffer = 0.0_dp
+244:    gate%sum_abs_force_buffer = 0.0_dp
+247:    gate%expected_scale = 0.0_dp
+248:    gate%measured_scale_error = 0.0_dp
+249:  end subroutine fibre_prod_force_buffer_rhs_gate_finalize
+251:  logical function fibre_prod_force_buffer_rhs_gate_env_enabled() result(enabled)
+263:  end function fibre_prod_force_buffer_rhs_gate_env_enabled
+265:  subroutine fibre_prod_force_buffer_rhs_gate_runtime_diagnostic(ux, uy, uz, rhs_x, rhs_y, rhs_z, status)
+274:    type(fibre_prod_force_buffer_type) :: force_buffer
+275:    type(fibre_prod_force_buffer_rhs_gate_type) :: gate
+287:    if (status == 0) call build_synthetic_force_buffer(grid, force_buffer, status)
+293:      call fibre_prod_force_buffer_rhs_gate_init(gate, size(rhs_x, 1), size(rhs_x, 2), size(rhs_x, 3), &
+296:    if (status == 0) call fibre_prod_force_buffer_rhs_gate_apply(gate, config, rhs_x, rhs_y, rhs_z, force_buffer, status)
+297:    call fibre_prod_force_buffer_rhs_gate_finalize(gate)
+298:    call fibre_prod_force_buffer_destroy(force_buffer)
+303:  end subroutine fibre_prod_force_buffer_rhs_gate_runtime_diagnostic
+305:  subroutine build_synthetic_force_buffer(grid, force_buffer, status)
+307:    type(fibre_prod_force_buffer_type), intent(inout) :: force_buffer
+349:    if (status == 0) call fibre_prod_force_buffer_allocate(force_buffer, grid, status)
+352:                                                                    force_buffer, status)
+360:  end subroutine build_synthetic_force_buffer
+396:end module fibre_prod_force_buffer_rhs_gate

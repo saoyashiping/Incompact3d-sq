@@ -1,0 +1,2 @@
+P0.8 xcompact3d dry-step call path audit
+Static audit confirms xcompact3d imports fibre_prod_structure_dry_step and the dry-step path is gated by FIBRE_PROD_STRUCTURE_DRY_STEP_ENABLE.

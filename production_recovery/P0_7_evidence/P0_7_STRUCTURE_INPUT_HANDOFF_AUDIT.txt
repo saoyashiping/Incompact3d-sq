@@ -1,0 +1,3 @@
+P0.7 structure input handoff audit
+Static audit confirms src/fibre_prod_structure_input_handoff.f90 exists and provides structure-side handoff diagnostics only.
+Dynamic evidence is provided by fibre_prod_structure_input_handoff_check when it emits P0_7_STRUCTURE_INPUT_HANDOFF_CHECK PASS.

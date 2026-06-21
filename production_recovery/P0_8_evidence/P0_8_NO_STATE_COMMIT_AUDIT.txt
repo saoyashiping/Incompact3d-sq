@@ -1,0 +1,3 @@
+P0.8 no state commit audit
+Static audit confirms the dry-step module does not assign trial buffers back to production state fields.
+Dynamic evidence verifies coordinates, structure velocity, sampled velocity, hydro candidate, and structure input force are unchanged.

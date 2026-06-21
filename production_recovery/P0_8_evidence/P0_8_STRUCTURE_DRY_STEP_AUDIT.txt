@@ -1,0 +1,3 @@
+P0.8 structure dry-step audit
+Static audit confirms src/fibre_prod_structure_dry_step.f90 exists and provides scratch dry-step predictor diagnostics only.
+Dynamic evidence is provided by fibre_prod_structure_dry_step_check when it emits P0_8_STRUCTURE_DRY_STEP_CHECK PASS.
