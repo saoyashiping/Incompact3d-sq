@@ -1,6 +1,6 @@
 # P0.2 Force-Buffer-to-RHS Audit
 
-P0.2 adds `fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)` as the buffer-level production path.
+P0.2 exposes `fibre_prod_main_hook_apply_force_buffer(rhs_x, rhs_y, rhs_z, force_buffer, status)` as the buffer-level production path.
 
 The path validates a `fibre_prod_force_buffer_type` and then passes `force_buffer%fx`, `force_buffer%fy`, and `force_buffer%fz` to the RHS adapter. The adapter applies the explicit P0.2 scaling:
 
@@ -10,4 +10,6 @@ rhs_y = rhs_y + lambda_fsi * penalty_beta * force_buffer%fy
 rhs_z = rhs_z + lambda_fsi * penalty_beta * force_buffer%fz
 ```
 
-This is not the removed uniform small-lambda contribution path. RHS increments are buffer-shaped and component-wise.
+This is not the removed uniform small-lambda contribution path. RHS increments are buffer-shaped, component-wise, and scaled by the configured coupling strength.
+
+The earlier P0.2 failure at `ERROR STOP 12` was caused by the adapter adding raw buffer values while the check correctly expected scaled increments. The adapter has been corrected.
