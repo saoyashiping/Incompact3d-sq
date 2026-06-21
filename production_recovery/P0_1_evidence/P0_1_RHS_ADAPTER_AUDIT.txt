@@ -1,0 +1,10 @@
+# P0.1 RHS Adapter Audit
+
+The RHS adapter now enforces the P0.1 safety gate:
+
+- `lambda_fsi == 0` or disabled config returns `status = 0` without modifying `rhs_x`, `rhs_y`, or `rhs_z`.
+- `lambda_fsi > 0` without all three optional force-density buffers returns status `13` and leaves RHS unchanged.
+- `lambda_fsi > 0` with `force_x`, `force_y`, and `force_z` checks shape and finiteness, then adds those buffers component-wise to the RHS arrays.
+- A zero force buffer is accepted with `status = 0`, zero modified cells, and no RHS change.
+
+The old small-lambda uniform constant injection path has been removed/blocked. The adapter no longer computes a global `lambda_fsi * penalty_beta * dt` contribution and no longer applies a uniform scalar to every `rhs_x` cell.
