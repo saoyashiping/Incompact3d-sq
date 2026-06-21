@@ -1,0 +1,52 @@
+# P0.8 Validation Result
+DECOMP2D_ROOT=/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4
+
+## Static structure dry-step audits
+PASS: structure dry-step source exists
+PASS: xcompact3d imports structure dry-step
+PASS: dry-step path is env-gated by FIBRE_PROD_STRUCTURE_DRY_STEP_ENABLE
+PASS: dry-step does not call RHS adapter
+PASS: dry-step does not call force-buffer RHS hook
+PASS: dry-step does not write force buffer components
+PASS: dry-step does not call IBM force transfer
+PASS: dry-step does not commit trial state to production state
+PASS: uniform contribution old path is absent
+PASS: CMake target fibre_prod_structure_dry_step_check exists
+
+## CMake build
+-- The Fortran compiler identification is unknown
+CMake Error at CMakeLists.txt:7 (project):
+  No CMAKE_Fortran_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "FC" or the CMake cache entry CMAKE_Fortran_COMPILER to the full
+  path to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Configuring incomplete, errors occurred!
+FAIL: cmake configure failed
+FAIL: failed to build xcompact3d
+FAIL: failed to build fibre_prod_main_hook_check
+FAIL: failed to build fibre_prod_force_buffer_rhs_path_check
+FAIL: failed to build fibre_prod_runtime_bridge_check
+FAIL: failed to build fibre_prod_velocity_bridge_check
+FAIL: failed to build fibre_prod_state_velocity_attachment_check
+FAIL: failed to build fibre_prod_hydro_input_candidate_check
+FAIL: failed to build fibre_prod_structure_input_handoff_check
+FAIL: failed to build fibre_prod_structure_dry_step_check
+
+## Run checks
+FAIL: skipping executable runs because build failed
+
+FAIL
+
+## P0.8 pass/fail file
+# P0.8 Structure Dry-Step PASS/FAIL
+
+Result: FAIL
+
+Meaning: PASS means a controlled structure dry-step predictor can consume structure-side input force into scratch/trial storage without committing production structure state, modifying velocity fields, force buffers, or DNS RHS, while P0.2/P0.3/P0.4/P0.5/P0.6/P0.7 validations remain intact. It does NOT mean production DNS-FSI is ready.
+
+Production-run status: STILL BLOCKED
+
+Next required stage: P0.9 controlled structure dry-step commit gate, still no fluid feedback.

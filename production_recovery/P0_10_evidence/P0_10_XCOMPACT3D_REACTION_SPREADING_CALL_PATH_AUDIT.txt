@@ -1,0 +1,47 @@
+/workspace/Incompact3d-sq/src/xcompact3d.f90:76:  use fibre_prod_reaction_spreading_buffer, only : fibre_prod_reaction_spreading_buffer_env_enabled, &
+/workspace/Incompact3d-sq/src/xcompact3d.f90:77:       fibre_prod_reaction_spreading_buffer_runtime_diagnostic
+/workspace/Incompact3d-sq/src/xcompact3d.f90:98:  logical :: fibre_prod_reaction_spreading_enabled
+/workspace/Incompact3d-sq/src/xcompact3d.f90:107:  integer :: fibre_prod_reaction_spreading_status
+/workspace/Incompact3d-sq/src/xcompact3d.f90:180:  fibre_prod_reaction_spreading_enabled = fibre_prod_reaction_spreading_buffer_env_enabled()
+/workspace/Incompact3d-sq/src/xcompact3d.f90:258:        if (fibre_prod_reaction_force_candidate_enabled .and. fibre_prod_reaction_spreading_enabled) then
+/workspace/Incompact3d-sq/src/xcompact3d.f90:259:           call fibre_prod_reaction_spreading_buffer_runtime_diagnostic(ux1,uy1,uz1, fibre_prod_reaction_spreading_status)
+/workspace/Incompact3d-sq/src/xcompact3d.f90:260:           if (fibre_prod_reaction_spreading_status /= 0) fibre_prod_reaction_spreading_enabled = .false.
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:1:module fibre_prod_reaction_spreading_buffer
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:44:  public :: fibre_prod_reaction_spreading_buffer_type
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:45:  public :: fibre_prod_reaction_spreading_buffer_init
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:46:  public :: fibre_prod_reaction_spreading_buffer_apply
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:47:  public :: fibre_prod_reaction_spreading_buffer_check_finite_bounded
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:48:  public :: fibre_prod_reaction_spreading_buffer_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:49:  public :: fibre_prod_reaction_spreading_buffer_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:50:  public :: fibre_prod_reaction_spreading_buffer_env_max_allowed_force
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:51:  public :: fibre_prod_reaction_spreading_buffer_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:53:  type :: fibre_prod_reaction_spreading_buffer_type
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:65:  end type fibre_prod_reaction_spreading_buffer_type
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:69:  subroutine fibre_prod_reaction_spreading_buffer_init(spread, nx, ny, nz, nnode, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:70:    type(fibre_prod_reaction_spreading_buffer_type), intent(inout) :: spread
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:78:    call fibre_prod_reaction_spreading_buffer_finalize(spread)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:88:  end subroutine fibre_prod_reaction_spreading_buffer_init
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:90:  subroutine fibre_prod_reaction_spreading_buffer_apply(spread, grid, fibre_points, reaction_force, force_buffer, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:91:    type(fibre_prod_reaction_spreading_buffer_type), intent(inout) :: spread
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:145:  end subroutine fibre_prod_reaction_spreading_buffer_apply
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:147:  subroutine fibre_prod_reaction_spreading_buffer_check_finite_bounded(spread, max_allowed_force, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:148:    type(fibre_prod_reaction_spreading_buffer_type), intent(in) :: spread
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:170:  end subroutine fibre_prod_reaction_spreading_buffer_check_finite_bounded
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:172:  subroutine fibre_prod_reaction_spreading_buffer_finalize(spread)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:173:    type(fibre_prod_reaction_spreading_buffer_type), intent(inout) :: spread
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:186:  end subroutine fibre_prod_reaction_spreading_buffer_finalize
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:188:  logical function fibre_prod_reaction_spreading_buffer_env_enabled() result(enabled)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:194:    call get_environment_variable('FIBRE_PROD_REACTION_SPREADING_ENABLE', raw, length=length, status=env_status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:200:  end function fibre_prod_reaction_spreading_buffer_env_enabled
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:202:  real(dp) function fibre_prod_reaction_spreading_buffer_env_max_allowed_force() result(value)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:203:    value = read_positive_env('FIBRE_PROD_REACTION_SPREADING_MAX_FORCE', 1.0e6_dp)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:204:  end function fibre_prod_reaction_spreading_buffer_env_max_allowed_force
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:206:  subroutine fibre_prod_reaction_spreading_buffer_runtime_diagnostic(ux, uy, uz, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:218:    type(fibre_prod_reaction_spreading_buffer_type) :: spread
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:263:    if (status == 0) call fibre_prod_reaction_spreading_buffer_init(spread, grid%nx_local, grid%ny_local, grid%nz_local, 3, status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:264:    if (status == 0) call fibre_prod_reaction_spreading_buffer_apply(spread, grid, state%x(1, :, :), react%reaction_force, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:266:    if (status == 0) call fibre_prod_reaction_spreading_buffer_check_finite_bounded(spread, &
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:267:                                                                                   fibre_prod_reaction_spreading_buffer_env_max_allowed_force(), status)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:269:    call fibre_prod_reaction_spreading_buffer_finalize(spread)
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:289:  end subroutine fibre_prod_reaction_spreading_buffer_runtime_diagnostic
+/workspace/Incompact3d-sq/src/fibre_prod_reaction_spreading_buffer.f90:316:end module fibre_prod_reaction_spreading_buffer

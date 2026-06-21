@@ -1,0 +1,2 @@
+P0.6 xcompact3d diagnostic call path audit
+Static audit confirms xcompact3d imports fibre_prod_hydro_input_candidate and the candidate path is gated by FIBRE_PROD_HYDRO_INPUT_CANDIDATE_ENABLE.
