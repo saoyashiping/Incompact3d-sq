@@ -1,0 +1,21 @@
+# P0.1 Hook API Audit
+
+`fibre_prod_main_hook_apply` keeps the original compatible main-program call form:
+
+```fortran
+call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status)
+```
+
+It also accepts explicit optional Eulerian force-density buffers for P0.2 integration:
+
+```fortran
+call fibre_prod_main_hook_apply(rhs_x, rhs_y, rhs_z, status, force_x, force_y, force_z)
+```
+
+Hook behavior:
+
+- Lambda=0 remains no-op and returns status `0`.
+- Lambda>0 without force buffers delegates to the adapter and returns the missing-buffer blocking status.
+- Lambda>0 with force buffers delegates buffer-to-RHS loading to the adapter.
+- The hook does not construct pseudo force buffers.
+- The hook does not apply a uniform scalar increment to `rhs_x`.

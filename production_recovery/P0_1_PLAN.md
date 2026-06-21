@@ -1,23 +1,24 @@
-# P0.1 Plan: Production Module Build-Chain Integration and RHS Safety Gate
-
-## Purpose
-
-P0.1 repairs the blocker identified by P0.0: the `xcompact3d` target was wired only to a weak production hook path, and the active nonzero-lambda RHS adapter used a whole-field uniform scalar perturbation.
+# P0.1 Production Module Build-Chain Integration Plan
 
 ## Scope
 
-P0.1 makes only build-chain and RHS-safety changes:
-
-1. Add the complete production fibre helper chain to the `xcompact3d` source list.
-2. Add the same chain to `fibre_prod_main_hook_check` so the check is compiled in the same production-module context.
-3. Remove the fallback whole-domain uniform RHS perturbation.
-4. Require an explicit Eulerian force-density buffer for any nonzero-lambda RHS modification.
-5. Preserve lambda=0 and disabled-mode no-contamination behavior.
+P0.1 implements production module build-chain integration and lambda=0 no-op RHS safety gating for the main hook path.
 
 ## Non-goals
 
-P0.1 does not claim full paper-production DNS-FSI readiness. It does not yet construct the force-density buffer from runtime Lagrangian fibres inside `xcompact3d`. That is the next P0 stage.
+- P0.1 does not run long DNS cases.
+- P0.1 does not claim production DNS-FSI readiness.
+- P0.1 does not complete the physical FSI closed loop.
+- P0.1 does not advance fibre state from the `xcompact3d` time integrator.
 
-## Pass meaning
+## Objectives
 
-P0.1 PASS means the unsafe uniform RHS smoke path has been removed and the full production fibre module chain is visible to the main build target. It does not mean long-time DNS statistics, MPI production FSI, or paper-level validation are complete.
+1. Add the complete production fibre module chain to the `xcompact3d` target.
+2. Preserve strict lambda=0 no-op behavior.
+3. Block nonzero-lambda RHS modification unless explicit Eulerian force-density buffers are supplied.
+4. Remove the old small-lambda uniform RHS constant injection path.
+5. Reserve the explicit force-buffer-to-RHS interface for P0.2 physical integration.
+
+## Next stage
+
+P0.2 is the stage that must connect physical force buffers into the production RHS path. Until then, production-run status remains blocked.
