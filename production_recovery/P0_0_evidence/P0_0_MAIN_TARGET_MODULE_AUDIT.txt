@@ -1,0 +1,37 @@
+# P0.0 Main Target Production Module Audit
+
+Source audited: src/CMakeLists.txt
+
+## xcompact3d fibre_prod files currently included directly
+
+The `add_executable(xcompact3d ...)` source list directly includes only these `fibre_prod` files:
+
+- fibre_prod_runtime_config.f90
+- fibre_prod_main_diagnostics.f90
+- fibre_prod_rhs_adapter.f90
+- fibre_prod_main_hook.f90
+
+## Complete production FSI modules not included in xcompact3d main target
+
+The following production FSI modules are present as standalone helper/check dependencies, but they are not part of the current `xcompact3d` main executable source list:
+
+- fibre_prod_state.f90
+- fibre_prod_grid_adapter.f90
+- fibre_prod_ibm_delta.f90
+- fibre_prod_ibm_interpolation.f90
+- fibre_prod_ibm_force_buffer.f90
+- fibre_prod_ibm_spreading.f90
+- fibre_prod_boundary_conditions.f90
+- fibre_prod_bending_solver.f90
+- fibre_prod_tension_solver.f90
+- fibre_prod_structure_solver.f90
+- fibre_prod_fsi_config.f90
+- fibre_prod_fsi_coupling.f90
+- fibre_prod_fsi_diagnostics.f90
+- fibre_prod_wall_geometry.f90
+- fibre_prod_wall_contact.f90
+- fibre_prod_fibre_collision.f90
+
+## Audit conclusion
+
+The main production executable is wired only to the runtime config, diagnostics, RHS adapter, and main hook. The complete production FSI module chain is not integrated into the `xcompact3d` target, so this source state cannot be treated as production DNS-FSI ready.
