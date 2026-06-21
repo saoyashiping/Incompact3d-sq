@@ -1,5 +1,17 @@
 # P0_13 Source Diff Summary
 
-- Added `src/fibre_prod_p0_closure_check.f90` to validate default-off P0 gates, no-fibre RHS/velocity no-op behavior, lambda=0 no-contamination, and repeatable P0 closure signatures.
-- Added `fibre_prod_p0_closure_check` to `src/CMakeLists.txt` with the P0 production module chain.
-- Added P0_13 closure documentation, P1 entry gate report, compatibility audits, regression matrix, and validation command script.
+## Modified files
+
+- `src/fibre_prod_synthetic_closed_loop.f90`
+- `production_recovery/P0_13_evidence/P0_13_FIX_NOTE.md`
+- `production_recovery/P0_13_SOURCE_DIFF_SUMMARY.md`
+
+## Summary
+
+P0_13 failed only during the synthetic np=1/2/4 closure rerun because `fibre_prod_synthetic_closed_loop.f90` still required a nonzero RHS increment whenever `lambda_fsi > 0`.  That incorrectly rejects the intentional zero-force proxy case where `beta_hydro=0` makes the force buffer zero and the correct RHS response is exactly zero.
+
+The check now requires nonzero RHS increment only when `lambda_fsi > 0` and the checked Eulerian force-buffer component is nonzero.  The lambda-gated equality `rhs_increment_x = lambda_fsi * penalty_beta * force_buffer%fx` remains enforced.
+
+## Production status
+
+This fix does not make paper-scale DNS production ready.  It only repairs the P0_13 closure validation predicate so that the already-designed zero-force no-response case can pass correctly.
