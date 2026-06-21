@@ -103,12 +103,15 @@ contains
           if (force_x(i, j, k) /= 0.0_dp .or. force_y(i, j, k) /= 0.0_dp .or. force_z(i, j, k) /= 0.0_dp) then
             modified_cells = modified_cells + 1
           end if
-          rhs_x(i, j, k) = rhs_x(i, j, k) + force_x(i, j, k)
-          rhs_y(i, j, k) = rhs_y(i, j, k) + force_y(i, j, k)
-          rhs_z(i, j, k) = rhs_z(i, j, k) + force_z(i, j, k)
-          local_sum_increment = local_sum_increment + force_x(i, j, k) + force_y(i, j, k) + force_z(i, j, k)
-          local_max_abs_increment = max(local_max_abs_increment, abs(force_x(i, j, k)), &
-                                        abs(force_y(i, j, k)), abs(force_z(i, j, k)))
+          rhs_x(i, j, k) = rhs_x(i, j, k) + config%lambda_fsi * config%penalty_beta * force_x(i, j, k)
+          rhs_y(i, j, k) = rhs_y(i, j, k) + config%lambda_fsi * config%penalty_beta * force_y(i, j, k)
+          rhs_z(i, j, k) = rhs_z(i, j, k) + config%lambda_fsi * config%penalty_beta * force_z(i, j, k)
+          local_sum_increment = local_sum_increment + config%lambda_fsi * config%penalty_beta * &
+                                                (force_x(i, j, k) + force_y(i, j, k) + force_z(i, j, k))
+          local_max_abs_increment = max(local_max_abs_increment, &
+                                        abs(config%lambda_fsi * config%penalty_beta * force_x(i, j, k)), &
+                                        abs(config%lambda_fsi * config%penalty_beta * force_y(i, j, k)), &
+                                        abs(config%lambda_fsi * config%penalty_beta * force_z(i, j, k)))
         end do
       end do
     end do
