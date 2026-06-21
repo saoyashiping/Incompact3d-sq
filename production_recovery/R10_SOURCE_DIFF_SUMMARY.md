@@ -2,45 +2,45 @@
 
 ## Modified source files
 
-1. `src/fibre_prod_runtime_config.f90`
-   - Added `diagnostics_dir` to the runtime config.
-   - Added support for environment variable `FIBRE_PROD_DIAGNOSTICS_DIR`.
-   - Preserved default no-op behavior when no environment variables are set.
+1. `src/fibre_prod_main_diagnostics.f90`
+   - Added `last_status` and `failed_calls` to the R10 diagnostics state.
+   - `fibre_prod_main_diagnostics_record(...)` now accepts an optional `status_code`.
+   - Lambda=0 PASS now requires zero failed calls and `last_status=0`.
+   - Small-lambda PASS now requires zero failed calls and `last_status=0`.
+   - Audit files now report `last_status` and `failed_calls`.
 
-2. `src/fibre_prod_main_diagnostics.f90`
-   - Added exact R10 audit writer.
-   - Audit files now emit explicit `Result: PASS` or `Result: FAIL`.
-   - Lambda=0 PASS requires hook calls, enabled=true, lambda=0, zero modified cells, finite signatures, and no RHS contamination.
-   - Small-lambda PASS requires hook calls, enabled=true, lambda>0, modified cells >0, finite signatures, and nonzero controlled response.
+2. `src/fibre_prod_main_hook.f90`
+   - `fibre_prod_main_hook_apply(...)` now records diagnostics even if the RHS adapter returns a nonzero status.
+   - This prevents silent loss of R10 failure evidence.
 
-3. `src/fibre_prod_main_hook.f90`
-   - Finalizer now writes diagnostics and the corresponding R10 audit file into `FIBRE_PROD_DIAGNOSTICS_DIR`.
-   - Lambda=0 run writes `R10_LAMBDA0_NO_CONTAMINATION_AUDIT.txt`.
-   - Small-lambda run writes `R10_SMALL_LAMBDA_RESPONSE_AUDIT.txt`.
+3. `src/xcompact3d.f90`
+   - Added a separate `fibre_prod_r10_hook_initialized` flag.
+   - R10 finalization is now called when the hook was initialized, even if later apply calls were disabled after a nonzero status.
+   - Added a short rank-zero message when R10 apply is disabled by a nonzero status.
+   - The hook site remains the same: after `calculate_transeq_rhs(...)`, after the Stage 14 RHS candidate, and before `int_time(...)`.
 
-## Modified documentation/evidence files
+## Modified validation/evidence files
 
-1. `production_recovery/R10_SOURCE_DIFF_SUMMARY.md`
-2. `production_recovery/R10_PASS_FAIL.md`
-3. `production_recovery/R10_evidence/R10_FIX_NOTE.md`
-4. `production_recovery/R10_evidence/R10_VALIDATION_COMMAND_FIXED.sh`
-5. Direct standalone gfortran evidence logs under `production_recovery/R10_evidence/`.
+1. `production_recovery/R10_evidence/R10_VALIDATION_COMMAND_FIXED.sh`
+   - Uses absolute `FIBRE_PROD_DIAGNOSTICS_DIR`.
+   - Removes stale audit files before new validation.
+   - Creates explicit FAIL audit files if the finalizer does not generate them.
+   - Checks only exact `^Result: PASS` lines.
 
-## `src/xcompact3d.f90` modified?
-
-No additional change in this fix. The existing R10 hook site remains the controlled hook after `calculate_transeq_rhs(...)`, after the Stage 14 RHS injection candidate, and before `int_time(...)`.
+2. `production_recovery/R10_evidence/R10_FIX_NOTE.md`
+3. `production_recovery/R10_SOURCE_DIFF_SUMMARY.md`
 
 ## `src/CMakeLists.txt` modified?
 
-No additional change in this fix.
+No.
 
 ## Connected to `xcompact3d` executable?
 
-R10 remains connected through the existing controlled main-loop hook.
+Yes. R10 remains the first controlled main-loop hook stage.
 
 ## Real RHS write?
 
-Only the existing gated diagnostic RHS adapter is used. It writes only when `FIBRE_PROD_ENABLE=1` and `FIBRE_PROD_LAMBDA>0`. Lambda=0 remains a no-write path.
+Only through the existing gated R10 RHS adapter. No write occurs for `FIBRE_PROD_LAMBDA=0`. A small diagnostic RHS contribution is applied only when `FIBRE_PROD_ENABLE=1` and `FIBRE_PROD_LAMBDA>0`.
 
 ## RK3 modified?
 
@@ -64,4 +64,14 @@ No.
 
 ## Current result
 
-BLOCKED pending re-run of R10 with the fixed diagnostics command. The previous run evidence shows that the hook check and `xcompact3d` runs can execute, but the audit files were stale and the shell-side PASS check was too permissive. Re-run R10 using `R10_VALIDATION_COMMAND_FIXED.sh` or the corrected command in the assistant response.
+BLOCKED pending real Ubuntu re-run of:
+
+```bash
+bash production_recovery/R10_evidence/R10_VALIDATION_COMMAND_FIXED.sh
+```
+
+After the re-run, `R10_PASS_FAIL.md` must be written by the script as PASS only if:
+
+1. `R10_FIBRE_PROD_MAIN_HOOK_CHECK PASS` is printed;
+2. `R10_LAMBDA0_NO_CONTAMINATION_AUDIT.txt` contains `Result: PASS`;
+3. `R10_SMALL_LAMBDA_RESPONSE_AUDIT.txt` contains `Result: PASS`.
