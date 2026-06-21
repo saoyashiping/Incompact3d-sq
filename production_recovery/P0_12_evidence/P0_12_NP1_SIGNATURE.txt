@@ -1,0 +1,2 @@
+P0_12_SIGNATURE np=1 unavailable
+P0_12_SYNTHETIC_CLOSED_LOOP_CHECK FAIL: executable was not run

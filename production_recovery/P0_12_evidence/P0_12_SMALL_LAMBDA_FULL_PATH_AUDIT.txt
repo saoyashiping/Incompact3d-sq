@@ -1,0 +1,54 @@
+P0_12 small-lambda full path audit
+src/fibre_prod_synthetic_closed_loop.f90:  use fibre_prod_ibm_force_buffer, only : fibre_prod_force_buffer_type, fibre_prod_force_buffer_allocate, &
+src/fibre_prod_synthetic_closed_loop.f90:                                          fibre_prod_force_buffer_destroy
+src/fibre_prod_synthetic_closed_loop.f90:  use fibre_prod_force_buffer_rhs_gate, only : fibre_prod_force_buffer_rhs_gate_type, &
+src/fibre_prod_synthetic_closed_loop.f90:                                               fibre_prod_force_buffer_rhs_gate_init, &
+src/fibre_prod_synthetic_closed_loop.f90:                                               fibre_prod_force_buffer_rhs_gate_apply, &
+src/fibre_prod_synthetic_closed_loop.f90:                                               fibre_prod_force_buffer_rhs_gate_finalize
+src/fibre_prod_synthetic_closed_loop.f90:    real(dp) :: max_abs_force_buffer = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    real(dp) :: max_abs_rhs_increment = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    real(dp) :: sum_abs_rhs_increment = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    real(dp) :: net_eulerian_force_buffer(3) = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    type(fibre_prod_force_buffer_type) :: force_buffer
+src/fibre_prod_synthetic_closed_loop.f90:    type(fibre_prod_force_buffer_rhs_gate_type) :: rhs_gate
+src/fibre_prod_synthetic_closed_loop.f90:    real(dp), allocatable :: rhs_increment_x(:, :, :)
+src/fibre_prod_synthetic_closed_loop.f90:             rhs_increment_x(loop%nx,loop%ny,loop%nz), stat=status)
+src/fibre_prod_synthetic_closed_loop.f90:    if (status == 0) call fibre_prod_force_buffer_allocate(force_buffer, grid, status)
+src/fibre_prod_synthetic_closed_loop.f90:                                                                      force_buffer, status)
+src/fibre_prod_synthetic_closed_loop.f90:      call fibre_prod_force_buffer_rhs_gate_init(rhs_gate, loop%nx, loop%ny, loop%nz, lambda_fsi, penalty_beta, status)
+src/fibre_prod_synthetic_closed_loop.f90:    if (status == 0) call fibre_prod_force_buffer_rhs_gate_apply(rhs_gate, config, rhs_x, rhs_y, rhs_z, force_buffer, status)
+src/fibre_prod_synthetic_closed_loop.f90:      rhs_increment_x = rhs_x - rhs0_x
+src/fibre_prod_synthetic_closed_loop.f90:      if (lambda_fsi == 0.0_dp .and. maxval(abs(rhs_increment_x)) /= 0.0_dp) status = 40
+src/fibre_prod_synthetic_closed_loop.f90:      if (lambda_fsi > 0.0_dp .and. maxval(abs(rhs_increment_x)) <= 0.0_dp) status = 41
+src/fibre_prod_synthetic_closed_loop.f90:      if (status == 0 .and. maxval(abs(rhs_increment_x - scale * force_buffer%fx)) > 1.0e-10_dp) status = 42
+src/fibre_prod_synthetic_closed_loop.f90:      loop%max_abs_force_buffer = spreading%max_abs_force_buffer
+src/fibre_prod_synthetic_closed_loop.f90:      loop%max_abs_rhs_increment = rhs_gate%max_abs_rhs_increment
+src/fibre_prod_synthetic_closed_loop.f90:      loop%sum_abs_rhs_increment = rhs_gate%sum_abs_rhs_increment
+src/fibre_prod_synthetic_closed_loop.f90:      loop%net_eulerian_force_buffer = spreading%net_eulerian_force
+src/fibre_prod_synthetic_closed_loop.f90:      loop%signature(11) = spreading%sum_abs_force_buffer
+src/fibre_prod_synthetic_closed_loop.f90:      loop%signature(12) = rhs_gate%sum_abs_rhs_increment
+src/fibre_prod_synthetic_closed_loop.f90:      loop%signature(13) = rhs_gate%max_abs_rhs_increment
+src/fibre_prod_synthetic_closed_loop.f90:    call fibre_prod_force_buffer_rhs_gate_finalize(rhs_gate)
+src/fibre_prod_synthetic_closed_loop.f90:    call fibre_prod_force_buffer_destroy(force_buffer)
+src/fibre_prod_synthetic_closed_loop.f90:    loop%max_abs_force_buffer = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    loop%max_abs_rhs_increment = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    loop%sum_abs_rhs_increment = 0.0_dp
+src/fibre_prod_synthetic_closed_loop.f90:    loop%net_eulerian_force_buffer = 0.0_dp
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop0%max_abs_force_buffer > 0.0_dp, 'lambda0 full path did not create force buffer candidate')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop0%max_abs_rhs_increment == 0.0_dp, 'lambda0 full path changed RHS')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call run_case(loop1, 1.0e-3_dp, 2.0_dp, sig1)
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop1%completed, 'small-lambda full path did not complete')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(all(ieee_is_finite(sig1)), 'small-lambda signature is nonfinite')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop1%max_abs_force_buffer > 0.0_dp, 'force buffer is zero')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop1%max_abs_rhs_increment > 0.0_dp .and. loop1%max_abs_rhs_increment < 1.0e3_dp, &
+src/fibre_prod_synthetic_closed_loop_check.f90:               'small-lambda RHS increment failed bounded/nonzero check')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop1%sum_abs_rhs_increment > 0.0_dp, 'small-lambda RHS increment sum is zero')
+src/fibre_prod_synthetic_closed_loop_check.f90:  call run_case(loop_beta1, 1.0e-3_dp, 1.0_dp, sig_beta1)
+src/fibre_prod_synthetic_closed_loop_check.f90:  call fibre_prod_synthetic_closed_loop_run(loop_zero_force_proxy, 1.0e-3_dp, 2.0_dp, 0.0_dp, 1.0e-4_dp, 1.0_dp, status)
+src/fibre_prod_synthetic_closed_loop_check.f90:  call require(loop_zero_force_proxy%max_abs_force_buffer == 0.0_dp .and. &
+src/fibre_prod_synthetic_closed_loop_check.f90:               loop_zero_force_proxy%max_abs_rhs_increment == 0.0_dp, 'zero force buffer generated RHS response')
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE force_buffer_norm=', sig1(11)
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE rhs_increment_norm=', sig1(12)
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE lambda0_rhs_increment_norm=', sig0(12)
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE smalllambda_rhs_increment_norm=', sig1(12)
+src/fibre_prod_synthetic_closed_loop_check.f90:  print '(A,ES24.16)', 'P0_12_SIGNATURE rhs_increment_max=', sig1(13)
