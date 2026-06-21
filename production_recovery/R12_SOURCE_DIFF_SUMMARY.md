@@ -1,62 +1,27 @@
 # Production Recovery R12 Source Diff Summary
 
-## New files
-
-- `production_recovery/R12_PLAN.md`
-- `production_recovery/R12_PASS_FAIL.md`
-- `production_recovery/R12_SOURCE_DIFF_SUMMARY.md`
-- `production_recovery/R12_BUILD_LOG.txt`
-- `production_recovery/R12_RUN_LOG_R2.txt`
-- `production_recovery/R12_RUN_LOG_R3.txt`
-- `production_recovery/R12_RUN_LOG_R4.txt`
-- `production_recovery/R12_RUN_LOG_R5.txt`
-- `production_recovery/R12_RUN_LOG_R6.txt`
-- `production_recovery/R12_RUN_LOG_R7.txt`
-- `production_recovery/R12_RUN_LOG_R8.txt`
-- `production_recovery/R12_RUN_LOG_R9.txt`
-- `production_recovery/R12_RUN_LOG_R10_hook_check.txt`
-- `production_recovery/R12_RUN_LOG_R11_rerun.txt`
-- `production_recovery/R12_RUN_LOG_nofibre_np1.txt`
-- `production_recovery/R12_RUN_LOG_nofibre_np2.txt`
-- `production_recovery/R12_RUN_LOG_nofibre_np4.txt`
-- R12 evidence files under `production_recovery/R12_evidence/`.
-
 ## Modified files
 
-No source files were modified in R12.
+- `production_recovery/R12_evidence/R12_VALIDATION_COMMAND_FIXED.sh`
+- `production_recovery/R12_SOURCE_DIFF_SUMMARY.md`
+- `production_recovery/R12_PASS_FAIL.md`
+- `production_recovery/R12_evidence/README.md`
+- `production_recovery/R12_evidence/R12_FIX_NOTE.md`
 
-## Modified `src`?
+## Source boundary
 
-No.  R12 did not modify `src`.
+- `src/*.f90` modified: no
+- `src/xcompact3d.f90` modified: no
+- `src/CMakeLists.txt` modified: no
+- RK3 modified: no
+- pressure/projection modified: no
+- channel forcing modified: no
+- restart/statistics/visualization modified: no
+- closed stage directories modified: no
+- R13 entered: no
 
-## Modified `src/xcompact3d.f90`?
+## Fix summary
 
-No.  R12 did not modify `src/xcompact3d.f90`.
+The R12 failure was caused by the validation script, not by the Fortran production source. The script used `rg`, which was unavailable in the user's environment, and wrote fixed FAIL audits instead of computing results from actual helper, R11, no-fibre, restart/statistics/visualization evidence.
 
-## Modified `src/CMakeLists.txt`?
-
-No.  R12 did not modify `src/CMakeLists.txt`.
-
-## Modified RK3?
-
-No.  R12 did not modify RK3.
-
-## Modified pressure/projection?
-
-No.  R12 did not modify pressure/projection.
-
-## Modified channel forcing?
-
-No.  R12 did not modify channel forcing.
-
-## Modified restart/statistics/visualization?
-
-No.  R12 did not modify restart/statistics/visualization semantics.
-
-## Entered R13?
-
-No.  R12 did not enter R13.
-
-## R12 final status
-
-R12 final status is determined by `production_recovery/R12_PASS_FAIL.md` and `production_recovery/R12_evidence/R12_FINAL_VALIDATION_MATRIX.md`.
+The revised script uses `grep`, computes all audit booleans from actual logs, runs no-fibre np=1/2/4 baselines, and writes the final PASS/FAIL from the validation matrix.
