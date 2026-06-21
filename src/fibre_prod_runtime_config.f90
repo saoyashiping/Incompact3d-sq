@@ -18,6 +18,7 @@ module fibre_prod_runtime_config
     real(dp) :: dt = 1.0_dp
     logical :: diagnostics_enabled = .false.
     logical :: initialized = .false.
+    character(len=256) :: diagnostics_dir = '.'
   end type fibre_prod_runtime_config_type
 
 contains
@@ -31,6 +32,7 @@ contains
     config%dt = 1.0_dp
     config%diagnostics_enabled = .false.
     config%initialized = .true.
+    config%diagnostics_dir = '.'
   end subroutine fibre_prod_runtime_config_default
 
   integer function fibre_prod_runtime_config_validate(config) result(status)
@@ -43,6 +45,7 @@ contains
     if (status == 0 .and. (.not. ieee_is_finite(config%penalty_beta) .or. &
         config%penalty_beta < 0.0_dp)) status = 3
     if (status == 0 .and. (.not. ieee_is_finite(config%dt) .or. config%dt <= 0.0_dp)) status = 4
+    if (status == 0 .and. len_trim(config%diagnostics_dir) <= 0) status = 5
   end function fibre_prod_runtime_config_validate
 
   subroutine fibre_prod_runtime_config_load_env(config, status)
@@ -54,6 +57,7 @@ contains
     call read_env_real('FIBRE_PROD_LAMBDA', config%lambda_fsi)
     call read_env_real('FIBRE_PROD_PENALTY_BETA', config%penalty_beta)
     call read_env_logical('FIBRE_PROD_DIAGNOSTICS', config%diagnostics_enabled)
+    call read_env_string('FIBRE_PROD_DIAGNOSTICS_DIR', config%diagnostics_dir)
     status = fibre_prod_runtime_config_validate(config)
   end subroutine fibre_prod_runtime_config_load_env
 
@@ -88,5 +92,20 @@ contains
     read(raw(1:min(length, len(raw))), *, iostat=read_status) parsed
     if (read_status == 0) value = parsed
   end subroutine read_env_real
+
+  subroutine read_env_string(name, value)
+    character(len=*), intent(in) :: name
+    character(len=*), intent(inout) :: value
+    character(len=512) :: raw
+    integer :: length
+    integer :: env_status
+    integer :: ncopy
+
+    call get_environment_variable(name, raw, length=length, status=env_status)
+    if (env_status /= 0 .or. length <= 0) return
+    value = ''
+    ncopy = min(length, len(value))
+    value(1:ncopy) = raw(1:ncopy)
+  end subroutine read_env_string
 
 end module fibre_prod_runtime_config
