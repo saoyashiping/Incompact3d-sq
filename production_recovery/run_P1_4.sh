@@ -14,6 +14,8 @@ set -e
 [ -f production_recovery/P1_4_evidence/P1_4_VALIDATION_RESULT.txt ] && cat production_recovery/P1_4_evidence/P1_4_VALIDATION_RESULT.txt
 [ -f production_recovery/P1_4_evidence/P1_4_SELF_CONTAINED_VALIDATION_AUDIT.txt ] && cat production_recovery/P1_4_evidence/P1_4_SELF_CONTAINED_VALIDATION_AUDIT.txt
 [ -f production_recovery/P1_4_evidence/P1_4_FAILURE_CONTEXT.txt ] && cat production_recovery/P1_4_evidence/P1_4_FAILURE_CONTEXT.txt
+[ -f production_recovery/P1_4_evidence/P1_4_LAST_FAILED_LOG_TAIL.txt ] && cat production_recovery/P1_4_evidence/P1_4_LAST_FAILED_LOG_TAIL.txt
+[ -f production_recovery/P1_4_evidence/P1_4_BUILD_LOG.txt ] && [ "$rc" -ne 0 ] && { echo "---- P1_4_BUILD_LOG tail ----"; tail -n 120 production_recovery/P1_4_evidence/P1_4_BUILD_LOG.txt; }
 [ -f production_recovery/P1_4_evidence/P1_4_SIGNATURE_COMPARE_FAILURE.txt ] && cat production_recovery/P1_4_evidence/P1_4_SIGNATURE_COMPARE_FAILURE.txt
 [ -f production_recovery/P1_4_evidence/P1_4_LAMBDA0_NP_CONSISTENCY_AUDIT.txt ] && cat production_recovery/P1_4_evidence/P1_4_LAMBDA0_NP_CONSISTENCY_AUDIT.txt
 [ -f production_recovery/P1_4_evidence/P1_4_TWOWAY_NP_CONSISTENCY_AUDIT.txt ] && cat production_recovery/P1_4_evidence/P1_4_TWOWAY_NP_CONSISTENCY_AUDIT.txt
