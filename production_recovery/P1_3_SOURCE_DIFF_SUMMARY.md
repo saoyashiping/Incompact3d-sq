@@ -18,3 +18,11 @@ Changes:
 5. Did not modify Fortran physics source code.
 
 This patch does not claim P1_3 PASS. The user must rerun the P1_3 validation script on Ubuntu.
+
+## P1_3 RHS formula grep validation fix
+
+- File changed: `production_recovery/P1_3_evidence/P1_3_VALIDATION_COMMAND.sh`.
+- Added note: `production_recovery/P1_3_evidence/P1_3_RHS_FORMULA_GREP_FIX_NOTE.md`.
+- Reason: P1_3 runtime logs emit `P1_3 RHS increment diagnostic: nonzero finite bounded PASS formula=lambda*penalty_beta*force_buffer values=...`, but the previous script searched for the nonexistent token `RHS increment formula: PASS`.
+- Effect: P1_3 no longer fails a valid segment1 run with `segment 1 missing RHS formula PASS`.
+- Source scope: validation script only; no DNS-FSI physics source is modified.
