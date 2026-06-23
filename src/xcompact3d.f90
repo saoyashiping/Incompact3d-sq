@@ -90,6 +90,15 @@ program xcompact3d
        fibre_prod_p1_oneway_channel_case_record_sampling, &
        fibre_prod_p1_oneway_channel_case_record_structure_response, &
        fibre_prod_p1_oneway_channel_case_write_diagnostics
+  use fibre_prod_p1_twoway_channel_case, only : &
+       fibre_prod_p1_twoway_channel_case_env_enabled, &
+       fibre_prod_p1_twoway_channel_case_init, &
+       fibre_prod_p1_twoway_channel_case_record_sampling, &
+       fibre_prod_p1_twoway_channel_case_record_structure_response, &
+       fibre_prod_p1_twoway_channel_case_record_reaction_force, &
+       fibre_prod_p1_twoway_channel_case_record_force_buffer, &
+       fibre_prod_p1_twoway_channel_case_record_rhs_increment, &
+       fibre_prod_p1_twoway_channel_case_write_diagnostics
 
   implicit none
 
@@ -115,6 +124,7 @@ program xcompact3d
   logical :: fibre_prod_synthetic_closed_loop_enabled
   logical :: fibre_prod_p1_real_channel_preflight_enabled
   logical :: fibre_prod_p1_oneway_channel_case_enabled
+  logical :: fibre_prod_p1_twoway_channel_case_enabled
   integer :: stage9_8_checkpoint_size
   integer :: fibre_prod_r10_status
   integer :: fibre_prod_velocity_status
@@ -128,6 +138,7 @@ program xcompact3d
   integer :: fibre_prod_synthetic_closed_loop_status
   integer :: fibre_prod_p1_real_channel_preflight_status
   integer :: fibre_prod_p1_oneway_channel_case_status
+  integer :: fibre_prod_p1_twoway_channel_case_status
   real(real64) :: fibre_prod_runtime_lambda
   type(fibre_prod_runtime_bridge_type) :: fibre_prod_bridge
 
@@ -205,6 +216,7 @@ program xcompact3d
   fibre_prod_synthetic_closed_loop_enabled = fibre_prod_synthetic_closed_loop_env_enabled()
   fibre_prod_p1_real_channel_preflight_enabled = fibre_prod_p1_real_channel_preflight_env_enabled()
   fibre_prod_p1_oneway_channel_case_enabled = fibre_prod_p1_oneway_channel_case_env_enabled()
+  fibre_prod_p1_twoway_channel_case_enabled = fibre_prod_p1_twoway_channel_case_env_enabled()
   if (fibre_prod_p1_real_channel_preflight_enabled) then
      call fibre_prod_p1_real_channel_preflight_init(fibre_prod_p1_real_channel_preflight_status)
      if (fibre_prod_p1_real_channel_preflight_status /= 0) then
@@ -223,6 +235,16 @@ program xcompact3d
              fibre_prod_p1_oneway_channel_case_status
         call finalise_xcompact3d()
         stop 93
+     endif
+  endif
+  if (fibre_prod_p1_twoway_channel_case_enabled) then
+     call fibre_prod_p1_twoway_channel_case_init(fibre_prod_p1_twoway_channel_case_status)
+     if (fibre_prod_p1_twoway_channel_case_status /= 0) then
+        if (nrank == 0) write(*,'(A,I0)') &
+             'P1_2 two-way channel case fail-closed init status=', &
+             fibre_prod_p1_twoway_channel_case_status
+        call finalise_xcompact3d()
+        stop 96
      endif
   endif
   if ((.not. fibre_prod_r10_hook_ready) .and. nrank == 0) then
@@ -336,6 +358,30 @@ program xcompact3d
                    fibre_prod_p1_oneway_channel_case_status
               call finalise_xcompact3d()
               stop 94
+           endif
+        endif
+        if (fibre_prod_p1_twoway_channel_case_enabled) then
+           call fibre_prod_p1_twoway_channel_case_record_sampling(ux1,uy1,uz1, &
+                fibre_prod_p1_twoway_channel_case_status)
+           if (fibre_prod_p1_twoway_channel_case_status == 0) &
+                call fibre_prod_p1_twoway_channel_case_record_structure_response( &
+                fibre_prod_p1_twoway_channel_case_status)
+           if (fibre_prod_p1_twoway_channel_case_status == 0) &
+                call fibre_prod_p1_twoway_channel_case_record_reaction_force( &
+                fibre_prod_p1_twoway_channel_case_status)
+           if (fibre_prod_p1_twoway_channel_case_status == 0) &
+                call fibre_prod_p1_twoway_channel_case_record_force_buffer( &
+                fibre_prod_p1_twoway_channel_case_status)
+           if (fibre_prod_p1_twoway_channel_case_status == 0) &
+                call fibre_prod_p1_twoway_channel_case_record_rhs_increment( &
+                dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
+                fibre_prod_p1_twoway_channel_case_status)
+           if (fibre_prod_p1_twoway_channel_case_status /= 0) then
+              if (nrank == 0) write(*,'(A,I0)') &
+                   'P1_2 two-way channel case fail-closed runtime status=', &
+                   fibre_prod_p1_twoway_channel_case_status
+              call finalise_xcompact3d()
+              stop 97
            endif
         endif
         if (fibre_prod_synthetic_closed_loop_enabled) then
@@ -546,6 +592,10 @@ program xcompact3d
   if (fibre_prod_p1_oneway_channel_case_enabled) then
      call fibre_prod_p1_oneway_channel_case_write_diagnostics(fibre_prod_p1_oneway_channel_case_status)
      if (fibre_prod_p1_oneway_channel_case_status /= 0) stop 95
+  endif
+  if (fibre_prod_p1_twoway_channel_case_enabled) then
+     call fibre_prod_p1_twoway_channel_case_write_diagnostics(fibre_prod_p1_twoway_channel_case_status)
+     if (fibre_prod_p1_twoway_channel_case_status /= 0) stop 98
   endif
 
   if (fibre_prod_bridge_initialized) call fibre_prod_runtime_bridge_finalize(fibre_prod_bridge)
