@@ -10,6 +10,33 @@ BUILD="$ROOT/build_p1_4"
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4}
 mkdir -p "$EVID"
 
+P1_4_AUDIT_FILES=(
+  P1_4_SELF_CONTAINED_VALIDATION_AUDIT.txt
+  P1_4_REAL_CHANNEL_CASE_AUDIT.txt
+  P1_4_LAMBDA0_NP_CONSISTENCY_AUDIT.txt
+  P1_4_TWOWAY_NP_CONSISTENCY_AUDIT.txt
+  P1_4_FORCE_BUFFER_NP_CONSISTENCY_AUDIT.txt
+  P1_4_RHS_INCREMENT_NP_CONSISTENCY_AUDIT.txt
+  P1_4_FIBRE_SIGNATURE_NP_CONSISTENCY_AUDIT.txt
+  P1_4_FLUID_SIGNATURE_NP_CONSISTENCY_AUDIT.txt
+  P1_4_WALL_SAFETY_AUDIT.txt
+  P1_4_NAN_INF_AUDIT.txt
+  P1_4_P1_CLOSURE_AUDIT.txt
+)
+
+mark_unfinished_audits() {
+  local reason="${1:-early failure}"
+  local f
+  for f in "${P1_4_AUDIT_FILES[@]}"; do
+    if [ ! -f "$EVID/$f" ] || grep -q '^Result: PENDING' "$EVID/$f"; then
+      {
+        echo "Result: SKIPPED"
+        echo "Reason: P1_4 validation stopped before this audit because: $reason"
+      } > "$EVID/$f"
+    fi
+  done
+}
+
 write_fail() {
   local reason="${1:-unknown failure}"
   local line="${2:-unknown}"
@@ -36,7 +63,13 @@ write_fail() {
     echo "Line: $line"
     echo "Command: $cmd"
     echo "ExitCode: $ec"
+    if [ -f "$EVID/P1_4_LAST_FAILED_LOG_TAIL.txt" ]; then
+      echo
+      echo "Last failed log tail:"
+      cat "$EVID/P1_4_LAST_FAILED_LOG_TAIL.txt"
+    fi
   } > "$EVID/P1_4_FAILURE_CONTEXT.txt"
+  mark_unfinished_audits "$reason"
   exit "$ec"
 }
 
@@ -65,7 +98,18 @@ bad_nan_inf_in_log() {
 
 run_cmd_log() {
   local log="$1"; shift
-  "$@" > "$log" 2>&1 || write_fail "command failed; see $log" "$LINENO" "$*" "$?"
+  "$@" > "$log" 2>&1 || {
+    local rc="$?"
+    {
+      echo "Log: $log"
+      echo "Command: $*"
+      echo "ExitCode: $rc"
+      echo
+      echo "---- tail -n 120 $log ----"
+      tail -n 120 "$log" 2>/dev/null || true
+    } > "$EVID/P1_4_LAST_FAILED_LOG_TAIL.txt"
+    write_fail "command failed; see $log" "$LINENO" "$*" "$rc"
+  }
 }
 
 echo "P1_4 validation started" > "$EVID/P1_4_VALIDATION_TRACE.txt"
