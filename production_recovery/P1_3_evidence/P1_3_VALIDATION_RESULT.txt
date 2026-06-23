@@ -1,1 +1,2 @@
-Result: PENDING - run P1_3_VALIDATION_COMMAND.sh
+Result: PENDING
+P1_3 validation is self-contained by user requirement. Run P1_3_VALIDATION_COMMAND.sh to generate PASS/FAIL.

@@ -1,1 +1,2 @@
-Result: PENDING - run P1_3_VALIDATION_COMMAND.sh
+Result: SKIPPED
+Reason: P1_3 validation is self-contained by user requirement. P1_2/P1_1/P1_0 PASS files are not used as P1_3 pass/fail criteria.
