@@ -96,6 +96,11 @@ add_executable(xcompact3d
                     fibre_prod_reaction_spreading_buffer.f90
                     fibre_prod_force_buffer_rhs_gate.f90
                     fibre_prod_synthetic_closed_loop.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_oneway_channel_case.f90
+                    fibre_prod_p1_twoway_channel_case.f90
+                    fibre_prod_p1_enlarged_stability_case.f90
+                    fibre_prod_p1_np_consistency_closure_case.f90
                     navier.f90
                     parameters.f90
                     particle.f90
@@ -423,6 +428,136 @@ add_executable(fibre_prod_p0_closure_check
                     fibre_prod_force_buffer_rhs_gate.f90
                     fibre_prod_synthetic_closed_loop.f90
                     fibre_prod_p0_closure_check.f90)
+
+add_executable(fibre_prod_p1_real_channel_preflight_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_state.f90
+                    fibre_prod_state_velocity_attachment.f90
+                    fibre_prod_hydro_input_candidate.f90
+                    fibre_prod_structure_input_handoff.f90
+                    fibre_prod_structure_dry_step.f90
+                    fibre_prod_structure_commit_gate.f90
+                    fibre_prod_reaction_force_candidate.f90
+                    fibre_prod_reaction_spreading_buffer.f90
+                    fibre_prod_force_buffer_rhs_gate.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_real_channel_preflight_check.f90)
+
+add_executable(fibre_prod_p1_oneway_channel_case_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_state.f90
+                    fibre_prod_state_velocity_attachment.f90
+                    fibre_prod_hydro_input_candidate.f90
+                    fibre_prod_structure_input_handoff.f90
+                    fibre_prod_structure_dry_step.f90
+                    fibre_prod_structure_commit_gate.f90
+                    fibre_prod_reaction_force_candidate.f90
+                    fibre_prod_reaction_spreading_buffer.f90
+                    fibre_prod_force_buffer_rhs_gate.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_oneway_channel_case.f90
+                    fibre_prod_p1_oneway_channel_case_check.f90)
+
+add_executable(fibre_prod_p1_twoway_channel_case_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_state.f90
+                    fibre_prod_state_velocity_attachment.f90
+                    fibre_prod_hydro_input_candidate.f90
+                    fibre_prod_structure_input_handoff.f90
+                    fibre_prod_structure_dry_step.f90
+                    fibre_prod_structure_commit_gate.f90
+                    fibre_prod_reaction_force_candidate.f90
+                    fibre_prod_reaction_spreading_buffer.f90
+                    fibre_prod_force_buffer_rhs_gate.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_oneway_channel_case.f90
+                    fibre_prod_p1_twoway_channel_case.f90
+                    fibre_prod_p1_twoway_channel_case_check.f90)
+
+add_executable(fibre_prod_p1_enlarged_stability_case_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_state.f90
+                    fibre_prod_state_velocity_attachment.f90
+                    fibre_prod_hydro_input_candidate.f90
+                    fibre_prod_structure_input_handoff.f90
+                    fibre_prod_structure_dry_step.f90
+                    fibre_prod_structure_commit_gate.f90
+                    fibre_prod_reaction_force_candidate.f90
+                    fibre_prod_reaction_spreading_buffer.f90
+                    fibre_prod_force_buffer_rhs_gate.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_oneway_channel_case.f90
+                    fibre_prod_p1_twoway_channel_case.f90
+                    fibre_prod_p1_enlarged_stability_case.f90
+                    fibre_prod_p1_enlarged_stability_case_check.f90)
+
+add_executable(fibre_prod_p1_np_consistency_closure_case_check
+                    fibre_prod_grid_adapter.f90
+                    fibre_prod_ibm_delta.f90
+                    fibre_prod_ibm_force_buffer.f90
+                    fibre_prod_ibm_interpolation.f90
+                    fibre_prod_ibm_spreading.f90
+                    fibre_prod_runtime_config.f90
+                    fibre_prod_main_diagnostics.f90
+                    fibre_prod_rhs_adapter.f90
+                    fibre_prod_main_hook.f90
+                    fibre_prod_runtime_bridge.f90
+                    fibre_prod_velocity_bridge.f90
+                    fibre_prod_state.f90
+                    fibre_prod_state_velocity_attachment.f90
+                    fibre_prod_hydro_input_candidate.f90
+                    fibre_prod_structure_input_handoff.f90
+                    fibre_prod_structure_dry_step.f90
+                    fibre_prod_structure_commit_gate.f90
+                    fibre_prod_reaction_force_candidate.f90
+                    fibre_prod_reaction_spreading_buffer.f90
+                    fibre_prod_force_buffer_rhs_gate.f90
+                    fibre_prod_p1_real_channel_preflight.f90
+                    fibre_prod_p1_oneway_channel_case.f90
+                    fibre_prod_p1_twoway_channel_case.f90
+                    fibre_prod_p1_enlarged_stability_case.f90
+                    fibre_prod_p1_np_consistency_closure_case.f90
+                    fibre_prod_p1_np_consistency_closure_case_check.f90)
 
 add_executable(fibre_prod_force_buffer_rhs_path_check
                     fibre_prod_grid_adapter.f90
