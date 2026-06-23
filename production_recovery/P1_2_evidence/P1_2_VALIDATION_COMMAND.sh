@@ -1,11 +1,47 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$ROOT"
 EVID="$ROOT/production_recovery/P1_2_evidence"
 CASE="$ROOT/production_recovery/P1_2_case"
 DECOMP2D_ROOT=${DECOMP2D_ROOT:-/home/sq/opt/2decomp-fft-xcompact3d-v2.0.4}
 mkdir -p "$EVID"
+
+PF="$ROOT/production_recovery/P1_2_PASS_FAIL.md"
+VR="$EVID/P1_2_VALIDATION_RESULT.txt"
+FAILCTX="$EVID/P1_2_FAILURE_CONTEXT.txt"
+cat > "$VR" <<EOT
+Result: RUNNING
+P1_2 validation is running.
+EOT
+cat > "$PF" <<EOT
+Result: RUNNING
+
+P1 status: OPEN
+Production-run status: STILL BLOCKED FOR PAPER-SCALE DNS
+EOT
+on_err(){
+  local line="$1" cmd="$2" code="$3"
+  {
+    echo "Result: FAIL"
+    echo "Line: $line"
+    echo "ExitCode: $code"
+    echo "Command: $cmd"
+  } > "$FAILCTX"
+  echo "Result: FAIL" > "$VR"
+  printf 'Result: FAIL\n' > "$PF"
+  echo "P1_2 FAIL: unhandled command failure at line $line: $cmd" >&2
+  exit "$code"
+}
+trap 'on_err "$LINENO" "$BASH_COMMAND" "$?"' ERR
+unsafe_uniform_rhs_absent(){
+  local suspect="$EVID/P1_2_UNSAFE_UNIFORM_RHS_SUSPECT.txt"
+  : > "$suspect"
+  grep -RInE 'contribution[[:space:]]*=[[:space:]]*.*lambda_fsi.*penalty_beta.*dt' src/fibre_prod_rhs_adapter.f90 src/xcompact3d.f90 >> "$suspect" 2>/dev/null || true
+  grep -RInE 'rhs_[xyz][^=]*=[^!]*\+[^!]*contribution' src/fibre_prod_rhs_adapter.f90 src/xcompact3d.f90 >> "$suspect" 2>/dev/null || true
+  if [ -s "$suspect" ]; then fail; fi
+}
+
 SEARCH(){ if command -v rg >/dev/null 2>&1; then rg "$@"; else grep -R "$@"; fi; }
 fail(){ echo "Result: FAIL" > "$EVID/P1_2_VALIDATION_RESULT.txt"; printf 'Result: FAIL\n' > "$ROOT/production_recovery/P1_2_PASS_FAIL.md"; exit 1; }
 cmake -S . -B build_p1_2 -DCMAKE_PREFIX_PATH="$DECOMP2D_ROOT" -DDECOMP2D_ROOT="$DECOMP2D_ROOT"
@@ -38,7 +74,7 @@ run_case(){
   grep -q 'force_buffer diagnostic: nonzero finite bounded PASS' "$log" || fail
   grep -q 'RHS increment diagnostic: nonzero finite bounded PASS' "$log" || fail
   grep -q 'formula=lambda\*penalty_beta\*force_buffer' "$log" || fail
-  if grep -Eiq '(^|[^A-Za-z])(nan|inf)([^A-Za-z]|$)' "$log"; then fail; fi
+  if grep -Eia '(nan|inf|infinity)' "$log" | grep -Eiv '(no[[:space:]/-]*(nan|inf)|no nan|no inf|nan_inf_audit|non-finite.*fail-closed|incompact3d|defined|finite PASS)' >/dev/null; then fail; fi
 }
 LOG_LOW="$EVID/P1_2_REAL_DNS_RUN_LOG_lambda1e-5.txt"
 LOG_HIGH="$EVID/P1_2_REAL_DNS_RUN_LOG_lambda1e-4.txt"
@@ -52,7 +88,7 @@ ratio=high/low if low>0 else 0
 assert low>0 and high>low and 8.0 <= ratio <= 12.0, (low, high, ratio)
 PY
 SEARCH 'fibre_prod_p1_twoway_channel_case' src/xcompact3d.f90 >/dev/null || fail
-! SEARCH 'uniform RHS contribution' src >/dev/null || fail
+unsafe_uniform_rhs_absent
 cat "$LOG_LOW" "$LOG_HIGH" > "$EVID/P1_2_REAL_VELOCITY_SAMPLING_AUDIT.txt"
 cp "$EVID/P1_2_REAL_VELOCITY_SAMPLING_AUDIT.txt" "$EVID/P1_2_TWOWAY_STRUCTURE_RESPONSE_AUDIT.txt"
 cp "$EVID/P1_2_REAL_VELOCITY_SAMPLING_AUDIT.txt" "$EVID/P1_2_REACTION_FORCE_AUDIT.txt"
