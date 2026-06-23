@@ -559,6 +559,13 @@ add_executable(fibre_prod_p1_np_consistency_closure_case_check
                     fibre_prod_p1_np_consistency_closure_case.f90
                     fibre_prod_p1_np_consistency_closure_case_check.f90)
 
+target_link_libraries(fibre_prod_p1_np_consistency_closure_case_check PRIVATE decomp2d)
+if (MPI_FOUND)
+  target_link_libraries(fibre_prod_p1_np_consistency_closure_case_check PRIVATE MPI::MPI_Fortran)
+endif (MPI_FOUND)
+install(TARGETS fibre_prod_p1_np_consistency_closure_case_check DESTINATION bin)
+
+
 add_executable(fibre_prod_force_buffer_rhs_path_check
                     fibre_prod_grid_adapter.f90
                     fibre_prod_ibm_delta.f90
