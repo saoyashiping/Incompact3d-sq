@@ -115,7 +115,14 @@ run_seg(){
   grep -q 'source=real_dns_field' "$log" || write_fail "segment $phase missing real DNS velocity sampling source"
   grep -q 'force_buffer diagnostic: nonzero finite bounded PASS' "$log" || write_fail "segment $phase missing finite nonzero force_buffer PASS"
   grep -q 'RHS increment diagnostic: nonzero finite bounded PASS' "$log" || write_fail "segment $phase missing finite nonzero RHS increment PASS"
-  grep -q 'RHS increment formula: PASS' "$log" || write_fail "segment $phase missing RHS formula PASS"
+  # Accept the actual P1_3 runtime diagnostic emitted by fibre_prod_p1_enlarged_stability_case.f90.
+  # The source prints one combined PASS line:
+  #   P1_3 RHS increment diagnostic: nonzero finite bounded PASS formula=lambda*penalty_beta*force_buffer values=...
+  # Older script versions incorrectly required the nonexistent literal token
+  #   RHS increment formula: PASS
+  # and therefore failed after a valid segment1 run.
+  grep -Eq 'P1_3 RHS increment diagnostic:.*nonzero finite bounded PASS.*formula=lambda\*penalty_beta\*force_buffer|RHS increment formula: PASS' "$log" || \
+    write_fail "segment $phase missing RHS formula PASS"
   check_no_nan_inf "$log" || write_fail "segment $phase contains suspicious NaN/Inf"
   echo "P1_3_REAL_DNS_RUN segment${phase} PASS" >> "$log"
 }
