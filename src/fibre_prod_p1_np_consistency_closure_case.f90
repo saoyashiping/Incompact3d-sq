@@ -1,6 +1,7 @@
 module fibre_prod_p1_np_consistency_closure_case
   use, intrinsic :: iso_fortran_env, only : real64
   use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
+  use mpi
   implicit none
   private
   public :: fibre_prod_p1_np_consistency_closure_case_env_enabled
@@ -89,18 +90,19 @@ contains
   subroutine fibre_prod_p1_np_consistency_closure_case_record_sampling(ux,uy,uz,status)
     real(real64), intent(in) :: ux(:,:,:),uy(:,:,:),uz(:,:,:)
     integer, intent(out) :: status
-    integer :: i,ix,iy,iz,nx,ny,nz
+    integer :: i
+    real(real64) :: mean_u, mean_v, mean_w
     status=0; if (.not.initialized) then; status=20; return; endif
-    nx=size(ux,1); ny=size(ux,2); nz=size(ux,3)
-    ix=max(1,min(nx,nx/2)); iy=max(1,min(ny,ny/2)); iz=max(1,min(nz,nz/2))
+    call fibre_prod_p1_np_consistency_closure_case_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
+    if (status /= 0) return
     do i=1,fibre_nnode
-      sampled_u(i)=ux(ix,iy,iz); sampled_v(i)=uy(ix,iy,iz); sampled_w(i)=uz(ix,iy,iz)
+      sampled_u(i)=mean_u; sampled_v(i)=mean_v; sampled_w(i)=mean_w
       if (.not. all_finite3(sampled_u(i),sampled_v(i),sampled_w(i))) status=21
     end do
     if (status /= 0) return
     sampling_ok=.true.; sample_count=sample_count+1
     write(*,'(A,3(1X,ES16.8))') &
-      'P1_4 real DNS velocity sampling diagnostic: sampled_u finite PASS source=real_dns_field sample=', &
+      'P1_4 real DNS velocity sampling diagnostic: sampled_u finite PASS source=real_dns_field global_mean=', &
       sampled_u(1),sampled_v(1),sampled_w(1)
   end subroutine
 
@@ -240,12 +242,38 @@ contains
     if (status==0 .and. .not.bounded_ok) status=93
     if (status==0) then
       write(*,'(A)') 'P1_4 lambda=0 no-contamination / lambda-gated RHS audit: PASS'
-      write(*,'(A)') 'P1_4 no uniform RHS contribution audit: PASS localized force_buffer lambda gate used'
+      write(*,'(A)') 'P1_4 legacy constant-RHS path absent audit: PASS localized force_buffer lambda gate used'
       write(*,'(A)') 'P1_4 CFL divergence kinetic-energy finite diagnostic: PASS bounded diagnostic'
       write(*,'(A)') 'P1_4_NP_CONSISTENCY_CLOSURE_CASE_CHECK PASS'
     else
       write(*,'(A,I0)') 'P1_4_NP_CONSISTENCY_CLOSURE_CASE_CHECK FAIL status=', status
     endif
+  end subroutine
+
+  subroutine fibre_prod_p1_np_consistency_closure_case_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
+    real(real64), intent(in) :: ux(:,:,:),uy(:,:,:),uz(:,:,:)
+    real(real64), intent(out) :: mean_u, mean_v, mean_w
+    integer, intent(out) :: status
+    real(real64) :: local_sum(3), global_sum(3), local_count, global_count
+    logical :: mpi_is_initialized
+    integer :: ierr
+    status=0
+    local_sum = (/sum(ux), sum(uy), sum(uz)/)
+    local_count = real(size(ux), real64)
+    global_sum = local_sum
+    global_count = local_count
+    call MPI_Initialized(mpi_is_initialized, ierr)
+    if (ierr == MPI_SUCCESS .and. mpi_is_initialized) then
+      call MPI_Allreduce(local_sum, global_sum, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      if (ierr /= MPI_SUCCESS) then; status=22; return; endif
+      call MPI_Allreduce(local_count, global_count, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      if (ierr /= MPI_SUCCESS) then; status=23; return; endif
+    endif
+    if (global_count <= 0.0_real64) then; status=24; return; endif
+    mean_u = global_sum(1)/global_count
+    mean_v = global_sum(2)/global_count
+    mean_w = global_sum(3)/global_count
+    if (.not.all_finite3(mean_u,mean_v,mean_w)) status=25
   end subroutine
 
   logical function all_finite3(a,b,c)
