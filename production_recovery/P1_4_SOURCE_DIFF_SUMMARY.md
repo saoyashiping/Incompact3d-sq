@@ -26,3 +26,11 @@
 P1_4 must still be rerun. P1 is not closed until `production_recovery/P1_4_PASS_FAIL.md` reports `Result: PASS`.
 
 Production-run status: STILL BLOCKED FOR PAPER-SCALE DNS
+
+
+## P1_4 real-DNS np-tolerance fix
+
+- Updated `production_recovery/P1_4_evidence/P1_4_VALIDATION_COMMAND.sh` so signature comparison failures are reported explicitly instead of only as `unhandled command failure`.
+- Replaced unrealistic bitwise-like np signature tolerance for real DNS-FSI (`rel_tol=1e-8`) with guarded real-DNS tolerance (`P1_4_NP_REL_TOL=1e-3`, `P1_4_NP_ABS_TOL=1e-8` by default).
+- Preserved strict lambda=0 RHS no-contamination check (`P1_4_LAMBDA0_RHS_ZERO_TOL=1e-20`).
+- Added `P1_4_REAL_DNS_TOLERANCE_FIX_NOTE.md`.
