@@ -110,15 +110,15 @@ program xcompact3d
        fibre_prod_p1_enlarged_stability_case_record_restart_signature, &
        fibre_prod_p1_enlarged_stability_case_write_diagnostics
   use fibre_prod_p1_np_consistency_closure_case, only : &
-       fibre_prod_p1_np_consistency_closure_case_env_enabled, &
-       fibre_prod_p1_np_consistency_closure_case_init, &
-       fibre_prod_p1_np_consistency_closure_case_record_sampling, &
-       fibre_prod_p1_np_consistency_closure_case_record_structure_response, &
-       fibre_prod_p1_np_consistency_closure_case_record_reaction_force, &
-       fibre_prod_p1_np_consistency_closure_case_record_force_buffer, &
-       fibre_prod_p1_np_consistency_closure_case_record_rhs_increment, &
-       fibre_prod_p1_np_consistency_closure_case_record_global_signatures, &
-       fibre_prod_p1_np_consistency_closure_case_write_diagnostics
+       p1_4_np_env_enabled, &
+       p1_4_np_init, &
+       p1_4_np_record_sampling, &
+       p1_4_np_record_structure_response, &
+       p1_4_np_record_reaction_force, &
+       p1_4_np_record_force_buffer, &
+       p1_4_np_record_rhs_increment, &
+       p1_4_np_record_global_signatures, &
+       p1_4_np_write_diagnostics
 
   implicit none
 
@@ -242,7 +242,7 @@ program xcompact3d
   fibre_prod_p1_oneway_channel_case_enabled = fibre_prod_p1_oneway_channel_case_env_enabled()
   fibre_prod_p1_twoway_channel_case_enabled = fibre_prod_p1_twoway_channel_case_env_enabled()
   fibre_prod_p1_enlarged_stability_case_enabled = fibre_prod_p1_enlarged_stability_case_env_enabled()
-  fibre_prod_p1_np_consistency_closure_case_enabled = fibre_prod_p1_np_consistency_closure_case_env_enabled()
+  fibre_prod_p1_np_consistency_closure_case_enabled = p1_4_np_env_enabled()
   if (fibre_prod_p1_real_channel_preflight_enabled) then
      call fibre_prod_p1_real_channel_preflight_init(fibre_prod_p1_real_channel_preflight_status)
      if (fibre_prod_p1_real_channel_preflight_status /= 0) then
@@ -284,7 +284,7 @@ program xcompact3d
      endif
   endif
   if (fibre_prod_p1_np_consistency_closure_case_enabled) then
-     call fibre_prod_p1_np_consistency_closure_case_init(fibre_prod_p1_np_consistency_closure_case_status)
+     call p1_4_np_init(fibre_prod_p1_np_consistency_closure_case_status)
      if (fibre_prod_p1_np_consistency_closure_case_status /= 0) then
         if (nrank == 0) write(*,'(A,I0)') &
              'P1_4 np consistency closure fail-closed init status=', &
@@ -455,19 +455,19 @@ program xcompact3d
            endif
         endif
         if (fibre_prod_p1_np_consistency_closure_case_enabled) then
-           call fibre_prod_p1_np_consistency_closure_case_record_sampling(ux1,uy1,uz1, &
+           call p1_4_np_record_sampling(ux1,uy1,uz1, &
                 fibre_prod_p1_np_consistency_closure_case_status)
            if (fibre_prod_p1_np_consistency_closure_case_status == 0) &
-                call fibre_prod_p1_np_consistency_closure_case_record_structure_response( &
+                call p1_4_np_record_structure_response( &
                 fibre_prod_p1_np_consistency_closure_case_status)
            if (fibre_prod_p1_np_consistency_closure_case_status == 0) &
-                call fibre_prod_p1_np_consistency_closure_case_record_reaction_force( &
+                call p1_4_np_record_reaction_force( &
                 fibre_prod_p1_np_consistency_closure_case_status)
            if (fibre_prod_p1_np_consistency_closure_case_status == 0) &
-                call fibre_prod_p1_np_consistency_closure_case_record_force_buffer( &
+                call p1_4_np_record_force_buffer( &
                 fibre_prod_p1_np_consistency_closure_case_status)
            if (fibre_prod_p1_np_consistency_closure_case_status == 0) &
-                call fibre_prod_p1_np_consistency_closure_case_record_rhs_increment( &
+                call p1_4_np_record_rhs_increment( &
                 dux1(:,:,:,1),duy1(:,:,:,1),duz1(:,:,:,1), &
                 fibre_prod_p1_np_consistency_closure_case_status)
            if (fibre_prod_p1_np_consistency_closure_case_status /= 0) then
@@ -697,8 +697,8 @@ program xcompact3d
      if (fibre_prod_p1_enlarged_stability_case_status /= 0) stop 101
   endif
   if (fibre_prod_p1_np_consistency_closure_case_enabled) then
-     call fibre_prod_p1_np_consistency_closure_case_record_global_signatures(fibre_prod_p1_np_consistency_closure_case_status)
-     call fibre_prod_p1_np_consistency_closure_case_write_diagnostics(fibre_prod_p1_np_consistency_closure_case_status)
+     call p1_4_np_record_global_signatures(fibre_prod_p1_np_consistency_closure_case_status)
+     call p1_4_np_write_diagnostics(fibre_prod_p1_np_consistency_closure_case_status)
      if (fibre_prod_p1_np_consistency_closure_case_status /= 0) stop 104
   endif
 

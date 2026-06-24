@@ -4,21 +4,21 @@ module fibre_prod_p1_np_consistency_closure_case
   use mpi
   implicit none
   private
-  public :: fibre_prod_p1_np_consistency_closure_case_env_enabled
-  public :: fibre_prod_p1_np_consistency_closure_case_init
-  public :: fibre_prod_p1_np_consistency_closure_case_init_values
-  public :: fibre_prod_p1_np_consistency_closure_case_record_sampling
-  public :: fibre_prod_p1_np_consistency_closure_case_record_structure_response
-  public :: fibre_prod_p1_np_consistency_closure_case_record_reaction_force
-  public :: fibre_prod_p1_np_consistency_closure_case_record_force_buffer
-  public :: fibre_prod_p1_np_consistency_closure_case_record_rhs_increment
-  public :: fibre_prod_p1_np_consistency_closure_case_check_wall_safety
-  public :: fibre_prod_p1_np_consistency_closure_case_check_rhs_scaling
-  public :: fibre_prod_p1_np_consistency_closure_case_write_diagnostics
-  public :: fibre_prod_p1_np_consistency_closure_case_get_rhs_norm
-  public :: fibre_prod_p1_np_consistency_closure_case_record_global_signatures
-  public :: fibre_prod_p1_np_consistency_closure_case_compare_signatures
-  public :: fibre_prod_p1_np_consistency_closure_case_set_sample_for_check
+  public :: p1_4_np_env_enabled
+  public :: p1_4_np_init
+  public :: p1_4_np_init_values
+  public :: p1_4_np_record_sampling
+  public :: p1_4_np_record_structure_response
+  public :: p1_4_np_record_reaction_force
+  public :: p1_4_np_record_force_buffer
+  public :: p1_4_np_record_rhs_increment
+  public :: p1_4_np_check_wall_safety
+  public :: p1_4_np_check_rhs_scaling
+  public :: p1_4_np_write_diagnostics
+  public :: p1_4_np_get_rhs_norm
+  public :: p1_4_np_record_global_signatures
+  public :: p1_4_np_compare_signatures
+  public :: p1_4_np_set_sample_for_check
 
   integer :: fibre_count=1, fibre_nnode=49, sample_count=0, response_count=0
   real(real64) :: lambda_fsi=0.0_real64, penalty_beta=2.0_real64, wall_clearance_min=0.10_real64
@@ -33,13 +33,13 @@ module fibre_prod_p1_np_consistency_closure_case
   real(real64) :: fibre_x_signature=0.0_real64, fibre_xdot_signature=0.0_real64
   real(real64) :: fluid_ke_signature=0.0_real64, divergence_signature=0.0_real64, projection_signature=0.0_real64
 contains
-  logical function fibre_prod_p1_np_consistency_closure_case_env_enabled()
-    fibre_prod_p1_np_consistency_closure_case_env_enabled = read_env_logical('FIBRE_PROD_P1_NP_CLOSURE_ENABLE', .false.)
+  logical function p1_4_np_env_enabled()
+    p1_4_np_env_enabled = read_env_logical('FIBRE_PROD_P1_NP_CLOSURE_ENABLE', .false.)
   end function
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_init(status)
+  subroutine p1_4_np_init(status)
     integer, intent(out) :: status
-    call fibre_prod_p1_np_consistency_closure_case_init_values(read_env_int('FIBRE_PROD_P1_FIBRE_COUNT',1), &
+    call p1_4_np_init_values(read_env_int('FIBRE_PROD_P1_FIBRE_COUNT',1), &
       read_env_int('FIBRE_PROD_P1_FIBRE_NNODE',49), read_env_real('FIBRE_PROD_LAMBDA',0.0_real64), &
       read_env_real('FIBRE_PROD_PENALTY_BETA',2.0_real64), &
       read_env_real('FIBRE_PROD_P1_WALL_CLEARANCE_MIN',0.10_real64), &
@@ -49,7 +49,7 @@ contains
       read_env_real('FIBRE_PROD_P1_NP_CLOSURE_MAX_FORCE_BUFFER',1.0e6_real64), status)
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_init_values(count_in,nnode_in,lambda_in,beta_in,clearance_in, &
+  subroutine p1_4_np_init_values(count_in,nnode_in,lambda_in,beta_in,clearance_in, &
        max_dx_in,max_structure_u_in,max_rhs_in,max_force_in,status)
     integer, intent(in) :: count_in,nnode_in
     real(real64), intent(in) :: lambda_in,beta_in,clearance_in,max_dx_in,max_structure_u_in,max_rhs_in,max_force_in
@@ -82,18 +82,18 @@ contains
     x0=xf; sampled_u=0.0_real64; sampled_v=0.0_real64; sampled_w=0.0_real64
     structure_u=0.0_real64; hydro_force=0.0_real64; structure_force=0.0_real64
     dry_dx=0.0_real64; reaction_force=0.0_real64
-    initialized=.true.; call fibre_prod_p1_np_consistency_closure_case_check_wall_safety(status)
+    initialized=.true.; call p1_4_np_check_wall_safety(status)
     if (status /= 0) return
     write(*,'(A,ES12.4)') 'P1_4 fibre initialization diagnostic: count=1 nnode=49 inside_channel=PASS lambda=', lambda_fsi
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_sampling(ux,uy,uz,status)
+  subroutine p1_4_np_record_sampling(ux,uy,uz,status)
     real(real64), intent(in) :: ux(:,:,:),uy(:,:,:),uz(:,:,:)
     integer, intent(out) :: status
     integer :: i
     real(real64) :: mean_u, mean_v, mean_w
     status=0; if (.not.initialized) then; status=20; return; endif
-    call fibre_prod_p1_np_consistency_closure_case_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
+    call p1_4_np_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
     if (status /= 0) return
     do i=1,fibre_nnode
       sampled_u(i)=mean_u; sampled_v(i)=mean_v; sampled_w(i)=mean_w
@@ -106,12 +106,12 @@ contains
       sampled_u(1),sampled_v(1),sampled_w(1)
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_set_sample_for_check(u_in,v_in,w_in)
+  subroutine p1_4_np_set_sample_for_check(u_in,v_in,w_in)
     real(real64), intent(in) :: u_in,v_in,w_in
     if (allocated(sampled_u)) then; sampled_u=u_in; sampled_v=v_in; sampled_w=w_in; sampling_ok=.true.; endif
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_structure_response(status)
+  subroutine p1_4_np_record_structure_response(status)
     integer, intent(out) :: status
     integer :: i
     real(real64) :: max_dx_seen,max_su
@@ -130,7 +130,7 @@ contains
     write(*,'(A,2(1X,ES16.8))') 'P1_4 structure response diagnostic: finite PASS bounded_dx PASS max=', max_su,max_dx_seen
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_reaction_force(status)
+  subroutine p1_4_np_record_reaction_force(status)
     integer, intent(out) :: status
     integer :: i
     status=0; if (.not.structure_ok) then; status=40; return; endif
@@ -143,7 +143,7 @@ contains
     if (status==0) write(*,'(A)') 'P1_4 reaction force diagnostic: finite PASS reaction_force=-structure_input_force PASS'
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_force_buffer(status)
+  subroutine p1_4_np_record_force_buffer(status)
     integer, intent(out) :: status
     status=0; if (.not.reaction_ok) then; status=50; return; endif
     force_buffer_value=sum(reaction_force)/real(fibre_nnode,real64)
@@ -154,7 +154,7 @@ contains
     if (status==0) write(*,'(A,1X,ES16.8)') 'P1_4 force_buffer diagnostic: nonzero finite bounded PASS value=', force_buffer_value
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_rhs_increment(rhsx,rhsy,rhsz,status)
+  subroutine p1_4_np_record_rhs_increment(rhsx,rhsy,rhsz,status)
     real(real64), intent(inout) :: rhsx(:,:,:),rhsy(:,:,:),rhsz(:,:,:)
     integer, intent(out) :: status
     integer :: ix,iy,iz
@@ -176,7 +176,7 @@ contains
       lambda_fsi,force_buffer_value,rhs_increment_value
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_check_wall_safety(status)
+  subroutine p1_4_np_check_wall_safety(status)
     integer, intent(out) :: status
     integer :: i
     status=0; wall_ok=.false.; if (.not.initialized) then; status=70; return; endif
@@ -188,7 +188,7 @@ contains
     wall_ok=(status==0)
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_check_rhs_scaling(low_norm,high_norm,status)
+  subroutine p1_4_np_check_rhs_scaling(low_norm,high_norm,status)
     real(real64), intent(in) :: low_norm,high_norm
     integer, intent(out) :: status
     real(real64) :: ratio
@@ -201,11 +201,11 @@ contains
     endif
   end subroutine
 
-  real(real64) function fibre_prod_p1_np_consistency_closure_case_get_rhs_norm()
-    fibre_prod_p1_np_consistency_closure_case_get_rhs_norm=rhs_norm
+  real(real64) function p1_4_np_get_rhs_norm()
+    p1_4_np_get_rhs_norm=rhs_norm
   end function
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_record_global_signatures(status)
+  subroutine p1_4_np_record_global_signatures(status)
     integer, intent(out) :: status
     status=0
     if (.not.initialized) then; status=85; return; endif
@@ -223,7 +223,7 @@ contains
       fluid_ke_signature, projection_signature
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_compare_signatures(a,b,status)
+  subroutine p1_4_np_compare_signatures(a,b,status)
     real(real64), intent(in) :: a(:), b(:)
     integer, intent(out) :: status
     real(real64) :: diff, scale
@@ -233,7 +233,7 @@ contains
     if (diff > 1.0e-10_real64 + 1.0e-8_real64*scale) status=88
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_write_diagnostics(status)
+  subroutine p1_4_np_write_diagnostics(status)
     integer, intent(out) :: status
     status=0
     if (.not.initialized) status=90
@@ -250,29 +250,30 @@ contains
     endif
   end subroutine
 
-  subroutine fibre_prod_p1_np_consistency_closure_case_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
+  subroutine p1_4_np_global_mean3(ux,uy,uz,mean_u,mean_v,mean_w,status)
     real(real64), intent(in) :: ux(:,:,:),uy(:,:,:),uz(:,:,:)
     real(real64), intent(out) :: mean_u, mean_v, mean_w
     integer, intent(out) :: status
-    real(real64) :: local_sum(3), global_sum(3), local_count, global_count
+    real(real64) :: local_sum(3), global_sum(3)
+    real(real64) :: local_count_buf(1), global_count_buf(1)
     logical :: mpi_is_initialized
     integer :: ierr
     status=0
     local_sum = (/sum(ux), sum(uy), sum(uz)/)
-    local_count = real(size(ux), real64)
+    local_count_buf(1) = real(size(ux), real64)
     global_sum = local_sum
-    global_count = local_count
+    global_count_buf = local_count_buf
     call MPI_Initialized(mpi_is_initialized, ierr)
     if (ierr == MPI_SUCCESS .and. mpi_is_initialized) then
       call MPI_Allreduce(local_sum, global_sum, 3, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
       if (ierr /= MPI_SUCCESS) then; status=22; return; endif
-      call MPI_Allreduce(local_count, global_count, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(local_count_buf, global_count_buf, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr)
       if (ierr /= MPI_SUCCESS) then; status=23; return; endif
     endif
-    if (global_count <= 0.0_real64) then; status=24; return; endif
-    mean_u = global_sum(1)/global_count
-    mean_v = global_sum(2)/global_count
-    mean_w = global_sum(3)/global_count
+    if (global_count_buf(1) <= 0.0_real64) then; status=24; return; endif
+    mean_u = global_sum(1)/global_count_buf(1)
+    mean_v = global_sum(2)/global_count_buf(1)
+    mean_w = global_sum(3)/global_count_buf(1)
     if (.not.all_finite3(mean_u,mean_v,mean_w)) status=25
   end subroutine
 
