@@ -70,6 +70,12 @@ write_fail() {
     fi
   } > "$EVID/P1_4_FAILURE_CONTEXT.txt"
   mark_unfinished_audits "$reason"
+  echo "P1_4 FAIL: $reason" >&2
+  echo "See: $EVID/P1_4_FAILURE_CONTEXT.txt" >&2
+  if [ -f "$EVID/P1_4_LAST_FAILED_LOG_TAIL.txt" ]; then
+    echo "---- P1_4_LAST_FAILED_LOG_TAIL ----" >&2
+    cat "$EVID/P1_4_LAST_FAILED_LOG_TAIL.txt" >&2
+  fi
   exit "$ec"
 }
 
@@ -119,8 +125,17 @@ echo "DECOMP2D_ROOT=$DECOMP2D_ROOT" >> "$EVID/P1_4_VALIDATION_TRACE.txt"
 run_cmd_log "$EVID/P1_4_CMAKE_CONFIGURE_LOG.txt" \
   cmake -S . -B "$BUILD" -DCMAKE_PREFIX_PATH="$DECOMP2D_ROOT" -DDECOMP2D_ROOT="$DECOMP2D_ROOT"
 
-run_cmd_log "$EVID/P1_4_BUILD_LOG.txt" \
-  cmake --build "$BUILD" --target xcompact3d fibre_prod_p1_np_consistency_closure_case_check
+run_cmd_log "$EVID/P1_4_BUILD_xcompact3d_LOG.txt" \
+  cmake --build "$BUILD" --target xcompact3d
+run_cmd_log "$EVID/P1_4_BUILD_check_LOG.txt" \
+  cmake --build "$BUILD" --target fibre_prod_p1_np_consistency_closure_case_check
+{
+  echo "===== xcompact3d build log ====="
+  cat "$EVID/P1_4_BUILD_xcompact3d_LOG.txt"
+  echo
+  echo "===== P1_4 check target build log ====="
+  cat "$EVID/P1_4_BUILD_check_LOG.txt"
+} > "$EVID/P1_4_BUILD_LOG.txt"
 
 CHECK=$(find "$BUILD" -type f -perm -111 -name fibre_prod_p1_np_consistency_closure_case_check | head -1)
 X3D=$(find "$BUILD" -type f -perm -111 -name xcompact3d | head -1)
